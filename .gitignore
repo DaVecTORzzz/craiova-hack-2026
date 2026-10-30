@@ -14,16 +14,27 @@ dist/
 .next/
 *.log
 
-# Modele / date locale (nu se urcă în git)
+# Secrete (cheile API nu ajung niciodată în git)
+.env
+.env.*
+!.env.example
+
+# Modele / date locale (nu se urcă în git; se țin în Google Drive / Roboflow)
 models/
 data/
 *.gguf
 *.bin
 *.safetensors
 *.onnx
+*.pt
 *.wav
 *.mp3
 *.mp4
+
+# Date generate la rulare
+*.db
+*.sqlite
+snapshots/
 
 # Editor / OS
 .vscode/
