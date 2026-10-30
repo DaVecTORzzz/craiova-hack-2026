@@ -27,7 +27,7 @@ async def post_edge_event(
     session: Session = Depends(get_session),
     _token: None = Depends(verify_edge_token),
 ) -> EventOut:
-    out, created = ingest(session, payload)
+    out, created = await ingest(session, payload)
     if created:
         response.status_code = status.HTTP_201_CREATED
     else:

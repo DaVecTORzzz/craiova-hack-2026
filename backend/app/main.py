@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+import logging
 from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -6,7 +7,7 @@ from sqlmodel import Session
 
 from app.config import get_settings
 from app.db import get_engine, init_db
-from app.routers import edge, events, health
+from app.routers import edge, events, health, ws
 from app.seed import ensure_placeholder_image, seed
 
 
@@ -30,6 +31,7 @@ async def lifespan(app: FastAPI):
 
 
 def create_app() -> FastAPI:
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
     settings = get_settings()
     app = FastAPI(title="SafeSight API", lifespan=lifespan)
 
@@ -45,6 +47,7 @@ def create_app() -> FastAPI:
     app.include_router(health.router)
     app.include_router(edge.router)
     app.include_router(events.router)
+    app.include_router(ws.router)
     return app
 
 

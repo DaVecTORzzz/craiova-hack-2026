@@ -14,6 +14,7 @@ from app.schemas import (
     Temporal,
 )
 from app.timeutil import iso, to_naive_utc, utcnow
+from app.ws import manager
 
 logger = logging.getLogger("safesight.events")
 
@@ -61,7 +62,7 @@ def event_out(session: Session, event: Event) -> EventOut:
     )
 
 
-def ingest(session: Session, payload: EdgeEventIn) -> tuple[EventOut, bool]:
+async def ingest(session: Session, payload: EdgeEventIn) -> tuple[EventOut, bool]:
     """Ingest an event from edge (POST /edge/events). Returns (EventOut, was_created)."""
     # 3. Camera and zone validation
     camera = session.get(Camera, payload.camera_id)
@@ -126,7 +127,7 @@ def ingest(session: Session, payload: EdgeEventIn) -> tuple[EventOut, bool]:
     out = event_out(session, event)
 
     # 5.3 Broadcast event.created
-    # step 4: broadcast event.created with the full EventOut
+    await manager.broadcast("event.created", out.model_dump(mode="json"))
 
     # 5.4 Notify new event via Slack
     # step 9: asyncio.create_task(notify_new_event(event_id))
