@@ -37,6 +37,7 @@ data/**
 *.mp4
 
 # Date generate la rulare
+backend/data/
 *.db
 *.sqlite
 snapshots/

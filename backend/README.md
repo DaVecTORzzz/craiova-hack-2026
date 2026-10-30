@@ -15,3 +15,26 @@ Brief intern: `safetarmac-docs/02_B_backend.typ` (repo privat).
 - Endpoint-urile sunt în `docs/contract.md`.
 
 Verificare: `curl localhost:8000/health` răspunde OK, iar `GET /events` întoarce date.
+
+## Run locally
+
+```bash
+cd backend
+uv sync
+PYTHONPATH=.. uv run uvicorn app.main:app --reload --port 8000
+# tests
+uv run pytest -q
+```
+
+`PYTHONPATH=..` makes the repo root importable, so `import automation.report` works once Dalina adds it.
+
+## Run with Docker
+
+From the repo root:
+
+```bash
+docker compose up --build
+curl localhost:8000/health
+```
+
+The image includes `backend/` and `automation/`. The DB and snapshots live in `backend/data/` on the host (ignored by git). `.env` at the repo root is optional; without it the defaults from `app/config.py` apply.
