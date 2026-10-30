@@ -3,8 +3,8 @@ from sqlmodel import Session, select
 
 from app.db import get_session
 from app.models import Event
-from app.schemas import EventOut
-from app.services.events import event_out
+from app.schemas import EventOut, OperatorActionIn
+from app.services.events import apply_action, event_out
 
 router = APIRouter(prefix="/events", tags=["events"])
 
@@ -42,3 +42,30 @@ async def get_event(
             detail="event not found",
         )
     return event_out(session, event)
+
+
+@router.post("/{event_id}/ack", response_model=EventOut)
+async def ack_event(
+    event_id: str,
+    body: OperatorActionIn,
+    session: Session = Depends(get_session),
+) -> EventOut:
+    return await apply_action(session, event_id, "ack", body)
+
+
+@router.post("/{event_id}/false-positive", response_model=EventOut)
+async def false_positive_event(
+    event_id: str,
+    body: OperatorActionIn,
+    session: Session = Depends(get_session),
+) -> EventOut:
+    return await apply_action(session, event_id, "false_positive", body)
+
+
+@router.post("/{event_id}/reopen", response_model=EventOut)
+async def reopen_event(
+    event_id: str,
+    body: OperatorActionIn,
+    session: Session = Depends(get_session),
+) -> EventOut:
+    return await apply_action(session, event_id, "reopen", body)

@@ -2,13 +2,14 @@ import logging
 from fastapi import HTTPException, status
 from sqlmodel import Session
 
-from app.models import Camera, Event, ReportText, Zone
+from app.models import Camera, Event, EventAction, ReportText, Zone
 from app.schemas import (
     Confidence,
     Context,
     EdgeEventIn,
     EventOut,
     EventType,
+    OperatorActionIn,
     ReportOut,
     Status,
     Temporal,
@@ -144,3 +145,53 @@ async def ingest(session: Session, payload: EdgeEventIn) -> tuple[EventOut, bool
 
     # 7. Return (EventOut, True)
     return out, True
+
+
+# 7.3: action -> (allowed from, new status)
+ACTIONS: dict[str, tuple[set[Status], Status]] = {
+    "ack": ({Status.open, Status.escalated}, Status.acknowledged),
+    "false_positive": ({Status.open, Status.escalated, Status.acknowledged}, Status.false_positive),
+    "reopen": ({Status.acknowledged, Status.false_positive, Status.escalated, Status.resolved}, Status.open),
+}
+
+
+async def apply_action(session: Session, event_id: str, action: str, body: OperatorActionIn) -> EventOut:
+    """Operator action on an event (7.3). action is one of ack | false_positive | reopen."""
+    event = session.get(Event, event_id)
+    if event is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="event not found",
+        )
+
+    allowed_from, new_status = ACTIONS[action]
+    if Status(event.status) not in allowed_from:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"cannot {action} an event with status {event.status}",
+        )
+
+    now = utcnow()
+    event.status = new_status.value
+    note = None
+    if action == "ack":
+        event.acked_at = now
+        event.acked_by = body.operator
+        # step 8: cancel_escalation(event_id)
+    elif action == "false_positive":
+        note = body.note
+        # step 8: cancel_escalation(event_id)
+    elif action == "reopen":
+        event.acked_at = None
+        event.acked_by = None
+        event.escalated_at = None
+        # step 8: schedule_escalation(event_id)
+
+    session.add(event)
+    session.add(EventAction(event_id=event_id, action=action, operator=body.operator, at=now, note=note))
+    session.commit()
+    session.refresh(event)
+    out = event_out(session, event)
+
+    await manager.broadcast("event.updated", out.model_dump(mode="json"))
+    return out
