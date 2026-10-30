@@ -82,6 +82,8 @@ class RuleEngine:
     ) -> None:
         if window_frames < 1:
             raise ValueError("window_frames must be >= 1")
+        if min_window < 1 or min_window > window_frames:
+            raise ValueError("min_window must be between 1 and window_frames")
         if not 0.0 <= seen_ratio <= 1.0:
             raise ValueError("seen_ratio must be between 0 and 1")
         self.window_frames = window_frames

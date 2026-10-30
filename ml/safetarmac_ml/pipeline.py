@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import numpy as np
 
@@ -62,7 +62,7 @@ class Pipeline:
                     continue
 
                 event_epoch = self.start_epoch + now_s
-                detected_at = datetime.fromtimestamp(event_epoch, tz=timezone.utc)
+                detected_at = datetime.fromtimestamp(event_epoch, tz=UTC)
                 event_id = f"evt_{self.camera_id}_{int(event_epoch * 1000)}_{detection.track_id}"
 
                 blurred = self.blurrer.blur(frame)

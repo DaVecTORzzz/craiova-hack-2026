@@ -37,6 +37,11 @@ def test_zone_rejects_out_of_range_polygon():
         make_zone(polygon=[(-0.1, 0.2), (0.8, 0.2), (0.8, 0.9)])
 
 
+def test_rule_engine_rejects_min_window_larger_than_window():
+    with pytest.raises(ValueError):
+        RuleEngine(window_frames=5, min_window=6)
+
+
 def test_engine_off_emits_nothing():
     engine = RuleEngine()
     zone = make_zone()

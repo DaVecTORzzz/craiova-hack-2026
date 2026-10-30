@@ -8,7 +8,7 @@ part of this model.
 from __future__ import annotations
 
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
@@ -87,11 +87,11 @@ class EdgeEvent(BaseModel):
     def _detected_at_has_timezone(cls, value: datetime) -> datetime:
         if value.tzinfo is None:
             raise ValueError("detected_at must be timezone-aware")
-        return value.astimezone(timezone.utc)
+        return value.astimezone(UTC)
 
     @field_serializer("detected_at")
     def _serialize_detected_at(self, value: datetime) -> str:
-        return value.astimezone(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+        return value.astimezone(UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
     def to_jsonl(self) -> str:
         return self.model_dump_json()

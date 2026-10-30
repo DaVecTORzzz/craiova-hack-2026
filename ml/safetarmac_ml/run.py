@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import sys
 import time
@@ -18,7 +19,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from .detector import FakeDetector, SyntheticDetector, YoloDetector
+from .detector import SyntheticDetector, YoloDetector
 from .pipeline import Pipeline
 from .privacy import FaceBlurrer, NoopBlurrer
 from .sink import HttpSink, JsonlSink
@@ -27,10 +28,17 @@ from .zones import Zone
 DEFAULT_FACE_MODEL = "models/face_detection_yunet_2023mar.onnx"
 
 
+def _resolve_fps(requested: float, source: float) -> float:
+    for candidate in (requested, source):
+        if candidate and math.isfinite(candidate) and candidate > 0:
+            return candidate
+    return 25.0
+
+
 def load_zones(path: str | Path) -> list[Zone]:
     payload = json.loads(Path(path).read_text(encoding="utf-8"))
     if not isinstance(payload, list):
-        raise ValueError("zones file must contain a JSON list")
+        raise TypeError("zones file must contain a JSON list")
     return [Zone.model_validate(item) for item in payload]
 
 
@@ -122,7 +130,7 @@ def main(argv: list[str] | None = None) -> int:
         if not capture.isOpened():
             print(f"could not open source: {args.source}", file=sys.stderr)
             return 2
-        fps = args.fps or capture.get(cv2.CAP_PROP_FPS) or 25.0
+        fps = _resolve_fps(args.fps, capture.get(cv2.CAP_PROP_FPS))
         frame_index = 0
         try:
             while True:

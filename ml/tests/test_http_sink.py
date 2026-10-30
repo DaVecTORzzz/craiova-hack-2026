@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import httpx
 import numpy as np
@@ -22,7 +22,7 @@ def make_event() -> EdgeEvent:
         context={"engine_on": True},
         snapshot_url="/snapshots/x.jpg",
         model="yolo26n.pt",
-        detected_at=datetime(2026, 10, 30, 10, 42, 13, 120000, tzinfo=timezone.utc),
+        detected_at=datetime(2026, 10, 30, 10, 42, 13, 120000, tzinfo=UTC),
     )
 
 

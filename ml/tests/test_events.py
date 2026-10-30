@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from pydantic import ValidationError
@@ -22,7 +22,7 @@ def make_event(**overrides):
         "context": {"engine_on": True},
         "snapshot_url": "/snapshots/evt_stand12_1793356933120_17.jpg",
         "model": "yolo26n.pt",
-        "detected_at": datetime(2026, 10, 30, 10, 42, 13, 120000, tzinfo=timezone.utc),
+        "detected_at": datetime(2026, 10, 30, 10, 42, 13, 120000, tzinfo=UTC),
     }
     payload.update(overrides)
     return EdgeEvent(**payload)
@@ -47,6 +47,11 @@ def test_event_id_format_is_enforced():
 def test_snapshot_url_rejects_minio():
     with pytest.raises(ValidationError):
         make_event(snapshot_url="minio://safesight/evt_0142.jpg")
+
+
+def test_snapshot_url_must_be_a_snapshots_path():
+    with pytest.raises(ValidationError):
+        make_event(snapshot_url="//evil.example/x.jpg")
 
 
 def test_extra_backend_fields_are_rejected():

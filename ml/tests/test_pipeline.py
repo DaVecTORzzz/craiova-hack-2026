@@ -3,10 +3,10 @@ from __future__ import annotations
 import json
 
 import numpy as np
-import pytest
 
 from safetarmac_ml.detector import Detection, FakeDetector
 from safetarmac_ml.pipeline import Pipeline
+from safetarmac_ml.run import _resolve_fps
 from safetarmac_ml.run import main as run_main
 from safetarmac_ml.sink import JsonlSink
 from safetarmac_ml.zones import Zone
@@ -125,6 +125,13 @@ def test_jsonl_sink_writes_event_and_snapshot(tmp_path):
     payload = json.loads(lines[0])
     assert payload["type"] == "RESTRICTED_ZONE"
     assert (tmp_path / "snapshots" / f"{payload['event_id']}.jpg").is_file()
+
+
+def test_fps_resolution_handles_nan_and_zero():
+    assert _resolve_fps(0.0, float("nan")) == 25.0
+    assert _resolve_fps(0.0, 0.0) == 25.0
+    assert _resolve_fps(0.0, 30.0) == 30.0
+    assert _resolve_fps(15.0, 30.0) == 15.0
 
 
 def test_fake_cli_runs_end_to_end(tmp_path):
