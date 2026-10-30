@@ -1448,7 +1448,7 @@ wheels = [
 ]
 
 [[package]]
-name = "safetarmac-ml"
+name = "safesight-ml"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [

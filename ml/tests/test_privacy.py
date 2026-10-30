@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from safetarmac_ml.privacy import FaceBlurrer, NoopBlurrer, PrivacyError
+from safesight_ml.privacy import FaceBlurrer, NoopBlurrer, PrivacyError
 
 
 def test_face_blurrer_fails_closed_when_model_is_missing(tmp_path):

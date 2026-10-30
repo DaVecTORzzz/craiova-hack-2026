@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 import pytest
 from pydantic import ValidationError
 
-from safetarmac_ml.events import EdgeEvent
+from safesight_ml.events import EdgeEvent
 
 
 def make_event(**overrides):

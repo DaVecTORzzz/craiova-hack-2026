@@ -17,7 +17,7 @@ uv run pytest
 Rulează fără model și fără backend, pe cadre sintetice:
 
 ```bash
-uv run python -m safetarmac_ml.run --fake --engine-on --dry-run
+uv run python -m safesight_ml.run --fake --engine-on --dry-run
 cat out/events.jsonl
 ```
 
@@ -26,7 +26,7 @@ Rulează pe un clip real, cu YOLO26:
 ```bash
 uv sync --extra yolo
 ./scripts/fetch_face_model.sh
-uv run python -m safetarmac_ml.run \
+uv run python -m safesight_ml.run \
   --source ../data/videos/restricted_zone/<clip>.mp4 \
   --zones fixtures/zones.json \
   --engine-on \
@@ -36,7 +36,7 @@ uv run python -m safetarmac_ml.run \
 Integrare cu backend-ul, după ce B are rutele de edge:
 
 ```bash
-uv run python -m safetarmac_ml.run \
+uv run python -m safesight_ml.run \
   --source ../data/videos/restricted_zone/<clip>.mp4 \
   --engine-on \
   --post \
@@ -54,7 +54,7 @@ uv run python -m safetarmac_ml.run \
 ## Structura
 
 ```text
-safetarmac_ml/
+safesight_ml/
   events.py    # EdgeEvent, Confidence, EventContext; fără status/report
   zones.py     # Zone, point_in_polygon, RuleEngine (debounce, cooldown)
   detector.py  # FakeDetector / SyntheticDetector / YoloDetector
@@ -84,4 +84,4 @@ fixtures/
 - buffer/retry la pană de conexiune;
 - citirea zonelor și `engine_on` din `GET /edge/zones`.
 
-Verificare: `uv run pytest` și `uv run python -m safetarmac_ml.run --fake --engine-on --dry-run`.
+Verificare: `uv run pytest` și `uv run python -m safesight_ml.run --fake --engine-on --dry-run`.

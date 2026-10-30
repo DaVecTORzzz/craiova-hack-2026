@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from safetarmac_ml.zones import RuleEngine, Zone, point_in_polygon
+from safesight_ml.zones import RuleEngine, Zone, point_in_polygon
 
 POLYGON = [(0.46, 0.16), (0.76, 0.16), (0.76, 0.68), (0.46, 0.68)]
 

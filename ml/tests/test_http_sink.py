@@ -5,8 +5,8 @@ from datetime import UTC, datetime
 import httpx
 import numpy as np
 
-from safetarmac_ml.events import EdgeEvent
-from safetarmac_ml.sink import HttpSink
+from safesight_ml.events import EdgeEvent
+from safesight_ml.sink import HttpSink
 
 
 def make_event() -> EdgeEvent:

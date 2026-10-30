@@ -4,12 +4,12 @@ import json
 
 import numpy as np
 
-from safetarmac_ml.detector import Detection, FakeDetector
-from safetarmac_ml.pipeline import Pipeline
-from safetarmac_ml.run import _resolve_fps
-from safetarmac_ml.run import main as run_main
-from safetarmac_ml.sink import JsonlSink
-from safetarmac_ml.zones import Zone
+from safesight_ml.detector import Detection, FakeDetector
+from safesight_ml.pipeline import Pipeline
+from safesight_ml.run import _resolve_fps
+from safesight_ml.run import main as run_main
+from safesight_ml.sink import JsonlSink
+from safesight_ml.zones import Zone
 
 ZONE = Zone(
     id="engine-left",

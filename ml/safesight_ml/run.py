@@ -1,9 +1,9 @@
 """CLI for the first edge slice.
 
 Examples:
-    uv run python -m safetarmac_ml.run --fake --engine-on --dry-run
-    uv run python -m safetarmac_ml.run --source clip.mp4 --engine-on --dry-run
-    uv run python -m safetarmac_ml.run --source clip.mp4 --engine-on --post
+    uv run python -m safesight_ml.run --fake --engine-on --dry-run
+    uv run python -m safesight_ml.run --source clip.mp4 --engine-on --dry-run
+    uv run python -m safesight_ml.run --source clip.mp4 --engine-on --post
 """
 
 from __future__ import annotations
@@ -43,7 +43,7 @@ def load_zones(path: str | Path) -> list[Zone]:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="SafeTarmac edge — restricted-zone slice")
+    parser = argparse.ArgumentParser(description="SafeSight edge — restricted-zone slice")
     parser.add_argument("--source", help="video file or RTSP URL; omit with --fake")
     parser.add_argument("--zones", default="fixtures/zones.json")
     parser.add_argument("--camera-id", default="stand12")

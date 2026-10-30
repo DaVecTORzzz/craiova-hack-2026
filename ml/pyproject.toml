@@ -1,7 +1,7 @@
 [project]
-name = "safetarmac-ml"
+name = "safesight-ml"
 version = "0.1.0"
-description = "SafeTarmac edge pipeline: video -> detections -> zone rules -> contract events"
+description = "SafeSight edge pipeline: video -> detections -> zone rules -> contract events"
 requires-python = ">=3.12"
 dependencies = [
   "numpy>=2.0",
