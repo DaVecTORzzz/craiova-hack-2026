@@ -176,7 +176,7 @@ B apelează `automation.report.generate(event)` în proces, nu printr-un endpoin
 - Groq pentru raport, Claude Haiku pentru VLM (stretch).
 - B apelează modulul D în proces; nu există `PATCH /events/{id}` din automatizare.
 
-## De confirmat
+## Decizii tehnice
 
-- Modelul de detecție (YOLO26) se confirmă la benchmark; nu schimbă contractul.
+- **Model de detecție: YOLO26.** Nu YOLO11 și nu generații mai vechi. `YOLO26s` pentru acuratețe, `YOLO26n` dacă FPS-ul scade sub 10. `YOLO11s` rămâne doar fallback dacă YOLO26 nu converge pe PPE/FOD sau nu exportă pe edge; orice schimbare se anunță înainte de demo.
 - Licența YOLO și datele FOD-A se verifică înainte de orice demo comercial.
