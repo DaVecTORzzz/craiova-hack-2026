@@ -3,13 +3,14 @@ from datetime import timedelta
 from pathlib import Path
 from uuid import uuid4
 from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Response, UploadFile, status
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from app.config import get_settings
 from app.db import get_session
-from app.models import Snapshot
+from app.models import Camera, Snapshot, Zone
 from app.routers.health import record_edge_seen
-from app.schemas import EVENT_ID_PATTERN, EdgeEventIn, EventOut
+from app.routers.zones import get_config_version, zone_io
+from app.schemas import EVENT_ID_PATTERN, EdgeEventIn, EdgeZonesOut, EventOut
 from app.services.events import ingest
 from app.timeutil import utcnow
 
@@ -95,3 +96,24 @@ async def post_edge_snapshot(
     prefix = settings.snapshot_base_url.rstrip("/")
     snapshot_url = f"{prefix}/snapshots/{file_name}"
     return {"snapshot_url": snapshot_url}
+
+
+@router.get("/zones", response_model=EdgeZonesOut)
+async def get_edge_zones(
+    camera_id: str,
+    session: Session = Depends(get_session),
+    _token: None = Depends(verify_edge_token),
+) -> EdgeZonesOut:
+    camera = session.get(Camera, camera_id)
+    if camera is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="unknown camera_id",
+        )
+    zones = session.exec(select(Zone).where(Zone.camera_id == camera_id).order_by(Zone.id)).all()
+    return EdgeZonesOut(
+        camera_id=camera.id,
+        engine_on=camera.engine_on,
+        config_version=get_config_version(session),
+        zones=[zone_io(z) for z in zones],
+    )

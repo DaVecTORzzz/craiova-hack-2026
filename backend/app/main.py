@@ -9,7 +9,7 @@ from sqlmodel import Session
 
 from app.config import get_settings
 from app.db import get_engine, init_db
-from app.routers import edge, events, health, ws
+from app.routers import cameras, edge, events, health, ws, zones
 from app.seed import ensure_placeholder_image, seed
 from app.services.escalation import cancel_all, recover_timers
 
@@ -65,6 +65,8 @@ def create_app() -> FastAPI:
     app.include_router(health.router)
     app.include_router(edge.router)
     app.include_router(events.router)
+    app.include_router(cameras.router)
+    app.include_router(zones.router)
     app.include_router(ws.router)
 
     snapshot_path = Path(settings.snapshot_dir)
