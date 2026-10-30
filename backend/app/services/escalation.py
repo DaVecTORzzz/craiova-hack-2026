@@ -5,6 +5,7 @@ from sqlmodel import Session, select
 from app.db import get_engine
 from app.models import Event, EventAction, Zone
 from app.schemas import EventType, Status
+from app.services.notify import send_slack, slack_text
 from app.timeutil import utcnow
 from app.ws import manager
 
@@ -69,7 +70,7 @@ async def escalate(event_id: str) -> None:
     logger.info(f"escalate event_id={event_id}")
     await manager.broadcast("event.updated", out.model_dump(mode="json"))
 
-    # step 9: send_slack(slack_text(out, escalated=True))
+    await send_slack(slack_text(out, escalated=True))
 
 
 async def recover_timers() -> None:

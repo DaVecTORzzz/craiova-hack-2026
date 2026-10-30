@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from fastapi import HTTPException, status
 from sqlmodel import Session
@@ -15,10 +16,20 @@ from app.schemas import (
     Temporal,
 )
 from app.services.escalation import cancel_escalation, schedule_escalation
+from app.services.notify import notify_new_event
 from app.timeutil import iso, to_naive_utc, utcnow
 from app.ws import manager
 
 logger = logging.getLogger("safesight.events")
+
+# Strong references so background tasks are not garbage-collected mid-run.
+_background: set[asyncio.Task] = set()
+
+
+def _spawn(coro) -> None:
+    task = asyncio.create_task(coro)
+    _background.add(task)
+    task.add_done_callback(_background.discard)
 
 
 def event_out(session: Session, event: Event) -> EventOut:
@@ -132,7 +143,7 @@ async def ingest(session: Session, payload: EdgeEventIn) -> tuple[EventOut, bool
     await manager.broadcast("event.created", out.model_dump(mode="json"))
 
     # 5.4 Notify new event via Slack
-    # step 9: asyncio.create_task(notify_new_event(event_id))
+    _spawn(notify_new_event(event.event_id))
 
     # 5.5 Generate and store report
     # step 10: asyncio.create_task(generate_and_store_report(event_id))
