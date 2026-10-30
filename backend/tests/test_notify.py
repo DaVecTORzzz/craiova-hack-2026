@@ -94,3 +94,13 @@ def test_escalation_sends_escalated_text(client, monkeypatch):
     assert _wait_for(lambda: len(sent) == 2, timeout=3.0)
     assert sent[1].startswith("ESCALADARE · neconfirmat de 1 s · [CRITICAL] RESTRICTED_ZONE")
     assert sent[1].endswith(f"/incidents/{ev_id}")
+
+
+def test_notified_logs_detection_to_alert(client, monkeypatch, caplog):
+    sent = _record_slack(monkeypatch, ok=True)
+    payload = edge_event()
+    ev_id = payload["event_id"]
+    with caplog.at_level("INFO", logger="safesight.notify"):
+        client.post("/edge/events", json=payload, headers=HEADERS)
+        assert _wait_for(lambda: len(sent) == 1)
+        assert _wait_for(lambda: f"notified event_id={ev_id} detection_to_alert_ms=" in caplog.text)

@@ -81,5 +81,7 @@ async def notify_new_event(event_id: str) -> None:
         session.commit()
         session.refresh(event)
         out = event_out(session, event)
+        latency_ms = int((event.notified_at - event.detected_at).total_seconds() * 1000)
 
+    logger.info(f"notified event_id={event_id} detection_to_alert_ms={latency_ms}")
     await manager.broadcast("event.updated", out.model_dump(mode="json"))
