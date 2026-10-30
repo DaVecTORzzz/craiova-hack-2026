@@ -3,6 +3,7 @@ import logging
 from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from sqlmodel import Session
 
 from app.config import get_settings
@@ -48,6 +49,11 @@ def create_app() -> FastAPI:
     app.include_router(edge.router)
     app.include_router(events.router)
     app.include_router(ws.router)
+
+    snapshot_path = Path(settings.snapshot_dir)
+    snapshot_path.mkdir(parents=True, exist_ok=True)
+    app.mount("/snapshots", StaticFiles(directory=str(snapshot_path)), name="snapshots")
+
     return app
 
 
