@@ -2,6 +2,8 @@
 
 Responsabilă: **Ariana**
 
+Brief intern: `safetarmac-docs/03_C_frontend.typ` (repo privat).
+
 - Brief-ul complet: rolul C (Live, Incidente, Zone, Rapoarte, alerte mobile).
 - Ecranele: canvas-ul de wireframe-uri SafeTarmac AI.
 - Pornește cu fixture-urile din `fixtures/`, cu aceeași structură ca evenimentele reale (`docs/contract.md`). Trecerea pe API nu trebuie să schimbe componentele.

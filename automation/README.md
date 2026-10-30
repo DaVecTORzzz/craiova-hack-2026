@@ -2,6 +2,8 @@
 
 Responsabil: **Dalina**
 
+Brief intern: `safetarmac-docs/04_D_date_pitch.typ` (repo privat).
+
 - `on_event_created(event)` pornește un task asincron pentru fiecare eveniment nou; backend-ul îl apelează în proces, nu prin `PATCH /events/{id}`.
 - Raport de incident: Groq `llama-3.3-70b-versatile`, mod JSON, temperatură 0,2. Acțiunea recomandată vine dintr-un tabel fix pe tip; LLM-ul doar reformulează. Dacă API-ul pică, raport-șablon din metadate, cu `source=template`.
 - Notificări: Slack incoming webhook, text + link la incident, fără imagini și fără butoane. Confirmarea se face în aplicație, ca să rămână în `event_actions`. Codul e un adaptor (`Notifier.send(event)`), ca alt canal să se adauge ușor.
