@@ -1,4 +1,4 @@
-# SafeTarmac AI
+# SafeSight
 
 Inspector automat de siguranță pentru platforma aeroportului. Camerele existente sunt analizate local, pe un Edge Box: echipament de protecție lipsă, persoane în zone restricționate, obiecte pe pistă (FOD), fumat (stretch). Fiecare încălcare pornește singură fluxul de răspuns: alertă cu link la incident, raport de incident scris de AI și escaladare dacă nimeni nu confirmă. Snapshot-ul blurat se vede în aplicație, nu în Slack.
 
@@ -18,7 +18,7 @@ Video-ul nu iese din aeroport. Fețele sunt blurate înainte de orice salvare.
 ## Documente
 
 - [`docs/contract.md`](docs/contract.md) — contractul canonic dintre module; se schimbă doar prin pull request aprobat de cel afectat.
-- Briefingurile interne de rol A–D (Typst + PDF) sunt în repo-ul privat `DaVecTORzzz/safetarmac-docs`. Sunt explicative; dacă diferă de contract, contractul câștigă.
+- Briefingurile interne de rol A–D (Typst + PDF) sunt în repo-ul privat `DaVecTORzzz/safesight-docs`. Sunt explicative; dacă diferă de contract, contractul câștigă.
 
 ## Pornire
 

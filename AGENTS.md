@@ -1,6 +1,6 @@
-# SafeTarmac AI — Agent Guide
+# SafeSight — Agent Guide
 
-SafeTarmac AI transforms existing airport-apron cameras into structured safety events: edge detection → event → operator alert → AI incident report. Hackathon build; the demo is the product.
+SafeSight transforms existing airport-apron cameras into structured safety events: edge detection → event → operator alert → AI incident report. Hackathon build; the demo is the product.
 
 This file is the single source of truth for agents. `CLAUDE.md` only forwards here. Read it before touching code and update it in the same change when a durable rule changes.
 
@@ -13,7 +13,7 @@ Run `./scripts/agent-preflight.sh` before any task. It fetches both repos and pu
 - `docs/contract.md` — canonical event, zone and endpoint contract. Do not invent fields.
 - `README.md` — module map and owners.
 - The README of the folder you touch — exact commands and verification.
-- Internal role briefs A–D — private repo `DaVecTORzzz/safetarmac-docs` (Typst + PDF). They explain; `docs/contract.md` wins.
+- Internal role briefs A–D — private repo `DaVecTORzzz/safesight-docs` (Typst + PDF). They explain; `docs/contract.md` wins.
 
 ## Stack
 

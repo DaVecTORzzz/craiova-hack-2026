@@ -2,7 +2,7 @@
 
 Responsabil: **Andrei**
 
-Brief intern: `safetarmac-docs/01_A_ai_edge.typ` (repo privat).
+Brief intern: `safesight-docs/01_A_ai_edge.typ` (repo privat).
 
 Primul slice implementat aici este **RESTRICTED_ZONE**: video → YOLO26 → tracking → regulă pe zonă → eveniment valid pentru contract + snapshot blurat. PPE, FOD și fumul vin în PR-uri separate.
 
