@@ -13,7 +13,7 @@ Run `./scripts/agent-preflight.sh` before any task. It fetches both repos and pu
 - `docs/contract.md` — canonical event, zone and endpoint contract. Do not invent fields.
 - `README.md` — module map and owners.
 - The README of the folder you touch — exact commands and verification.
-- Internal role briefs A–D — private repo `DaVecTORzzz/safetarmac-docs` (Typst + PDF). They explain; `docs/contract.md` wins.
+- Internal role briefs A–D — private repo `DaVecTORzzz/safesight-docs` (Typst + PDF). They explain; `docs/contract.md` wins.
 
 ## Stack
 
