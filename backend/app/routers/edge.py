@@ -76,13 +76,20 @@ async def post_edge_snapshot(
 
     now = utcnow()
     expires_at = now + timedelta(days=settings.retention_days)
-    snapshot_record = Snapshot(
-        file_name=file_name,
-        path=str(file_path),
-        created_at=now,
-        expires_at=expires_at,
-    )
-    session.add(snapshot_record)
+    existing_snapshot = session.get(Snapshot, file_name)
+    if existing_snapshot is not None:
+        existing_snapshot.path = str(file_path)
+        existing_snapshot.created_at = now
+        existing_snapshot.expires_at = expires_at
+        session.add(existing_snapshot)
+    else:
+        snapshot_record = Snapshot(
+            file_name=file_name,
+            path=str(file_path),
+            created_at=now,
+            expires_at=expires_at,
+        )
+        session.add(snapshot_record)
     session.commit()
 
     prefix = settings.snapshot_base_url.rstrip("/")

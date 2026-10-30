@@ -50,6 +50,48 @@ def test_upload_jpeg_snapshot_success(client):
         assert rec.expires_at > rec.created_at
 
 
+def test_upload_duplicate_event_id_is_idempotent(client):
+    event_id = "evt_stand12_1793356933120_17"
+    jpeg_bytes_1 = create_jpeg_bytes()
+    files_1 = {"file": ("snapshot1.jpg", jpeg_bytes_1, "image/jpeg")}
+
+    # First upload
+    res1 = client.post(
+        "/edge/snapshots",
+        files=files_1,
+        data={"event_id": event_id},
+        headers=HEADERS,
+    )
+    assert res1.status_code == 201
+    assert res1.json()["snapshot_url"] == f"/snapshots/{event_id}.jpg"
+
+    # Second upload with different image bytes
+    img2 = Image.new("RGB", (64, 64), color=(0, 0, 255))
+    buf = io.BytesIO()
+    img2.save(buf, format="JPEG")
+    jpeg_bytes_2 = buf.getvalue()
+    files_2 = {"file": ("snapshot2.jpg", jpeg_bytes_2, "image/jpeg")}
+
+    res2 = client.post(
+        "/edge/snapshots",
+        files=files_2,
+        data={"event_id": event_id},
+        headers=HEADERS,
+    )
+    assert res2.status_code == 201
+    assert res2.json()["snapshot_url"] == f"/snapshots/{event_id}.jpg"
+
+    # Verifies file on disk was overwritten
+    get_res = client.get(res2.json()["snapshot_url"])
+    assert get_res.status_code == 200
+    assert get_res.content == jpeg_bytes_2
+
+    # Verifies only 1 record exists in the DB
+    with Session(get_engine()) as session:
+        records = session.exec(select(Snapshot).where(Snapshot.file_name == f"{event_id}.jpg")).all()
+        assert len(records) == 1
+
+
 def test_upload_jpeg_without_event_id_generates_snap_uuid(client):
     jpeg_bytes = create_jpeg_bytes()
     files = {"file": ("snapshot.jpg", jpeg_bytes, "image/jpeg")}

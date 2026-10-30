@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import asynccontextmanager
 import logging
 from pathlib import Path
@@ -28,7 +29,19 @@ async def lifespan(app: FastAPI):
     with Session(get_engine()) as session:
         seed(session)
 
+    mock_task: asyncio.Task | None = None
+    if settings.use_mock:
+        from app.mock import run_mock_generator
+        mock_task = asyncio.create_task(run_mock_generator())
+
     yield
+
+    if mock_task is not None:
+        mock_task.cancel()
+        try:
+            await mock_task
+        except asyncio.CancelledError:
+            pass
 
 
 def create_app() -> FastAPI:
