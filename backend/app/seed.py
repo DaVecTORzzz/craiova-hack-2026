@@ -140,22 +140,23 @@ def seed_demo_events_if_requested(session: Session) -> None:
         notified = received + timedelta(seconds=1.5)
         acked = (notified + timedelta(seconds=10)) if st in ("acknowledged", "false_positive") else None
         escalated = (notified + timedelta(seconds=35)) if st == "escalated" else None
+        track_id = 0 if ev_type in ("FOD", "CAMERA_OFFLINE") else (i + 1)
 
         event = Event(
-            event_id=f"evt_{cam}_{int(detected.timestamp() * 1000)}_{i + 1}",
+            event_id=f"evt_{cam}_{int(detected.timestamp() * 1000)}_{track_id}",
             type=ev_type,
             severity=sev,
             status=st,
             camera_id=cam,
             zone_id=zn,
-            track_id=i + 1,
+            track_id=track_id,
             confidence_detector=0.92,
             confidence_temporal_seen=14,
             confidence_temporal_window=15,
             duration_s=2.5,
             context={"engine_on": (ev_type == "RESTRICTED_ZONE")},
             snapshot_url="/snapshots/placeholder.jpg",
-            model="person-ppe-v1",
+            model="fod-diff-v1" if ev_type == "FOD" else "person-ppe-v1",
             detected_at=detected,
             received_at=received,
             notified_at=notified,

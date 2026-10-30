@@ -6,7 +6,7 @@ from sqlmodel import Session
 
 from app.config import get_settings
 from app.db import get_engine, init_db
-from app.routers import health
+from app.routers import edge, events, health
 from app.seed import ensure_placeholder_image, seed
 
 
@@ -43,6 +43,8 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(health.router)
+    app.include_router(edge.router)
+    app.include_router(events.router)
     return app
 
 
