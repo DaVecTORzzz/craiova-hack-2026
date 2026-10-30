@@ -1,4 +1,4 @@
-# SafeTarmac AI
+# SafeSight
 
 Inspector automat de siguranță pentru platforma aeroportului. Camerele existente sunt analizate local, pe un Edge Box: echipament de protecție lipsă, persoane în zone restricționate, obiecte pe pistă (FOD), fumat (stretch). Fiecare încălcare pornește singură fluxul de răspuns: alertă cu link la incident, raport de incident scris de AI și escaladare dacă nimeni nu confirmă. Snapshot-ul blurat se vede în aplicație, nu în Slack.
 
