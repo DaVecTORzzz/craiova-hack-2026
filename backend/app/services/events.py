@@ -17,6 +17,7 @@ from app.schemas import (
 )
 from app.services.escalation import cancel_escalation, schedule_escalation
 from app.services.notify import notify_new_event
+from app.services.report import generate_and_store_report
 from app.timeutil import iso, to_naive_utc, utcnow
 from app.ws import manager
 
@@ -146,7 +147,7 @@ async def ingest(session: Session, payload: EdgeEventIn) -> tuple[EventOut, bool
     _spawn(notify_new_event(event.event_id))
 
     # 5.5 Generate and store report
-    # step 10: asyncio.create_task(generate_and_store_report(event_id))
+    _spawn(generate_and_store_report(event.event_id))
 
     # 5.6 Schedule escalation timer
     schedule_escalation(event.event_id)

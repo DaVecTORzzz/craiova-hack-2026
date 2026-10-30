@@ -1,4 +1,4 @@
-from tests.conftest import edge_event
+from tests.conftest import edge_event, receive_until
 
 HEADERS = {"X-Edge-Token": "test-token"}
 
@@ -34,8 +34,9 @@ def test_b05_websocket_broadcast(client):
         res2 = client.post("/edge/events", json=payload2, headers=HEADERS)
         assert res2.status_code == 201
 
-        # Check that the next message on each websocket is the second event, NOT a duplicate
+        # Check that the next created message on each websocket is the second event, NOT a duplicate
+        # (event.updated from the background report is skipped)
         for ws in (ws1, ws2, ws3):
-            msg = ws.receive_json()
+            msg = receive_until(ws, lambda m: m["type"] == "event.created")
             assert msg["type"] == "event.created"
             assert msg["data"]["event_id"] == ev_id2

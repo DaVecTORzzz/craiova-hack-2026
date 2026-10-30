@@ -5,6 +5,7 @@ from app.db import get_session
 from app.models import Event
 from app.schemas import EventOut, OperatorActionIn
 from app.services.events import apply_action, event_out
+from app.services.report import generate_and_store_report
 
 router = APIRouter(prefix="/events", tags=["events"])
 
@@ -69,3 +70,19 @@ async def reopen_event(
     session: Session = Depends(get_session),
 ) -> EventOut:
     return await apply_action(session, event_id, "reopen", body)
+
+
+@router.post("/{event_id}/regenerate-report", response_model=EventOut)
+async def regenerate_report(
+    event_id: str,
+    session: Session = Depends(get_session),
+) -> EventOut:
+    event = session.get(Event, event_id)
+    if event is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="event not found",
+        )
+    await generate_and_store_report(event_id)
+    session.refresh(event)
+    return event_out(session, event)

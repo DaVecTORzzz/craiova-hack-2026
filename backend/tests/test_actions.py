@@ -1,7 +1,7 @@
 from sqlmodel import Session, select
 from app.db import get_engine
 from app.models import Event, EventAction
-from tests.conftest import edge_event
+from tests.conftest import edge_event, wait_for_report
 
 HEADERS = {"X-Edge-Token": "test-token"}
 
@@ -147,6 +147,7 @@ def test_missing_operator_returns_422(client):
 
 def test_actions_broadcast_event_updated(client):
     ev_id = _create_event(client)
+    wait_for_report(client, ev_id)
     with client.websocket_connect("/ws/events") as ws:
         for path, expected in (("ack", "acknowledged"), ("reopen", "open"), ("false-positive", "false_positive")):
             res = client.post(f"/events/{ev_id}/{path}", json={"operator": "operator1"})

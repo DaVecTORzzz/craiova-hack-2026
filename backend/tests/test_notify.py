@@ -3,7 +3,7 @@ from sqlmodel import Session
 from app.db import get_engine
 from app.models import Zone
 from app.services import escalation, notify
-from tests.conftest import edge_event
+from tests.conftest import edge_event, receive_until
 
 HEADERS = {"X-Edge-Token": "test-token"}
 
@@ -38,10 +38,9 @@ def test_successful_slack_sets_notified_at_and_broadcasts(client, monkeypatch):
         assert client.post("/edge/events", json=payload, headers=HEADERS).status_code == 201
         assert ws.receive_json()["type"] == "event.created"
 
-        msg = ws.receive_json()
+        msg = receive_until(ws, lambda m: m["data"]["notified_at"] is not None)
         assert msg["type"] == "event.updated"
         assert msg["data"]["event_id"] == ev_id
-        assert msg["data"]["notified_at"] is not None
 
     assert client.get(f"/events/{ev_id}").json()["notified_at"] is not None
     assert len(sent) == 1

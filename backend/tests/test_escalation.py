@@ -6,7 +6,7 @@ from app.db import get_engine
 from app.main import create_app
 from app.models import Event, EventAction, Zone
 from app.timeutil import utcnow
-from tests.conftest import edge_event
+from tests.conftest import edge_event, receive_until
 
 HEADERS = {"X-Edge-Token": "test-token"}
 
@@ -46,10 +46,9 @@ def test_b09_unacked_event_escalates(client):
         assert data["escalated_at"] is not None
         assert _actions(ev_id) == ["escalate"]
 
-        msg = ws.receive_json()
+        msg = receive_until(ws, lambda m: m["data"]["status"] == "escalated")
         assert msg["type"] == "event.updated"
         assert msg["data"]["event_id"] == ev_id
-        assert msg["data"]["status"] == "escalated"
 
 
 def test_ack_before_timeout_stops_escalation(client):

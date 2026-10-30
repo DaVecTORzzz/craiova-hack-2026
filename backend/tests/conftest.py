@@ -65,3 +65,22 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 
     get_settings.cache_clear()
     reset_engine()
+
+
+def receive_until(ws, predicate, max_messages: int = 10) -> dict:
+    """Next WS message matching predicate; skips background updates (report, Slack)."""
+    for _ in range(max_messages):
+        msg = ws.receive_json()
+        if predicate(msg):
+            return msg
+    raise AssertionError("no matching WebSocket message")
+
+
+def wait_for_report(client, event_id: str, timeout: float = 2.0) -> dict:
+    """Wait until the background report is stored, so it does not race later WS assertions."""
+    deadline = time.monotonic() + timeout
+    while True:
+        data = client.get(f"/events/{event_id}").json()
+        if data["report"] is not None or time.monotonic() > deadline:
+            return data
+        time.sleep(0.05)
