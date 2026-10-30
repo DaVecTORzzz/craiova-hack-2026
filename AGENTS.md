@@ -4,6 +4,10 @@ SafeTarmac AI transforms existing airport-apron cameras into structured safety e
 
 This file is the single source of truth for agents. `CLAUDE.md` only forwards here. Read it before touching code and update it in the same change when a durable rule changes.
 
+## Session start
+
+Run `./scripts/agent-preflight.sh` before any task. It fetches both repos and pulls `main` only when the working tree is clean. If it fails, stop and report; do not work on stale repos. This is tool-agnostic: Claude, Codex, opencode, Cursor and any other agent read `AGENTS.md`; the script does not depend on a specific harness.
+
 ## Read first
 
 - `docs/contract.md` — canonical event, zone and endpoint contract. Do not invent fields.
