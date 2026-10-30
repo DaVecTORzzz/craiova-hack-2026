@@ -27,6 +27,10 @@ data/**
 !data/videos/README.md
 !data/annotations/
 !data/annotations/README.md
+!data/annotations/classes.txt
+!data/reference_frames/
+!data/reference_frames/README.md
+!data/DALINA_NOTES.md
 *.gguf
 *.bin
 *.safetensors
