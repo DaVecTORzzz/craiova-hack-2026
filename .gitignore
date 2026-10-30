@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+dist/
+.next/
+*.log
+
+# Modele / date locale (nu se urcă în git)
+models/
+data/
+*.gguf
+*.bin
+*.safetensors
+*.onnx
+*.wav
+*.mp3
+*.mp4
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
