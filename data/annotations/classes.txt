@@ -1,0 +1,7 @@
+person
+hi_vis_vest
+hard_hat
+ear_defender
+fod_object
+cigarette
+smoke
