@@ -11,6 +11,7 @@ from app.config import get_settings
 from app.db import get_engine, init_db
 from app.routers import edge, events, health, ws
 from app.seed import ensure_placeholder_image, seed
+from app.services.escalation import cancel_all, recover_timers
 
 
 @asynccontextmanager
@@ -28,6 +29,7 @@ async def lifespan(app: FastAPI):
     init_db()
     with Session(get_engine()) as session:
         seed(session)
+    await recover_timers()
 
     mock_task: asyncio.Task | None = None
     if settings.use_mock:
@@ -35,6 +37,8 @@ async def lifespan(app: FastAPI):
         mock_task = asyncio.create_task(run_mock_generator())
 
     yield
+
+    cancel_all()
 
     if mock_task is not None:
         mock_task.cancel()

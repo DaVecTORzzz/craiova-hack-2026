@@ -14,6 +14,7 @@ from app.schemas import (
     Status,
     Temporal,
 )
+from app.services.escalation import cancel_escalation, schedule_escalation
 from app.timeutil import iso, to_naive_utc, utcnow
 from app.ws import manager
 
@@ -137,7 +138,7 @@ async def ingest(session: Session, payload: EdgeEventIn) -> tuple[EventOut, bool
     # step 10: asyncio.create_task(generate_and_store_report(event_id))
 
     # 5.6 Schedule escalation timer
-    # step 8: schedule_escalation(event_id)
+    schedule_escalation(event.event_id)
 
     # 6. Log one line
     latency_ms = int((now - detected_utc).total_seconds() * 1000)
@@ -177,19 +178,20 @@ async def apply_action(session: Session, event_id: str, action: str, body: Opera
     if action == "ack":
         event.acked_at = now
         event.acked_by = body.operator
-        # step 8: cancel_escalation(event_id)
+        cancel_escalation(event_id)
     elif action == "false_positive":
         note = body.note
-        # step 8: cancel_escalation(event_id)
+        cancel_escalation(event_id)
     elif action == "reopen":
         event.acked_at = None
         event.acked_by = None
         event.escalated_at = None
-        # step 8: schedule_escalation(event_id)
 
     session.add(event)
     session.add(EventAction(event_id=event_id, action=action, operator=body.operator, at=now, note=note))
     session.commit()
+    if action == "reopen":
+        schedule_escalation(event_id)
     session.refresh(event)
     out = event_out(session, event)
 
