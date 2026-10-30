@@ -1,6 +1,6 @@
 # Video-uri de test
 
-Câte un clip pentru fiecare caz din demo. Clipurile `.mp4` nu intră în git; le păstrăm în folderul comun din Drive, sub `SafeTarmac/data/videos/`.
+Câte un clip pentru fiecare caz din demo. Clipurile `.mp4` nu intră în git; le păstrăm în folderul comun din Drive, sub `SafeTarmac/data/videos/` (numele istoric al folderului; de redenumit în SafeSight).
 
 | Caz | Fișier (în Drive) | Sursă | Licență | Cine a filmat | Data |
 |---|---|---|---|---|---|

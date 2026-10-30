@@ -158,7 +158,7 @@ Mesajele WebSocket: `{"type": "event.created" | "event.updated", "data": { ...ev
 
 B apelează `automation.report.generate(event)` în proces, nu printr-un endpoint. Modulul D primește evenimentul, alege acțiunea din tabelul fix pe tip și cere LLM-ului doar reformularea. Rezultatul se scrie în `report_texts`, iar B emite `event.updated`.
 
-- Model: Groq `llama-3.3-70b-versatile`, mod JSON, temperatură 0,2.
+- Model: Groq configurabil prin `GROQ_MODEL`; default `openai/gpt-oss-20b` (producție, JSON mode). `qwen/qwen3.8-27b` rămâne candidat de test (preview). Temperatură 0,2.
 - Fallback: șablonul completează aceleași câmpuri din JSON, cu `source=template`.
 - `POST /events/{event_id}/regenerate-report` există doar pentru C; nu înlocuiește apelul în proces al lui B.
 - Notificarea Slack pleacă imediat, cu text + link, fără să aștepte raportul.
@@ -174,7 +174,7 @@ B apelează `automation.report.generate(event)` în proces, nu printr-un endpoin
 - Escaladare per zonă; FOD 3 s demo / 10 s producție.
 - Demo fără login: câmp `operator`; JWT/SSO și audit sunt roadmap.
 - Numele produsului: SafeSight.
-- Groq pentru raport, Claude Haiku pentru VLM (stretch).
+- Groq pentru raport (default `openai/gpt-oss-20b`), Claude Haiku pentru VLM (stretch).
 - B apelează modulul D în proces; nu există `PATCH /events/{id}` din automatizare.
 
 ## Decizii tehnice

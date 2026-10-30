@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Sincronizează cele două repo-uri SafeTarmac înainte de un task.
+# Sincronizează cele două repo-uri SafeSight înainte de un task.
 # Merge și din repo-ul public, și din cel privat; sibling-ul este opțional.
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

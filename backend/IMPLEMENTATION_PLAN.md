@@ -197,7 +197,7 @@ These mirror `docs/contract.md`. Edge payloads forbid extra fields, which is how
 from datetime import datetime
 from enum import Enum
 from typing import Literal
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator
 
 
 class EventType(str, Enum):
@@ -270,6 +270,17 @@ class EdgeEventIn(BaseModel):
     model: str = Field(min_length=1, max_length=64)
     detected_at: AwareDatetime
 
+    @field_validator("snapshot_url")
+    @classmethod
+    def _snapshot_url(cls, value: str) -> str:
+        if value.startswith("minio://"):
+            raise ValueError("snapshot_url must be an HTTP URL, never minio://")
+        if value.startswith("/") and not value.startswith("/snapshots/"):
+            raise ValueError("root-relative snapshot_url must start with /snapshots/")
+        if not value.startswith(("/snapshots/", "http://", "https://")):
+            raise ValueError("snapshot_url must be /snapshots/... or an HTTP URL")
+        return value
+
 
 class ReportOut(BaseModel):
     what: str
@@ -282,6 +293,7 @@ class ReportOut(BaseModel):
 
 class EventOut(BaseModel):
     """What B returns everywhere (REST and WebSocket)."""
+    model_config = ConfigDict(use_enum_values=True)
     event_id: str
     type: EventType
     severity: Severity
@@ -362,6 +374,8 @@ class ShiftReport(BaseModel):
     by_zone: list[dict]
     by_hour: list[dict]
 ```
+
+`EventOut` sets `use_enum_values=True` so `type`, `severity` and `status` arrive as strings in `slack_text`, `template_report` and error messages. Without it, f-strings render `EventType.RESTRICTED_ZONE` / `Severity.CRITICAL`.
 
 Extra validation for `ZoneIO.polygon` (add a `field_validator` in the same file): every coordinate must be between 0 and 1 inclusive, otherwise raise `ValueError("polygon coordinates must be normalized 0-1")`. Do **not** implement a self-intersection check.
 
@@ -659,7 +673,7 @@ Each step lists what to build, the tests to write, and the "done when" check. Ti
 - `app/schemas.py`, `app/models.py`, `app/db.py`, `app/seed.py` (sections 5, 6, 8).
 - Lifespan in `main.py`: create snapshot folders, `init_db()`, `seed()`. Health now does the real DB check.
 - `tests/conftest.py`: a `client` fixture that sets `DATABASE_URL` to a file in `tmp_path`, `SNAPSHOT_DIR` to `tmp_path/snapshots`, `EDGE_TOKEN=test-token`, `USE_MOCK=false`, `SLACK_WEBHOOK_URL=""`, clears `get_settings.cache_clear()`, builds a fresh app with `create_app()` and yields `TestClient(app)` used as a context manager (so the lifespan runs). Also a helper `edge_event(**overrides) -> dict` returning a valid edge payload for `stand12/engine-left` with a new unique `event_id` on every call.
-- `test_schemas.py`: B-03 (payload with `"status": "open"` fails validation), B-04 (`confidence` as `"14/15"` and as `0.9` both fail), polygon with a coordinate 1.2 fails, valid payload passes.
+- `test_schemas.py`: B-03 (payload with `"status": "open"` fails validation), B-04 (`confidence` as `"14/15"` and as `0.9` both fail), `snapshot_url` with `minio://` fails, polygon with a coordinate 1.2 fails, valid payload passes.
 - **Done when** tests pass and the DB file has the 3 cameras and 4 zones after startup.
 - **Hand-off:** tell Andrei and Ariana that `/docs` is up and send them the seed IDs.
 
@@ -721,7 +735,7 @@ Each step lists what to build, the tests to write, and the "done when" check. Ti
 
 ### Step 13 — MJPEG stream (T+4:30–4:50, can be skipped)
 
-- `GET /stream/{camera_id}.mjpg`: 404 if the camera is unknown. Otherwise return a `StreamingResponse` with media type `multipart/x-mixed-replace; boundary=frame` that every 0.5 s yields the bytes of `{snapshot_dir}/live/{camera_id}.jpg` if it exists, else `placeholder.jpg`. This is the contract's plan B ("snapshot la 500 ms"). Where the live frame comes from is OPEN QUESTION Q4; do not invent an upload route.
+- `GET /stream/{camera_id}.mjpg`: 404 if the camera is unknown. Otherwise return a `StreamingResponse` with media type `multipart/x-mixed-replace; boundary=frame` that every 0.5 s yields the bytes of `{snapshot_dir}/live/{camera_id}.jpg` if it exists, else `placeholder.jpg`. This is the contract's plan B ("snapshot la 500 ms"). A scrie ultimul cadru adnotat în `{snapshot_dir}/live/{camera_id}.jpg` pe volumul shared; dacă lipsește, B servește `placeholder.jpg`. Nu inventa o rută de upload.
 
 ### Step 14 — Latency numbers (T+4:50–5:00)
 
@@ -740,7 +754,7 @@ Each step lists what to build, the tests to write, and the "done when" check. Ti
 
 ### Step 16 — Stability (T+5:20–5:30)
 
-- Run the API with `USE_MOCK=true` and `MOCK_INTERVAL_S=1` for 60 minutes with one browser tab on the frontend. Check that memory does not keep growing (`docker stats` or `ps`), that the WebSocket stays connected, and that `GET /events?limit=500` stays under 200 ms. Write the result in `OPEN_QUESTIONS.md` under "Stability run".
+- Run the API with `USE_MOCK=true` and `MOCK_INTERVAL_S=1` for 10 minutes (the rest of the window) with one browser tab on the frontend. Check that memory does not keep growing (`docker stats` or `ps`), that the WebSocket stays connected, and that `GET /events?limit=500` stays under 200 ms. Write the result in `OPEN_QUESTIONS.md` under "Stability run".
 
 **T+5:30: freeze.** No new routes after this point, only bug fixes.
 
@@ -754,8 +768,8 @@ Do not implement login, JWT, roles or an audit log. The contract (N08) decided t
 
 | ID | Question | Current assumption in this plan |
 |---|---|---|
-| Q3 | `ppe_compliance` needs a count of all PPE observations, which the edge does not send. | `1 - valid NO_PPE events / PPE_OBSERVATIONS_PER_SHIFT` (default 200). Ask Andrei whether the edge can send a periodic observation count instead. |
-| Q4 | MJPEG: how do live frames reach the backend? The contract has no frame-upload route. | Step 13 reads `{snapshot_dir}/live/{camera_id}.jpg` if the edge writes it to a shared volume, else shows the placeholder. |
+| Q3 | `ppe_compliance` needs a count of all PPE observations, which the edge does not send. | `1 - valid NO_PPE events / PPE_OBSERVATIONS_PER_SHIFT` (default 200; constantă de demo, nu observații reale — spune asta în pitch). Ask Andrei whether the edge can send a periodic observation count instead. |
+| Q4 | MJPEG: how do live frames reach the backend? The contract has no frame-upload route. | Decizie demo: A scrie ultimul cadru adnotat în `{snapshot_dir}/live/{camera_id}.jpg` pe volumul shared; B îl servește. Dacă lipsește, B servește `placeholder.jpg`, iar C face fallback pe snapshot polling. |
 | Q5 | `required_ppe` values are not fixed in the contract. | `hi_vis_vest`, `hard_hat`, `ear_defenders`. Confirm with Andrei's class names. |
-| Q6 | Groq model in `.env.example` is `llama-3.3-70b-versatile`, which Groq retired in August 2026. It is used by Dalina's module, not by the backend. | Tell Dalina to switch to the current model (likely `openai/gpt-oss-120b`, check the Groq console). |
+| Q6 | Groq model: `llama-3.3-70b-versatile` was retired on 16 August 2026. It is used by Dalina's module, not by the backend. | Default `openai/gpt-oss-20b` (production, strict JSON, ~1000 t/s). `qwen/qwen3.8-27b` is a test candidate (preview, more expensive); `openai/gpt-oss-120b` remains the fallback. Read the model from `GROQ_MODEL`; do not hardcode it. |
 | Q7 | Shift hours. | morning 06–14, afternoon 14–22, night 22–06, Europe/Bucharest. |
