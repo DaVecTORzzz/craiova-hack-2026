@@ -12,7 +12,7 @@ Read these before writing any code. They are not suggestions.
 
 1. **Work one step at a time, in order.** A step is done only when its tests pass. Do not start the next step with failing tests.
 2. **Do not make design decisions.** Names, fields, status codes, file layout, libraries and behaviour are fixed below. If you need something that is not specified, write the question in `backend/OPEN_QUESTIONS.md` (create it if missing), skip that detail, and tell Max. Do not guess.
-3. **Do not add dependencies** beyond the list in step 1. Do not add Redis, Celery, Postgres, an ORM other than SQLModel, or an auth library.
+3. **Do not add dependencies** beyond the list in section 1. Do not add Redis, Celery, Postgres, an ORM other than SQLModel, or any auth library other than `pyjwt`.
 4. **Only touch `backend/`, `docker-compose.yml` at the repo root, and `backend/fixtures/`.** Never edit `docs/contract.md`, `frontend/`, `ml/` or `automation/`. If one of them needs a change, write it in `OPEN_QUESTIONS.md`.
 5. **Copy the code blocks marked VERBATIM exactly.** They encode contract decisions.
 6. **Never store or log**: unblurred images, person names other than the operator name sent by the UI, API keys or webhook URLs.
@@ -34,15 +34,18 @@ Read these before writing any code. They are not suggestions.
 | Background work | Plain `asyncio` tasks (`asyncio.create_task`). No Celery, no threads except `asyncio.to_thread` for the report module. |
 | HTTP client | `httpx.AsyncClient` with a 3 s timeout |
 | Time | Store datetimes as **naive UTC** in the DB. Output them as ISO 8601 UTC with milliseconds and a `Z` suffix. Local time for humans is `Europe/Bucharest`. |
-| Auth | Edge routes (`/edge/*`) need the header `X-Edge-Token` equal to `EDGE_TOKEN`. UI routes have no auth; operator actions carry an `operator` name in the body. This is the contract decision (N08). Login is **not** implemented unless step 17 is unlocked by Max. |
+| Auth | Edge routes (`/edge/*`) need the header `X-Edge-Token` equal to `EDGE_TOKEN`. UI routes need a login token (JWT, HS256, PyJWT) with one of three roles: `operator`, `supervisor`, `admin`. Rules in 7.13. The operator name always comes from the token, never from the request body. |
 | Real time | One WebSocket route, `/ws/events`, with exactly two message types: `event.created` and `event.updated`. |
 | Notifications | Slack incoming webhook, text + link, no images, no buttons. |
 | Report text | Produced by Dalina's module `automation.report` (role D), called in process. If it is missing, slow (> 3 s) or fails, the backend uses its own template. |
 | Python package name | `app` (inside `backend/`) |
+| Product name | **SafeSight** (API title `SafeSight API`, DB file `safesight.db`) |
 
 ### Dependencies (the complete list)
 
-Runtime: `fastapi`, `uvicorn[standard]`, `sqlmodel`, `pydantic-settings`, `httpx`, `python-multipart`, `pillow`, `tzdata`.
+Runtime: `fastapi`, `uvicorn[standard]`, `sqlmodel`, `pydantic-settings`, `httpx`, `python-multipart`, `pillow`, `tzdata`, `pyjwt`.
+
+Passwords are hashed with the standard library (`hashlib.pbkdf2_hmac`), so no extra hashing library.
 Dev: `pytest`.
 
 Use the latest versions `uv add` picks. Do not pin older versions.
@@ -71,6 +74,7 @@ backend/
     ws.py                        WebSocket connection manager
     seed.py                      demo cameras, zones, placeholder image
     mock.py                      fake event generator (USE_MOCK)
+    security.py                  password hashing, JWT, auth dependencies
     services/
       __init__.py
       events.py                  ingestion, serialization, operator actions
@@ -81,6 +85,7 @@ backend/
     routers/
       __init__.py
       health.py
+      auth.py
       edge.py
       events.py
       cameras.py
@@ -95,6 +100,7 @@ backend/
     conftest.py
     test_health.py
     test_schemas.py
+    test_auth.py
     test_ingest.py
     test_ws.py
     test_snapshots.py
@@ -130,7 +136,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file="../.env", extra="ignore")
 
-    database_url: str = "sqlite:///./safetarmac.db"
+    database_url: str = "sqlite:///./safesight.db"
     snapshot_dir: str = "./snapshots"
     snapshot_base_url: str = ""          # prefix for snapshot_url; empty = same origin
     retention_days: int = 7
@@ -143,6 +149,10 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:5173,http://localhost:3000"
     ppe_observations_per_shift: int = 200   # see OPEN QUESTION Q3
     seed_demo_events: bool = False          # true = insert past events so the shift report is not empty
+    jwt_secret: str = ""                    # empty = random secret at startup (tokens die on restart), logged as a warning
+    jwt_ttl_hours: int = 12
+    demo_users: str = "operator:operator,supervisor:supervisor,admin:admin"   # username:role, comma separated
+    demo_password: str = "demo"             # one password for all demo users; change it in .env
 
 
 @lru_cache
@@ -150,7 +160,7 @@ def get_settings() -> Settings:
     return Settings()
 ```
 
-Add to the root `.env.example` (only these lines, do not touch the others): `APP_BASE_URL=http://localhost:5173`, `MOCK_INTERVAL_S=5`, `CORS_ORIGINS=http://localhost:5173,http://localhost:3000`, `PPE_OBSERVATIONS_PER_SHIFT=200`, `SEED_DEMO_EVENTS=false`.
+Add to the root `.env.example` (only these lines, do not touch the others): `APP_BASE_URL=http://localhost:5173`, `MOCK_INTERVAL_S=5`, `CORS_ORIGINS=http://localhost:5173,http://localhost:3000`, `PPE_OBSERVATIONS_PER_SHIFT=200`, `SEED_DEMO_EVENTS=false`, `JWT_SECRET=`, `JWT_TTL_HOURS=12`, `DEMO_USERS=operator:operator,supervisor:supervisor,admin:admin`, `DEMO_PASSWORD=`. Also change `DATABASE_URL` to `sqlite:///./safesight.db`.
 
 ---
 
@@ -302,10 +312,42 @@ class EventOut(BaseModel):
     report: ReportOut | None
 
 
-class OperatorActionIn(BaseModel):
+class ActionIn(BaseModel):
+    """Body of ack / false-positive / reopen. The operator comes from the token."""
     model_config = ConfigDict(extra="forbid")
-    operator: str = Field(min_length=1, max_length=64)
     note: str | None = Field(default=None, max_length=500)
+
+
+class Role(str, Enum):
+    operator = "operator"
+    supervisor = "supervisor"
+    admin = "admin"
+
+
+class LoginIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    username: str = Field(min_length=1, max_length=64)
+    password: str = Field(min_length=1, max_length=200)
+
+
+class LoginOut(BaseModel):
+    token: str
+    username: str
+    role: Role
+    expires_at: str
+
+
+class MeOut(BaseModel):
+    username: str
+    role: Role
+
+
+class AuditOut(BaseModel):
+    at: str
+    username: str
+    action: str
+    target: str
+    detail: str | None
 
 
 class EngineIn(BaseModel):
@@ -454,6 +496,23 @@ class Snapshot(SQLModel, table=True):
     expires_at: datetime
 
 
+class User(SQLModel, table=True):
+    __tablename__ = "users"
+    username: str = Field(primary_key=True)
+    role: str                 # operator | supervisor | admin
+    password_hash: str        # "pbkdf2_sha256$<iterations>$<salt_hex>$<hash_hex>"
+
+
+class AuditLog(SQLModel, table=True):
+    __tablename__ = "audit_log"
+    id: int | None = Field(default=None, primary_key=True)
+    at: datetime = Field(index=True)
+    username: str
+    action: str               # login | ack | false_positive | reopen | regenerate_report | engine_set | zone_update | reference_frame
+    target: str               # event_id, zone_id, camera_id or username
+    detail: str | None = None
+
+
 class ConfigState(SQLModel, table=True):
     """Single row (id=1). config_version goes up on every zone or engine change."""
     __tablename__ = "config_state"
@@ -491,16 +550,16 @@ One function, `event_out(session, event: Event) -> EventOut`, used by every rout
 
 ### 7.3 Operator actions and the status machine
 
-Body for all three: `OperatorActionIn` (`operator` required, `note` optional).
+Body for all three: `ActionIn` (`note` optional, may be an empty JSON object). The operator is the username from the token. Minimum role: `operator`.
 
 | Action | Allowed from | New status | Field changes | Timer | Action row |
 |---|---|---|---|---|---|
-| `POST /events/{id}/ack` | `open`, `escalated` | `acknowledged` | `acked_at=now`, `acked_by=operator` | cancel | `ack` |
+| `POST /events/{id}/ack` | `open`, `escalated` | `acknowledged` | `acked_at=now`, `acked_by=<username>` | cancel | `ack` |
 | `POST /events/{id}/false-positive` | `open`, `escalated`, `acknowledged` | `false_positive` | none | cancel | `false_positive` (with `note`) |
 | `POST /events/{id}/reopen` | `acknowledged`, `false_positive`, `escalated`, `resolved` | `open` | `acked_at=None`, `acked_by=None`, `escalated_at=None` | restart from now | `reopen` |
 
 - Unknown `event_id` → **404**. Status not in "Allowed from" → **409** `{"detail": "cannot <action> an event with status <status>"}`.
-- After a successful action: commit, broadcast `event.updated`, return **200** with `EventOut`.
+- After a successful action: write the `event_actions` row (operator = username) **and** an `audit_log` row, commit, broadcast `event.updated`, return **200** with `EventOut`.
 - `resolved` is never set by the backend in the demo. It exists only in the enum.
 
 ### 7.4 Escalation — `app/services/escalation.py`
@@ -549,15 +608,15 @@ Backend side:
 
   `where` = `Camera {camera_id}, zona {zone_id}.`; `when` = `{HH:MM:SS local}, timp în zonă {duration_s:.1f} s.`
 - `generate_and_store_report(event_id)`: build the report, upsert it into `report_texts` with `generated_at=now`, commit, broadcast `event.updated`.
-- `POST /events/{id}/regenerate-report`: 404 if unknown, otherwise `await` the same function and return **200** with the updated `EventOut`.
+- `POST /events/{id}/regenerate-report` (minimum role `supervisor`): 404 if unknown, otherwise `await` the same function, write an `audit_log` row (`regenerate_report`), and return **200** with the updated `EventOut`.
 
 ### 7.7 Cameras, zones and `config_version`
 
 - `GET /cameras` → list of `CameraOut`, ordered by id.
-- `PUT /cameras/{camera_id}/engine` with `EngineIn` → 404 if unknown; set `engine_on`, `updated_at=now`, increment `config_version`; return `CameraOut`.
+- `PUT /cameras/{camera_id}/engine` with `EngineIn` (role `admin`) → 404 if unknown; set `engine_on`, `updated_at=now`, increment `config_version`, audit `engine_set` with detail `on=true|false`; return `CameraOut`.
 - `GET /zones?camera_id=` → list of `ZoneIO` (all zones if `camera_id` is missing), ordered by id.
-- `PUT /zones/{zone_id}` with `ZoneIO` → 422 if `body.id != zone_id`; 404 if `body.camera_id` is unknown; insert or replace the zone; increment `config_version`; return `ZoneIO`.
-- `POST /zones/reference-frame` (multipart: `zone_id` form field + `file`) → 404 if the zone is unknown; 415 if not `image/jpeg`; 413 if larger than 5 MB; save to `{snapshot_dir}/reference/{zone_id}.jpg`; set `zone.reference_frame="/snapshots/reference/{zone_id}.jpg"`; increment `config_version`; return `ZoneIO`.
+- `PUT /zones/{zone_id}` with `ZoneIO` (role `admin`) → 422 if `body.id != zone_id`; 404 if `body.camera_id` is unknown; insert or replace the zone; increment `config_version`; audit `zone_update`; return `ZoneIO`.
+- `POST /zones/reference-frame` (role `admin`; multipart: `zone_id` form field + `file`) → 404 if the zone is unknown; 415 if not `image/jpeg`; 413 if larger than 5 MB; save to `{snapshot_dir}/reference/{zone_id}.jpg`; set `zone.reference_frame="/snapshots/reference/{zone_id}.jpg"`; increment `config_version`; audit `reference_frame`; return `ZoneIO`.
 - `GET /edge/zones?camera_id=` (edge token required) → `EdgeZonesOut` for that camera; 404 if unknown camera.
 
 ### 7.8 Snapshots
@@ -569,7 +628,7 @@ Backend side:
 ### 7.9 WebSocket — `app/ws.py` and `app/routers/ws.py`
 
 - `ConnectionManager` with `connect(ws)`, `disconnect(ws)`, `async broadcast(type: str, data: dict)`. Broadcast sends `{"type": type, "data": data}` as JSON to every client; a client that raises on send is removed. One global instance.
-- Route `/ws/events`: accept, register, then loop on `await ws.receive_text()` (ignore the content; it only keeps the socket alive). On `WebSocketDisconnect`, unregister.
+- Route `/ws/events?token=<jwt>`: if the token is missing or invalid, close with code `4401` before accepting. Otherwise accept, register, then loop on `await ws.receive_text()` (ignore the content; it only keeps the socket alive). On `WebSocketDisconnect`, unregister.
 - `type` is only ever `"event.created"` or `"event.updated"`. `data` is always `EventOut.model_dump(mode="json")`.
 
 ### 7.10 KPI and shift report — `app/services/kpi.py`
@@ -580,7 +639,7 @@ Backend side:
   - `escalated`: events in the window with `escalated_at` not null.
   - `avg_detection_to_alert_s`: mean of `notified_at - detected_at` in seconds over events in the window with `notified_at`, rounded to 1 decimal; `null` if none.
   - `ppe_compliance`: `1 - valid_no_ppe / ppe_observations_per_shift`, clamped to [0, 1], rounded to 2 decimals, where `valid_no_ppe` = `NO_PPE` events in the window whose status is not `false_positive`. See OPEN QUESTION Q3.
-- `GET /reports?shift=&date=` (both required) → `ShiftReport` with the KPI above and:
+- `GET /reports?shift=&date=` (both required; minimum role `supervisor`) → `ShiftReport` with the KPI above and:
   - `by_type`: one item per type present: `{"type", "critical", "warning"}` counts.
   - `by_zone`: one item per zone present: `{"zone_id", "critical", "warning", "avg_ack_s"}`; `avg_ack_s` = mean of `acked_at - detected_at` in whole seconds, `null` if none acked.
   - `by_hour`: `{"hour": "HH", "count"}` by local hour, only hours with events, sorted.
@@ -593,6 +652,60 @@ Return `{"status": "ok" | "degraded", "db": bool, "edge_last_seen_s": float | nu
 ### 7.12 Errors
 
 Use FastAPI's default `{"detail": ...}` body for all errors. Do not invent another error format.
+
+### 7.13 Login, roles and audit — `app/security.py`, `app/routers/auth.py`
+
+**Users.** `seed()` creates one `User` per entry of `demo_users` (`username:role`), all with `demo_password`, only if the username does not exist. If `demo_password` is still `"demo"`, log a warning at startup.
+
+**Password hashing** (VERBATIM):
+
+```python
+import hashlib, hmac, secrets
+
+ITERATIONS = 200_000
+
+
+def hash_password(password: str) -> str:
+    salt = secrets.token_bytes(16)
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, ITERATIONS)
+    return f"pbkdf2_sha256${ITERATIONS}${salt.hex()}${digest.hex()}"
+
+
+def verify_password(password: str, stored: str) -> bool:
+    try:
+        _, iterations, salt_hex, hash_hex = stored.split("$")
+        digest = hashlib.pbkdf2_hmac("sha256", password.encode(), bytes.fromhex(salt_hex), int(iterations))
+        return hmac.compare_digest(digest.hex(), hash_hex)
+    except ValueError:
+        return False
+```
+
+**Tokens.** JWT HS256 signed with `jwt_secret` (or the random startup secret), claims `sub` (username), `role`, `exp` (now + `jwt_ttl_hours`). Decode with `jwt.decode(token, secret, algorithms=["HS256"])`; any `jwt.PyJWTError` means invalid.
+
+**Routes.**
+
+| Route | Auth | Behaviour |
+|---|---|---|
+| `POST /auth/login` | none | `LoginIn` → 200 `LoginOut`; wrong username or password → **401** `{"detail": "invalid credentials"}` (same message for both). Audit `login` on success. |
+| `GET /auth/me` | token | 200 `MeOut` |
+| `GET /audit?limit=200` | `admin` | newest first, `limit` max 1000, list of `AuditOut` |
+
+**Dependencies** in `security.py`: `current_user` reads `Authorization: Bearer <token>`; missing or invalid → **401** `{"detail": "not authenticated"}`. `require_role(min_role)` → **403** `{"detail": "insufficient role"}` when the user's rank is lower. Ranks: `operator` < `supervisor` < `admin`.
+
+**Who needs what:**
+
+| Routes | Minimum role |
+|---|---|
+| `/health`, `/auth/login`, `/snapshots/{file}`, `/docs`, `/openapi.json` | none (public) |
+| `/edge/*` | `X-Edge-Token`, no user token |
+| `GET /cameras`, `GET /zones`, `GET /events`, `GET /events/{id}`, `GET /kpi`, `GET /auth/me`, `/ws/events` | `operator` |
+| `POST /events/{id}/ack`, `/false-positive`, `/reopen` | `operator` |
+| `POST /events/{id}/regenerate-report`, `GET /reports` | `supervisor` |
+| `PUT /cameras/{id}/engine`, `PUT /zones/{id}`, `POST /zones/reference-frame`, `GET /audit` | `admin` |
+
+`/snapshots` stays public because `<img>` tags cannot send headers; the images are already blurred. `/stream/{camera_id}.mjpg` and `/ws/events` take the token as the query parameter `?token=` for the same reason.
+
+**What this is not:** no refresh tokens, no password change, no user management UI, no SSO. Those are roadmap.
 
 ---
 
@@ -647,9 +760,9 @@ Each step lists what to build, the tests to write, and the "done when" check. Ti
 
 ### Step 1 — Project skeleton and health (T+0:00–0:15)
 
-- `uv init --app --name safetarmac-backend --python 3.12` inside `backend/` (then delete any generated `main.py`/`hello.py` outside `app/`), then `uv add` the runtime dependencies and `uv add --dev pytest`.
+- `uv init --app --name safesight-backend --python 3.12` inside `backend/` (then delete any generated `main.py`/`hello.py` outside `app/`), then `uv add` the runtime dependencies and `uv add --dev pytest`.
 - `app/config.py`, `app/timeutil.py` (sections 3, 4).
-- `app/main.py`: `create_app()` returning a FastAPI app titled `SafeTarmac API`, CORS middleware with `settings.cors_origins.split(",")`, and the health router (without the DB check yet: `db` is always `true` in this step). Module-level `app = create_app()`.
+- `app/main.py`: `create_app()` returning a FastAPI app titled `SafeSight API`, CORS middleware with `settings.cors_origins.split(",")`, and the health router (without the DB check yet: `db` is always `true` in this step). Module-level `app = create_app()`.
 - Tests: `test_health.py` → `GET /health` returns 200 and `status` in (`ok`, `degraded`).
 - **Done when** `uv run pytest -q` passes and `uv run uvicorn app.main:app` serves `/docs`.
 
@@ -662,18 +775,25 @@ Each step lists what to build, the tests to write, and the "done when" check. Ti
 - **Done when** tests pass and the DB file has the 3 cameras and 4 zones after startup.
 - **Hand-off:** tell Andrei and Ariana that `/docs` is up and send them the seed IDs.
 
+### Step 2A — Login, roles and audit (T+0:45–1:00)
+
+- `app/security.py` and `routers/auth.py` (7.13). Add `User` and `AuditLog` seeding to `seed()`.
+- Extend `conftest.py` with `auth_headers(client, role) -> dict` that logs in as the seeded user with that role and returns `{"Authorization": "Bearer ..."}`. Every later test that calls a protected route uses it.
+- `test_auth.py`: login with the right password → 200 and a token; wrong password → 401; `GET /auth/me` with the token → username and role; no token → 401; expired token (build one with `exp` in the past) → 401; an `operator` calling `GET /audit` → 403; an `admin` → 200 and the `login` rows are there.
+- **Hand-off:** send Ariana the three demo usernames and the password from `.env`; her app needs a login page and must send the token on every call (`?token=` for the WebSocket and the MJPEG stream).
+
 ### Step 3 — Ingestion and event list (T+0:45–1:15)
 
 - `services/events.py`: `event_out()` (7.2) and `ingest(session, payload) -> tuple[EventOut, bool]` (7.1; the bool says whether it was created). For now, steps 5.3–5.6 of 7.1 are stubs that do nothing; they get filled in by later steps. Leave a `# step N` comment on each stub.
 - `routers/edge.py`: `POST /edge/events` with the token dependency; returns 201 or 200 via `Response.status_code`.
-- `routers/events.py`: `GET /events?status=&severity=&camera_id=&limit=100` (all filters optional and combinable, ordered by `detected_at` descending, `limit` max 500) and `GET /events/{event_id}` (404 if unknown).
+- `routers/events.py` (role `operator`): `GET /events?status=&severity=&camera_id=&limit=100` (all filters optional and combinable, ordered by `detected_at` descending, `limit` max 500) and `GET /events/{event_id}` (404 if unknown).
 - `test_ingest.py`: B-01 (201 and visible in `GET /events`), B-02 (same `event_id` twice → one event, second response 200), B-03 via HTTP (422), B-04 via HTTP (422), missing token → 401, unknown camera → 404, unknown zone → 404, `CAMERA_OFFLINE` with an unknown zone → 201 and camera `online=false`.
 - **Done when** all tests pass.
 
 ### Step 4 — WebSocket (T+1:15–1:30)
 
 - `app/ws.py`, `routers/ws.py` (7.9). Fill in the broadcast stub in `ingest()`.
-- `test_ws.py`: B-05 — open 3 WebSocket clients with `client.websocket_connect("/ws/events")`, post one event, each receives `{"type": "event.created", "data": {...}}` with the right `event_id`. A duplicate post sends nothing new (check with a second event afterwards that the next message is the second event, not a duplicate).
+- `test_ws.py`: B-05 — open 3 WebSocket clients with `client.websocket_connect(f"/ws/events?token={token}")`, post one event, each receives `{"type": "event.created", "data": {...}}` with the right `event_id`. A duplicate post sends nothing new (check with a second event afterwards that the next message is the second event, not a duplicate). Connecting without a token is refused.
 - **Done when** tests pass. **Gate T+1:30:** Ariana can connect to the real API.
 
 ### Step 5 — Snapshots (T+1:30–1:45)
@@ -691,7 +811,7 @@ Each step lists what to build, the tests to write, and the "done when" check. Ti
 ### Step 7 — Operator actions (T+2:00–2:20)
 
 - In `services/events.py`: `apply_action(session, event_id, action, body)` implementing the table in 7.3 exactly. Routes in `routers/events.py`.
-- `test_actions.py`: B-06 (ack on open → acknowledged, `acked_by` set, one `event_actions` row), B-07 (false-positive → `false_positive`, note stored), B-08 (reopen after ack → open, `acked_at` null), ack twice → second is 409, unknown id → 404, missing `operator` → 422, each successful action broadcasts `event.updated`.
+- `test_actions.py` (all calls with `auth_headers(client, "operator")`): B-06 (ack on open → acknowledged, `acked_by` equals the operator's username, one `event_actions` row and one `audit_log` row), B-07 (false-positive → `false_positive`, note stored), B-08 (reopen after ack → open, `acked_at` null), ack twice → second is 409, unknown id → 404, body with an `operator` field → 422 (extra field), no token → 401, each successful action broadcasts `event.updated`.
 
 ### Step 8 — Escalation (T+2:20–2:40)
 
@@ -711,7 +831,7 @@ Each step lists what to build, the tests to write, and the "done when" check. Ti
 ### Step 11 — Cameras, zones, engine, edge config (T+3:20–4:00)
 
 - `routers/cameras.py`, `routers/zones.py`, plus `GET /edge/zones` in `routers/edge.py` (7.7).
-- `test_cameras_zones.py`: B-10 (PUT zone persists, `GET /edge/zones` returns it, `config_version` increased), B-11 (PUT engine → `GET /cameras` and `GET /edge/zones` show `engine_on=true`, `config_version` increased), PUT with mismatched id → 422, polygon with 2 points → 422, reference frame upload sets `reference_frame`.
+- `test_cameras_zones.py` (writes with `admin`, plus one check that an `operator` gets 403 on `PUT /zones`): B-10 (PUT zone persists, `GET /edge/zones` returns it, `config_version` increased), B-11 (PUT engine → `GET /cameras` and `GET /edge/zones` show `engine_on=true`, `config_version` increased), PUT with mismatched id → 422, polygon with 2 points → 422, reference frame upload sets `reference_frame`.
 
 ### Step 12 — KPI and shift report (T+4:00–4:30)
 
@@ -720,7 +840,7 @@ Each step lists what to build, the tests to write, and the "done when" check. Ti
 
 ### Step 13 — MJPEG stream (T+4:30–4:50, can be skipped)
 
-- `GET /stream/{camera_id}.mjpg`: 404 if the camera is unknown. Otherwise return a `StreamingResponse` with media type `multipart/x-mixed-replace; boundary=frame` that every 0.5 s yields the bytes of `{snapshot_dir}/live/{camera_id}.jpg` if it exists, else `placeholder.jpg`. This is the contract's plan B ("snapshot la 500 ms"). Where the live frame comes from is OPEN QUESTION Q4; do not invent an upload route.
+- `GET /stream/{camera_id}.mjpg?token=<jwt>` (role `operator`; 401 without a valid token): 404 if the camera is unknown. Otherwise return a `StreamingResponse` with media type `multipart/x-mixed-replace; boundary=frame` that every 0.5 s yields the bytes of `{snapshot_dir}/live/{camera_id}.jpg` if it exists, else `placeholder.jpg`. This is the contract's plan B ("snapshot la 500 ms"). Where the live frame comes from is OPEN QUESTION Q4; do not invent an upload route.
 
 ### Step 14 — Latency numbers (T+4:50–5:00)
 
@@ -730,7 +850,7 @@ Each step lists what to build, the tests to write, and the "done when" check. Ti
 
 - `backend/Dockerfile`: base `python:3.12-slim`; install `uv`; build context is the **repo root**; copy `backend/` to `/srv/backend` and `automation/` to `/srv/automation`; `WORKDIR /srv/backend`; `ENV PYTHONPATH=/srv`; `uv sync --frozen --no-dev`; `CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]`.
 - Root `docker-compose.yml` with two services for now:
-  - `api`: build `context: .`, `dockerfile: backend/Dockerfile`, `env_file: .env`, port `8000:8000`, volume `./backend/data:/srv/backend/data`, and in the environment `DATABASE_URL=sqlite:///./data/safetarmac.db`, `SNAPSHOT_DIR=./data/snapshots`.
+  - `api`: build `context: .`, `dockerfile: backend/Dockerfile`, `env_file: .env`, port `8000:8000`, volume `./backend/data:/srv/backend/data`, and in the environment `DATABASE_URL=sqlite:///./data/safesight.db`, `SNAPSHOT_DIR=./data/snapshots`.
   - `rtsp`: image `bluenviron/mediamtx:latest`, port `8554:8554`.
   - Leave commented placeholders for `frontend` and `edge`; their owners fill them in.
 - Add `backend/data/` to `.gitignore` (only this line).
@@ -743,9 +863,6 @@ Each step lists what to build, the tests to write, and the "done when" check. Ti
 
 **T+5:30: freeze.** No new routes after this point, only bug fixes.
 
-### Step 17 — Login (LOCKED)
-
-Do not implement. The contract (N08) says the demo uses an `operator` field and that JWT, roles and audit are roadmap. Max will unlock this step only if the team changes the contract.
 
 ---
 
@@ -753,8 +870,6 @@ Do not implement. The contract (N08) says the demo uses an `operator` field and 
 
 | ID | Question | Current assumption in this plan |
 |---|---|---|
-| Q1 | Name: the contract and briefs say **SafeTarmac AI** (N01), the team discussed **SafeSight**. | API title `SafeTarmac API`, DB `safetarmac.db`, as in the contract. Change both only after the contract changes. |
-| Q2 | Login: the team discussed login with roles, the contract says operator field only (N08). | No login (step 17 locked). |
 | Q3 | `ppe_compliance` needs a count of all PPE observations, which the edge does not send. | `1 - valid NO_PPE events / PPE_OBSERVATIONS_PER_SHIFT` (default 200). Ask Andrei whether the edge can send a periodic observation count instead. |
 | Q4 | MJPEG: how do live frames reach the backend? The contract has no frame-upload route. | Step 13 reads `{snapshot_dir}/live/{camera_id}.jpg` if the edge writes it to a shared volume, else shows the placeholder. |
 | Q5 | `required_ppe` values are not fixed in the contract. | `hi_vis_vest`, `hard_hat`, `ear_defenders`. Confirm with Andrei's class names. |

@@ -5,7 +5,8 @@ Responsabilă: **Ariana**
 Brief intern: `safetarmac-docs/03_C_frontend.typ` (repo privat).
 
 - Brief-ul complet: rolul C (Live, Incidente, Zone, Rapoarte, alerte mobile).
-- Ecranele: canvas-ul de wireframe-uri SafeTarmac AI.
+- Ecranele: canvas-ul de wireframe-uri SafeSight.
+- Login cu roluri (`operator`, `supervisor`, `admin`): pagină de login, token trimis la fiecare cerere (`?token=` pentru WebSocket și MJPEG); acțiunile de admin ascunse pentru ceilalți. Vezi „Autentificare” în `docs/contract.md`.
 - Pornește cu fixture-urile din `fixtures/`, cu aceeași structură ca evenimentele reale (`docs/contract.md`). Trecerea pe API nu trebuie să schimbe componentele.
 - Folosește `snapshot_url` direct în `<img src>`; nu construi `minio://`.
 - `confidence` este obiect: afișează „0.91 · 14/15 cadre”, formatat din `{detector, temporal}`.

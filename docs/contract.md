@@ -1,6 +1,6 @@
 # Contractul dintre module
 
-Versiunea 2 · 30 octombrie 2026. Aliniat la briefingurile Ultra A–D. Responsabil: Max (backend). Orice schimbare se face prin pull request aprobat de cel afectat.
+Versiunea 3 · 30 octombrie 2026. Produs: **SafeSight**. Aliniat la briefingurile Ultra A–D; v3 adaugă login cu roluri. Responsabil: Max (backend). Orice schimbare se face prin pull request aprobat de cel afectat.
 
 Contractul are două fețe: ce trimite edge-ul (A) și ce întoarce backend-ul (B). C consume doar forma returnată de B. Un câmp care nu apare aici nu se inventează în alt modul.
 
@@ -105,8 +105,10 @@ Nu există status intermediar `verifying`. Fumul este stretch și se emite doar 
 | POST | `/zones/reference-frame` | salvează cadrul de referință pentru FOD |
 | GET | `/events?status=open&severity=CRITICAL` | lista de evenimente, filtre combinabile |
 | GET | `/events/{event_id}` | detaliu: dovadă, cronologie, raport |
-| POST | `/events/{event_id}/ack` | confirmare; body `{ "operator": "Ana" }` |
-| POST | `/events/{event_id}/false-positive` | fals pozitiv; body `{ "operator": "Ana", "note": "..." }` |
+| POST | `/auth/login` | `{ "username", "password" }` → `{ "token", "username", "role", "expires_at" }` |
+| GET | `/auth/me` | utilizatorul logat: `{ "username", "role" }` |
+| POST | `/events/{event_id}/ack` | confirmare; body `{}` sau `{ "note": "..." }`; operatorul vine din token |
+| POST | `/events/{event_id}/false-positive` | fals pozitiv; body `{ "note": "..." }` opțional; operatorul vine din token |
 | POST | `/events/{event_id}/reopen` | redeschide; repornește timerul |
 | POST | `/events/{event_id}/regenerate-report` | regenerează raportul (LLM sau șablon) |
 | GET | `/reports?shift=morning&date=2026-10-30` | raportul de tură, inclusiv rezumatul |
@@ -114,6 +116,7 @@ Nu există status intermediar `verifying`. Fumul este stretch și se emite doar 
 | GET | `/snapshots/{file}` | imaginea, deja blurată; HTTP, niciodată `minio://` |
 | GET | `/stream/{camera_id}.mjpg` | video adnotat MJPEG; plan B: snapshot la 500 ms |
 | WS | `/ws/events` | doar `event.created` și `event.updated` |
+| GET | `/audit?limit=200` | jurnalul de audit, doar `admin` |
 | GET | `/health` | stare API, DB și worker edge |
 
 Mesajele WebSocket: `{"type": "event.created" | "event.updated", "data": { ...eveniment complet... }}`. Nu există `context.updated`; starea motorului se citește din `GET /cameras`, iar KPI din `GET /kpi` la 5 s.
@@ -163,6 +166,20 @@ B apelează `automation.report.generate(event)` în proces, nu printr-un endpoin
 - `POST /events/{event_id}/regenerate-report` există doar pentru C; nu înlocuiește apelul în proces al lui B.
 - Notificarea Slack pleacă imediat, cu text + link, fără să aștepte raportul.
 
+## Autentificare
+
+- `POST /auth/login` întoarce un token JWT valabil 12 ore. Utilizatorii de demo și parola sunt în `.env` (`DEMO_USERS`, `DEMO_PASSWORD`).
+- Rutele de frontend cer header-ul `Authorization: Bearer <token>`. Fără token: `401`. Rol insuficient: `403`.
+- `/ws/events` și `/stream/{camera_id}.mjpg` primesc token-ul ca `?token=`, pentru că browserul nu poate trimite header în WebSocket și în `<img>`.
+- Publice: `/health`, `/auth/login`, `/snapshots/{file}` (imaginile sunt deja blurate), `/docs`.
+- Rutele `/edge/*` folosesc în continuare doar `X-Edge-Token`.
+
+| Rol minim | Rute |
+|---|---|
+| `operator` | toate `GET`-urile de frontend, `/ws/events`, `/stream`, `ack`, `false-positive`, `reopen` |
+| `supervisor` | plus `regenerate-report` și `GET /reports` |
+| `admin` | plus `PUT /cameras/{id}/engine`, `PUT /zones/{id}`, `POST /zones/reference-frame`, `GET /audit` |
+
 ## Decizii canonicate
 
 - `event_id`, nu `id`; `snapshot_url`, nu `snapshot` sau `minio://`.
@@ -172,7 +189,8 @@ B apelează `automation.report.generate(event)` în proces, nu printr-un endpoin
 - SQLite prin SQLModel; Postgres doar plan B.
 - Slack incoming webhook, text + link, fără imagini și fără butoane.
 - Escaladare per zonă; FOD 3 s demo / 10 s producție.
-- Demo fără login: câmp `operator`; JWT/SSO și audit sunt roadmap.
+- Demo cu login și roluri (`operator`, `supervisor`, `admin`), token JWT; operatorul din `acked_by` și `event_actions` vine din token. Jurnal de audit pentru acțiuni, zone și motor. SSO rămâne roadmap.
+- Numele produsului: SafeSight.
 - Groq pentru raport, Claude Haiku pentru VLM (stretch).
 - B apelează modulul D în proces; nu există `PATCH /events/{id}` din automatizare.
 

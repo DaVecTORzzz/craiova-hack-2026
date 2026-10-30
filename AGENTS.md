@@ -1,6 +1,6 @@
-# SafeTarmac AI — Agent Guide
+# SafeSight — Agent Guide
 
-SafeTarmac AI transforms existing airport-apron cameras into structured safety events: edge detection → event → operator alert → AI incident report. Hackathon build; the demo is the product.
+SafeSight transforms existing airport-apron cameras into structured safety events: edge detection → event → operator alert → AI incident report. Hackathon build; the demo is the product.
 
 This file is the single source of truth for agents. `CLAUDE.md` only forwards here. Read it before touching code and update it in the same change when a durable rule changes.
 
