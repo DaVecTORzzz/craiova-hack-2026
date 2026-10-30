@@ -21,7 +21,12 @@ dist/
 
 # Modele / date locale (nu se urcă în git; se țin în Google Drive / Roboflow)
 models/
-data/
+data/**
+!data/README.md
+!data/videos/
+!data/videos/README.md
+!data/annotations/
+!data/annotations/README.md
 *.gguf
 *.bin
 *.safetensors

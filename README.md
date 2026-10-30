@@ -1,6 +1,6 @@
 # SafeTarmac AI
 
-Inspector automat de siguranță pentru platforma aeroportului. Camerele existente sunt analizate local, pe un Edge Box: echipament de protecție lipsă, persoane în zone restricționate, obiecte pe pistă (FOD), fumat. Fiecare încălcare pornește singură fluxul de răspuns: alertă cu poză, raport de incident scris de AI și escaladare dacă nimeni nu confirmă.
+Inspector automat de siguranță pentru platforma aeroportului. Camerele existente sunt analizate local, pe un Edge Box: echipament de protecție lipsă, persoane în zone restricționate, obiecte pe pistă (FOD), fumat (stretch). Fiecare încălcare pornește singură fluxul de răspuns: alertă cu link la incident, raport de incident scris de AI și escaladare dacă nimeni nu confirmă. Snapshot-ul blurat se vede în aplicație, nu în Slack.
 
 Video-ul nu iese din aeroport. Fețele sunt blurate înainte de orice salvare.
 
@@ -25,7 +25,7 @@ Contractul dintre module e în [`docs/contract.md`](docs/contract.md). Se schimb
 
 ## Date care nu intră în git
 
-Video-urile de test (`.mp4`), modelele antrenate (`.pt`, `.onnx`) și baza de date locală sunt ignorate de git. Le țineți în folderul comun din Google Drive: `[link Drive]`.
+Video-urile de test (`.mp4`), modelele antrenate (`.pt`, `.onnx`) și baza de date locală sunt ignorate de git. Le țineți în folderul comun din Google Drive: `[link Drive]`. README-urile din `data/videos/` și `data/annotations/` rămân versionate, ca să știm sursa și licența fiecărui clip.
 
 ## Reguli de lucru
 
