@@ -1,6 +1,10 @@
 import time
-from fastapi import APIRouter
+from fastapi import APIRouter, Response, status
+from sqlalchemy import text
+from sqlmodel import Session
+
 from app.config import get_settings
+from app.db import get_engine
 
 router = APIRouter(tags=["health"])
 
@@ -18,24 +22,40 @@ def get_edge_last_seen_s() -> float | None:
     return time.time() - _edge_last_seen
 
 
+def check_db() -> bool:
+    try:
+        with Session(get_engine()) as session:
+            session.exec(text("SELECT 1"))
+            return True
+    except Exception:
+        return False
+
+
 @router.get("/health")
-async def health():
+async def health(response: Response):
     settings = get_settings()
-    db_ok = True  # Step 1: db check is always true
+    db_ok = check_db()
     edge_last_seen_s = get_edge_last_seen_s()
     mock = settings.use_mock
 
     # 7.11: HTTP 200 when db is true (status degraded if edge_last_seen_s is null or > 60 and mock is off), 503 when db is false.
     if not db_ok:
-        status = "degraded"
-    elif (edge_last_seen_s is None or edge_last_seen_s > 60) and not mock:
-        status = "degraded"
+        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+        return {
+            "status": "degraded",
+            "db": False,
+            "edge_last_seen_s": edge_last_seen_s,
+            "mock": mock,
+        }
+
+    if (edge_last_seen_s is None or edge_last_seen_s > 60) and not mock:
+        st = "degraded"
     else:
-        status = "ok"
+        st = "ok"
 
     return {
-        "status": status,
-        "db": db_ok,
+        "status": st,
+        "db": True,
         "edge_last_seen_s": edge_last_seen_s,
         "mock": mock,
     }

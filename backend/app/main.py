@@ -1,13 +1,37 @@
+from contextlib import asynccontextmanager
+from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlmodel import Session
 
 from app.config import get_settings
+from app.db import get_engine, init_db
 from app.routers import health
+from app.seed import ensure_placeholder_image, seed
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    settings = get_settings()
+
+    # Create snapshot folders
+    snapshot_path = Path(settings.snapshot_dir)
+    snapshot_path.mkdir(parents=True, exist_ok=True)
+    (snapshot_path / "reference").mkdir(parents=True, exist_ok=True)
+    (snapshot_path / "live").mkdir(parents=True, exist_ok=True)
+    ensure_placeholder_image(settings.snapshot_dir)
+
+    # Initialize DB and seed data
+    init_db()
+    with Session(get_engine()) as session:
+        seed(session)
+
+    yield
 
 
 def create_app() -> FastAPI:
     settings = get_settings()
-    app = FastAPI(title="SafeSight API")
+    app = FastAPI(title="SafeSight API", lifespan=lifespan)
 
     origins = [origin.strip() for origin in settings.cors_origins.split(",") if origin.strip()]
     app.add_middleware(
