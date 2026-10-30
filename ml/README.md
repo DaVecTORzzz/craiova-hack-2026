@@ -2,7 +2,9 @@
 
 Responsabil: **Andrei**
 
-- Model: Ultralytics **YOLO26** (`yolo26s.pt`, `yolo26n.pt` dacă FPS < 10), fine-tuned pe un dataset PPE de pe Roboflow.
+Brief intern: `safetarmac-docs/01_A_ai_edge.typ` (repo privat).
+
+- Model: Ultralytics **YOLO26** (`yolo26s.pt`, `yolo26n.pt` dacă FPS < 10), fine-tuned pe un dataset PPE de pe Roboflow. **Nu YOLO11** și nu generații mai vechi; `yolo11s.pt` rămâne doar fallback dacă YOLO26 nu converge sau nu exportă.
 - Tracking: încorporat în Ultralytics, `model.track(..., tracker="bytetrack.yaml", persist=True)`.
 - Zone: poligoane din `docs/contract.md`, coordonate 0–1; `rule_type`, `active_when`, `debounce_s`.
 - FOD: diferență față de cadrul de referință + obiect static peste `debounce_s` (3 s demo / 10 s producție); opțional confirmare cu YOLOE-26.

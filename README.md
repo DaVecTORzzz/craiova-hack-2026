@@ -15,10 +15,14 @@ Video-ul nu iese din aeroport. Fețele sunt blurate înainte de orice salvare.
 | `demo/` | Scenariul demo și instrucțiunile pentru înregistrarea de rezervă | Ariana + Dalina |
 | `docs/` | Contractul API și alte documente comune | toți |
 
-Contractul dintre module e în [`docs/contract.md`](docs/contract.md). Se schimbă doar prin pull request aprobat de cel afectat.
+## Documente
+
+- [`docs/contract.md`](docs/contract.md) — contractul canonic dintre module; se schimbă doar prin pull request aprobat de cel afectat.
+- Briefingurile interne de rol A–D (Typst + PDF) sunt în repo-ul privat `DaVecTORzzz/safetarmac-docs`. Sunt explicative; dacă diferă de contract, contractul câștigă.
 
 ## Pornire
 
+0. `./scripts/agent-preflight.sh` — sincronizează repo-ul public și repo-ul privat de documente înainte de lucru.
 1. `cp .env.example .env` și completează cheile.
 2. Fiecare modul are în folderul lui un `README.md` cu pornirea și comanda de verificare.
 3. Cât timp un modul nu e gata, ceilalți lucrează cu `USE_MOCK=true` și cu fixture-urile din `frontend/fixtures/`.
