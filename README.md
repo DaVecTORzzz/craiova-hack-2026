@@ -18,7 +18,7 @@ Video-ul nu iese din aeroport. Fețele sunt blurate înainte de orice salvare.
 ## Documente
 
 - [`docs/contract.md`](docs/contract.md) — contractul canonic dintre module; se schimbă doar prin pull request aprobat de cel afectat.
-- Briefingurile interne de rol A–D (Typst + PDF) sunt în repo-ul privat `DaVecTORzzz/safetarmac-docs`. Sunt explicative; dacă diferă de contract, contractul câștigă.
+- Briefingurile interne de rol A–D (Typst + PDF) sunt în repo-ul privat `DaVecTORzzz/safesight-docs`. Sunt explicative; dacă diferă de contract, contractul câștigă.
 
 ## Pornire
 

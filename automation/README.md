@@ -2,7 +2,7 @@
 
 Responsabil: **Dalina**
 
-Brief intern: `safetarmac-docs/04_D_date_pitch.typ` (repo privat).
+Brief intern: `safesight-docs/04_D_date_pitch.typ` (repo privat).
 
 - `on_event_created(event)` pornește un task asincron pentru fiecare eveniment nou; backend-ul îl apelează în proces, nu prin `PATCH /events/{id}`.
 - Raport de incident: Groq `openai/gpt-oss-20b` (configurabil prin `GROQ_MODEL`), mod JSON, temperatură 0,2. Acțiunea recomandată vine dintr-un tabel fix pe tip; LLM-ul doar reformulează. Dacă API-ul pică, raport-șablon din metadate, cu `source=template`.
