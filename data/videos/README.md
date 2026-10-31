@@ -26,6 +26,6 @@ Sunt 4 clipuri B-roll și 2 clipuri `restricted-zone`. Lipsește încă:
 - clip video pentru PPE lipsă;
 - clip video pentru FOD, din același unghi cu cadrul de referință.
 
-`reference_frames/` are 4 cadre, iar `annotations/` are 4 etichete YOLO preliminare pentru PPE/FOD; ambele trebuie confirmate de A înainte de antrenare.
+`reference_frames/` are 4 cadre, iar `annotations/` are 4 etichete YOLO validate vizual de Andrei pe 31 octombrie 2026. Setul rămâne mic, pentru demo/experiment, nu pentru antrenare de producție.
 
 Numele `...pushback-motor..mp4` are două puncte; de corectat la următorul upload.

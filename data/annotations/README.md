@@ -27,9 +27,9 @@ Exemplu de format (nu este o adnotare reală):
 1 0.512 0.500 0.150 0.220
 ```
 
-## Set actual (preliminar)
+## Set actual (validat)
 
-Etichetele de mai jos sunt făcute de Andrei pe cele 4 cadre din `reference_frames/`. Sunt **preliminare**: Dalina/A trebuie să confirme boxele înainte de antrenare.
+Etichetele de mai jos sunt făcute de Andrei pe cele 4 cadre din `reference_frames/`. Au fost verificate de Dalina și **validate vizual de Andrei pe 31 octombrie 2026**, pe overlay-urile din `review/`. Setul este valid pentru demo și experimente, nu pentru antrenare de producție.
 
 | Imagine | Label | Conținut |
 |---|---|---|
@@ -40,6 +40,15 @@ Etichetele de mai jos sunt făcute de Andrei pe cele 4 cadre din `reference_fram
 
 Overlay-urile de verificare sunt în `review/` și nu intră în git. Fluxul complet, cu exact pașii și snippet-urile folosite, este în [`docs/agentic-annotation-workflow.md`](../../docs/agentic-annotation-workflow.md).
 
+## Validare
+
+- **31 octombrie 2026**, Andrei a deschis cele 4 overlay-uri din `review/` și a confirmat boxele și clasele. Coordonatele nu au fost modificate; validarea a confirmat fișierele existente.
+- `no-ppe_cam01`: `person` + `hi_vis_vest`; absența `hard_hat` este corectă.
+- `no-ppe_cam02`: `person` + `hard_hat`; absența `hi_vis_vest` este corectă.
+- `fod_cam01_asfalt-curat`: fișier gol, exemplu negativ corect.
+- `fod_cam01_sticla-pe-asfalt`: `fod_object` acoperă sticla.
+- Setul rămâne mic și nu înlocuiește un dataset de antrenare.
+
 ## Fișiere
 
 | Clasă | Sursă | Licență | Cine a adnotat | Data |
@@ -47,10 +56,9 @@ Overlay-urile de verificare sunt în `review/` și nu intră în git. Fluxul com
 | `ear_defender` | de completat | de completat | — | — |
 | `cigarette` | de completat | de completat | — | — |
 | `smoke` | de completat | de completat | — | — |
-| `person` | Gemini (imagine sintetică, generată de echipă) | internă — nu se publică | Andrei (preliminar), verificat Dalina | 2026-10-31 |
-| `hi_vis_vest` | Gemini (imagine sintetică, generată de echipă) | internă — nu se publică | Andrei (preliminar), verificat Dalina | 2026-10-31 |
-| `hard_hat` | Gemini (imagine sintetică, generată de echipă) | internă — nu se publică | Andrei (preliminar), verificat Dalina | 2026-10-31 |
-| `fod_object` | Gemini (imagine sintetică, generată de echipă) | internă — nu se publică | Andrei (preliminar), cutia corectată de Dalina | 2026-10-31 |
-
+| `person` | Gemini (imagine sintetică, generată de echipă) | internă — nu se publică | Andrei (adnotare + validare), Dalina (verificare) | 2026-10-31 |
+| `hi_vis_vest` | Gemini (imagine sintetică, generată de echipă) | internă — nu se publică | Andrei (adnotare + validare), Dalina (verificare) | 2026-10-31 |
+| `hard_hat` | Gemini (imagine sintetică, generată de echipă) | internă — nu se publică | Andrei (adnotare + validare), Dalina (verificare) | 2026-10-31 |
+| `fod_object` | Gemini (imagine sintetică, generată de echipă) | internă — nu se publică | Andrei (adnotare + validare), Dalina (corectare cutie) | 2026-10-31 |
 
 Reguli: un singur format pentru toate clasele, împărțire train/validare pe surse diferite, fără fețe identificabile în seturile publicate.
