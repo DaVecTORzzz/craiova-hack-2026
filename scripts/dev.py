@@ -111,13 +111,17 @@ def resolve_snapshot_dir() -> Path:
     return path if path.is_absolute() else (BACKEND / path)
 
 
-def app_env(*, mock: bool, api_url: str, frontend_url: str, frontend_port: int) -> dict[str, str]:
+def app_env(
+    *, mock: bool, api_url: str, frontend_url: str, frontend_port: int, demo_clip: str | None = None
+) -> dict[str, str]:
     env = base_env()
     env["USE_MOCK"] = "true" if mock else "false"
     env["APP_BASE_URL"] = frontend_url
     env["VITE_API_URL"] = api_url
     # The UI always talks to the backend; --mock only switches the backend to fake events.
     env["VITE_USE_MOCK"] = "false"
+    if demo_clip:
+        env["VITE_DEMO_CLIP"] = demo_clip
     if frontend_port != 5173:
         origins = f"http://localhost:{frontend_port},http://127.0.0.1:{frontend_port}"
         existing = env.get("CORS_ORIGINS") or dotenv_value("CORS_ORIGINS")
@@ -165,6 +169,21 @@ def stop(process: subprocess.Popen) -> None:
                 os.killpg(os.getpgid(process.pid), signal.SIGKILL)
             except ProcessLookupError:
                 pass
+
+
+def enable_demo_engine(base_url: str, camera_id: str = "stand12") -> None:
+    """Match the UI engine state with the demo edge run."""
+    request = urllib.request.Request(
+        f"{base_url}/cameras/{camera_id}/engine",
+        data=b'{"on": true}',
+        method="PUT",
+        headers={"Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=2) as response:
+            response.read(1)
+    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        print(f"warn: nu am putut porni motorul în backend: {exc}", file=sys.stderr)
 
 
 def wait_for_http(url: str, timeout: float = 30.0, process: subprocess.Popen | None = None) -> bool:
@@ -338,11 +357,15 @@ def run_all(args: argparse.Namespace) -> int:
     env = app_env(mock=args.mock, api_url=api_url(args), frontend_url=web_url(args), frontend_port=args.frontend_port)
     backend = popen(backend_command(args), cwd=BACKEND, env=env)
     try:
+        print(f"Backend:  {api_url(args)}/health")
+        if not wait_for_http(f"{api_url(args)}/health", process=backend):
+            print("Backend-ul nu a răspuns la /health.", file=sys.stderr)
+            stop(backend)
+            return 1
         frontend = popen(frontend_command(args), cwd=FRONTEND, env=env)
     except BaseException:
         stop(backend)
         raise
-    print(f"\nBackend:  {api_url(args)}/health")
     print(f"Frontend: {web_url(args)}")
     print("Ctrl-C pentru oprire.\n")
     return run_servers([("backend", backend), ("frontend", frontend)])
@@ -352,10 +375,24 @@ def run_demo(args: argparse.Namespace) -> int:
     clip = Path(args.clip).expanduser().resolve() if args.clip else DEFAULT_CLIP
     token = resolve_edge_token(args.edge_token)
     live_dir = resolve_snapshot_dir() / "live"
-    env = app_env(mock=args.mock, api_url=api_url(args), frontend_url=web_url(args), frontend_port=args.frontend_port)
+    env = app_env(
+        mock=args.mock,
+        api_url=api_url(args),
+        frontend_url=web_url(args),
+        frontend_port=args.frontend_port,
+        demo_clip=clip.name if clip.is_file() else None,
+    )
     env["EDGE_TOKEN"] = token
     backend = popen(backend_command(args), cwd=BACKEND, env=env)
+    frontend: subprocess.Popen | None = None
     try:
+        print(f"Backend:  {api_url(args)}/health")
+        if not wait_for_http(f"{api_url(args)}/health", process=backend):
+            print("Backend-ul nu a răspuns la /health.", file=sys.stderr)
+            stop(backend)
+            return 1
+        if not args.mock and not args.no_ml:
+            enable_demo_engine(api_url(args))
         frontend = popen(frontend_command(args), cwd=FRONTEND, env=env)
     except BaseException:
         stop(backend)
@@ -363,11 +400,11 @@ def run_demo(args: argparse.Namespace) -> int:
     ml_process: subprocess.Popen | None = None
     processes: list[tuple[str, subprocess.Popen]] = [("backend", backend), ("frontend", frontend)]
     try:
-        print(f"\nBackend:  {api_url(args)}/health")
         print(f"Frontend: {web_url(args)}")
-        if not wait_for_http(f"{api_url(args)}/health", process=backend):
-            print("Backend-ul nu a răspuns la /health.", file=sys.stderr)
-            return 1
+        print(f"Clip:     {clip}")
+        if not args.mock and not args.no_ml and clip.is_file():
+            print(f"Edge:     {clip.name}")
+        print()
 
         if args.mock:
             print("Mod mock: backend-ul emite evenimente false; edge-ul nu pornește.")
@@ -411,7 +448,8 @@ def run_demo(args: argparse.Namespace) -> int:
         if ml_process is not None:
             stop(ml_process)
         stop(backend)
-        stop(frontend)
+        if frontend is not None:
+            stop(frontend)
 
 
 def build_parser() -> argparse.ArgumentParser:

@@ -64,6 +64,14 @@ python scripts/dev.py fallback --snapshot /path/to/already-blurred.jpg
 
 `--snapshot` trebuie să fie un JPEG **deja blurat**. Nu folosi cadrele din `data/reference_frames/` — acelea conțin fețe neblurate. Scriptul folosește tokenul din `.env`/mediu și API-ul de pe `localhost:8000`; `--api-url` și `--backend-port` sunt disponibile pentru alt port.
 
+## Ce vezi după fiecare comandă
+
+- `python scripts/dev.py demo` — UI + API + edge pe clipul implicit; ar trebui să vezi feed-ul MJPEG, sursa demo și evenimente în Live. Frontend-ul pornește doar după ce `/health` răspunde.
+- `python scripts/dev.py all` — doar UI + API. Vezi camerele și starea Edge, dar fără cadre live; banner-ul îți spune să pornești `demo` sau edge-ul.
+- `python scripts/dev.py backend` / `frontend` — doar procesul respectiv, pentru debug.
+
+Dacă UI-ul apare gol, nu reîncărca în buclă: verifică întâi că backend-ul răspunde la `http://localhost:8000/health`.
+
 ## Pornire pe bucăți
 
 ```bash

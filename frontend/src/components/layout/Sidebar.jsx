@@ -27,8 +27,14 @@ export default function Sidebar() {
     kpis,
     cameras,
     selectedCameraId,
-    setSelectedCameraId
+    setSelectedCameraId,
+    health
   } = useSecurity();
+
+  const edgeSeen = health?.edge_last_seen_s;
+  const edgeActive = Boolean(health?.db && edgeSeen != null && edgeSeen < 60);
+  const edgeLabel = edgeActive ? 'ACTIV' : edgeSeen == null ? 'FĂRĂ DATE' : 'ÎNTÂRZIAT';
+  const edgeColor = edgeActive ? 'bg-emerald-500' : 'bg-amber-500';
 
   // Ecranele principale ale aplicației SafeSight
   const menuItems = [
@@ -228,8 +234,11 @@ export default function Sidebar() {
                 <ShieldCheck size={14} />
                 Edge AI Pipeline
               </span>
-              <span className="text-[10px] font-mono font-bold bg-emerald-500 text-white px-1.5 rounded">ACTIV</span>
+              <span className={`text-[10px] font-mono font-bold text-white px-1.5 rounded ${edgeColor}`}>{edgeLabel}</span>
             </div>
+            <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">
+              {health?.db ? 'Backend online' : 'Backend offline'} · {edgeSeen == null ? 'edge fără date' : `edge acum ${Math.round(edgeSeen)}s`}
+            </p>
             <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">
               YOLO26 + ByteTrack • Auto-Snapshot
             </p>
