@@ -109,7 +109,7 @@ cp .env.example .env
 
 Scriptul forțează `USE_MOCK=false` pe `all`/`demo`; `--mock` pornește doar backend-ul cu evenimente false. UI-ul rămâne mereu pe API-ul real (`VITE_USE_MOCK=false`), ca evenimentele mock și ack-urile să treacă prin backend.
 
-Launcher-ul nu citește `.env`: pentru edge folosește `EDGE_TOKEN` din mediu (implicit `dev-edge-token`) și scrie cadrele live în `backend/snapshots/live`. Dacă schimbi `EDGE_TOKEN` sau `SNAPSHOT_DIR` în `.env`, exportă același `EDGE_TOKEN` înainte de `demo` și păstrează `SNAPSHOT_DIR=./snapshots`.
+Launcher-ul citește `EDGE_TOKEN` și `SNAPSHOT_DIR` din `.env` (sau din mediu); restul cheilor rămân pentru backend. Dacă `SNAPSHOT_DIR` e relativ, calea se rezolvă față de `backend/`, iar live frame-ul se scrie în `SNAPSHOT_DIR/live`. `--edge-token` are prioritate față de `.env`.
 
 ## Dacă ceva nu merge
 
