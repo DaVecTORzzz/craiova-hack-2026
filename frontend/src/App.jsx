@@ -48,7 +48,7 @@ function MainAppLayout() {
       {/* 2. Corp Principal (Sidebar Stânga + Conținut Activ din cele 6 Ecrane) */}
       <div className="flex-1 flex overflow-hidden">
         <Sidebar />
-        <div className="flex-1 overflow-hidden relative">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden relative min-h-0">
           {renderActiveView()}
         </div>
       </div>

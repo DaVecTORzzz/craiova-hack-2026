@@ -12,7 +12,10 @@ import {
   Maximize2,
   Minimize2,
   Columns,
-  LayoutDashboard
+  LayoutDashboard,
+  Activity,
+  Radio,
+  Cpu
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useSecurity } from '../../context/SecurityContext';
@@ -37,7 +40,7 @@ export default function LiveView() {
     setCurrentView
   } = useSecurity();
 
-  // Moduri interactive de afișare (elimină rubricile redundante din meniul lateral)
+  // Moduri interactive de afișare: 'standard' | 'split' | 'fullscreen'
   const [displayMode, setDisplayMode] = useState('standard');
   const [streamFailed, setStreamFailed] = useState(false);
 
@@ -52,9 +55,9 @@ export default function LiveView() {
   if (displayMode === 'fullscreen') {
     return (
       <div className="fixed inset-0 z-50 bg-black flex flex-col select-none">
-        <div className="h-14 bg-black/90 backdrop-blur px-6 flex items-center justify-between border-b border-white/10 z-10">
+        <div className="h-14 bg-[#141414]/90 backdrop-blur px-6 flex items-center justify-between border-b border-white/10 z-10">
           <div className="flex items-center gap-3">
-            <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping" />
+            <span className="w-2.5 h-2.5 rounded-full bg-[#D73833] animate-ping" />
             <div>
               <h2 className="text-white font-bold text-sm tracking-wide">
                 {activeCamera?.name}
@@ -70,7 +73,7 @@ export default function LiveView() {
               onClick={() => toggleEngine(activeCamera?.id)}
               className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold flex items-center gap-1.5 transition-all ${
                 activeCamera?.engine_on
-                  ? 'bg-amber-500 text-slate-950 font-black'
+                  ? 'bg-[#FFEB33] text-[#1F1F1F] font-black'
                   : 'bg-slate-800 text-slate-300'
               }`}
             >
@@ -88,19 +91,19 @@ export default function LiveView() {
           </div>
         </div>
 
-        <div className="flex-1 relative flex items-center justify-center overflow-hidden bg-black">
+        <div className="flex-1 relative flex items-center justify-center overflow-hidden bg-black p-4">
           {isOffline ? (
-            <div className="text-center p-8 text-red-500 font-mono">
+            <div className="text-center p-8 text-[#D73833] font-mono">
               <WifiOff size={60} className="mx-auto mb-3 animate-bounce" />
               <h3 className="text-3xl font-black tracking-widest">SEMNAL PIERDUT</h3>
               <p className="text-sm text-slate-400 mt-1">CAMERA {activeCamera?.id} ESTE MOMENTAN OFFLINE</p>
             </div>
           ) : (
-            <div className={`w-full h-full bg-gradient-to-br ${activeCamera?.previewBg || 'from-slate-950 to-black'} relative flex items-center justify-center`}>
+            <div className="w-full max-w-6xl aspect-video bg-gradient-to-br from-slate-950 to-black relative flex items-center justify-center rounded-2xl overflow-hidden shadow-2xl border border-white/10">
               {showStream ? (
                 <img
-                  src={activeCamera.stream_url}
-                  alt={`Flux ${activeCamera.id}`}
+                  src={activeCamera?.stream_url}
+                  alt={`Flux ${activeCamera?.id}`}
                   className="w-full h-full object-cover"
                   onError={() => setStreamFailed(true)}
                 />
@@ -108,7 +111,7 @@ export default function LiveView() {
                 <div className="text-center opacity-25 select-none">
                   <Video size={100} className="mx-auto mb-3 text-slate-300" />
                   <p className="font-mono font-bold text-white text-xl">{activeCamera?.name?.toUpperCase()}</p>
-                  <p className="font-mono text-sm text-slate-300">LIVE FEED{activeCamera?.fps ? ` • ${activeCamera.fps} FPS` : ''}</p>
+                  <p className="font-mono text-sm text-slate-300">LIVE FEED{activeCamera?.fps ? ` • ${activeCamera?.fps} FPS` : ''}</p>
                 </div>
               )}
 
@@ -123,7 +126,7 @@ export default function LiveView() {
   }
 
   return (
-    <div className="flex-1 flex flex-col p-3 md:p-4 overflow-y-auto space-y-3 h-full select-none">
+    <div className="min-h-full w-full p-3 md:p-4 space-y-3 select-none">
       {/* 1. Cele 4 KPI din Live */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 shrink-0">
         <div
@@ -151,7 +154,7 @@ export default function LiveView() {
             <p style={{ color: themeStyles.textMuted }} className="text-[11px] font-semibold">
               Incidente Deschise
             </p>
-            <p className="text-xl md:text-2xl font-black font-mono text-amber-500">
+            <p className="text-xl md:text-2xl font-black font-mono text-[#FFEB33] dark:text-[#FFEB33] text-amber-500">
               {kpis.open_incidents_count}
             </p>
           </div>
@@ -168,12 +171,12 @@ export default function LiveView() {
             <p style={{ color: themeStyles.textMuted }} className="text-[11px] font-semibold">
               Detecție → Alertă
             </p>
-            <p className="text-xl md:text-2xl font-black font-mono text-blue-600 dark:text-blue-400">
+            <p className="text-xl md:text-2xl font-black font-mono text-blue-600 dark:text-[#7EDEED]">
               {kpis.detection_to_alert_latency_s === '—' ? '—' : `${kpis.detection_to_alert_latency_s}s`}
             </p>
           </div>
           <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
-            <Clock size={22} className="text-blue-600 dark:text-blue-400" />
+            <Clock size={22} className="text-blue-600 dark:text-[#7EDEED]" />
           </div>
         </div>
 
@@ -185,18 +188,18 @@ export default function LiveView() {
             <p style={{ color: themeStyles.textMuted }} className="text-[11px] font-semibold">
               Escaladate la Turn
             </p>
-            <p className="text-xl md:text-2xl font-black font-mono text-red-600 dark:text-red-500">
+            <p className="text-xl md:text-2xl font-black font-mono text-[#D73833]">
               {kpis.escalated_incidents_count}
             </p>
           </div>
           <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center">
-            <ShieldAlert size={22} className="text-red-600 dark:text-red-500 animate-pulse" />
+            <ShieldAlert size={22} className="text-[#D73833] animate-pulse" />
           </div>
         </div>
       </div>
 
-      {/* 2. Corp Principal: Video & Butoane Mod Vizualizare */}
-      <div className={`flex-1 flex ${displayMode === 'split' ? 'flex-col' : 'flex-col lg:flex-row'} gap-3 overflow-hidden`}>
+      {/* 2. Corp Principal: Mod Standard (video stânga + incidente dreapta) sau Mod Split (video mare sus + incidente multi-coloană jos) */}
+      <div className={`flex ${displayMode === 'split' ? 'flex-col' : 'flex-col xl:flex-row'} gap-3`}>
         {/* ZONA VIDEO & CONTROALE CAMERA */}
         <div className="flex-1 flex flex-col space-y-2 min-w-0">
           {/* Bară Selector Camere & Mod Afișare */}
@@ -214,7 +217,7 @@ export default function LiveView() {
                     onClick={() => setSelectedCameraId(c.id)}
                     style={{
                       backgroundColor: isSelected ? '#1976D2' : 'transparent',
-                      color: isSelected ? '#FFFFFF' : (isDarkMode ? '#F8FAFC' : '#212121')
+                      color: isSelected ? '#FFFFFF' : (isDarkMode ? '#F8FAFC' : '#1F1F1F')
                     }}
                     className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all shrink-0 flex items-center gap-1.5 ${
                       isSelected
@@ -224,7 +227,7 @@ export default function LiveView() {
                   >
                     <span
                       className={`w-2 h-2 rounded-full ${
-                        c.status === 'offline' ? 'bg-red-500' : 'bg-emerald-500'
+                        c.status === 'offline' ? 'bg-[#D73833]' : 'bg-emerald-500'
                       }`}
                     />
                     <span>{c.code || c.id}</span>
@@ -233,15 +236,15 @@ export default function LiveView() {
               })}
             </div>
 
-            {/* Butoane Mod Vizualizare (Înlocuiesc rubricile amestecate din meniu) */}
+            {/* Butoane Mod Vizualizare */}
             <div className="flex items-center gap-1.5">
               <div className="flex items-center bg-slate-500/10 rounded-lg p-0.5 border border-slate-500/20">
                 <button
                   onClick={() => setDisplayMode('standard')}
                   className={`px-2 py-1 rounded text-[11px] font-semibold flex items-center gap-1 transition-colors ${
-                    displayMode === 'standard' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                    displayMode === 'standard' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
                   }`}
-                  title="Mod Standard: Feed Video + Alerte laterale"
+                  title="Mod Standard: Feed Video 16:9 + Incidente laterale"
                 >
                   <LayoutDashboard size={12} />
                   <span className="hidden sm:inline">Standard</span>
@@ -249,9 +252,9 @@ export default function LiveView() {
                 <button
                   onClick={() => setDisplayMode('split')}
                   className={`px-2 py-1 rounded text-[11px] font-semibold flex items-center gap-1 transition-colors ${
-                    displayMode === 'split' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                    displayMode === 'split' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
                   }`}
-                  title="Mod Split: Feed Video sus, Probleme extinse dedesubt"
+                  title="Mod Split: Feed Video Extins 16:9 sus, Grilă incidente dedesubt"
                 >
                   <Columns size={12} />
                   <span className="hidden sm:inline">Split</span>
@@ -263,7 +266,7 @@ export default function LiveView() {
                 onClick={() => toggleEngine(activeCamera?.id)}
                 className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold flex items-center gap-1.5 shadow transition-all ${
                   activeCamera?.engine_on
-                    ? 'bg-amber-500 text-slate-950 animate-pulse'
+                    ? 'bg-[#FFEB33] text-[#1F1F1F] animate-pulse font-black'
                     : 'bg-slate-700 text-slate-200 hover:bg-slate-600'
                 }`}
                 title="Comută starea motorului aeronavei pentru acest stand"
@@ -275,7 +278,7 @@ export default function LiveView() {
               {/* Buton Full-Screen direct pe feed */}
               <button
                 onClick={() => setDisplayMode('fullscreen')}
-                className="p-1.5 rounded-lg bg-slate-500/10 hover:bg-slate-500/20 text-slate-700 dark:text-slate-300 border border-slate-500/20"
+                className="p-1.5 rounded-lg bg-slate-500/10 hover:bg-slate-500/20 text-slate-300 border border-slate-500/20"
                 title="Deschide în modul Full-Screen Imersiv"
               >
                 <Maximize2 size={14} />
@@ -283,20 +286,24 @@ export default function LiveView() {
             </div>
           </div>
 
-          {/* Player-ul Video Adnotat (Fereastră compactă / restrânsă ergonomic conform cerinței) */}
-          <div className="relative rounded-xl overflow-hidden bg-black border border-slate-700 shadow-md h-64 md:h-72 lg:h-[320px] max-h-[340px] shrink-0 flex items-center justify-center">
+          {/* Player-ul Video Adnotat (Raport fix 16:9 proporțional pentru CCTV, fără deformări de bounding box) */}
+          <div
+            className={`relative rounded-xl overflow-hidden bg-black border border-slate-700 shadow-md flex items-center justify-center w-full aspect-video ${
+              displayMode === 'split' ? 'max-w-5xl mx-auto min-h-[320px] max-h-[500px]' : 'min-h-[260px] max-h-[580px]'
+            }`}
+          >
             {isOffline ? (
-              <div className="text-center p-6 text-red-500 font-mono">
+              <div className="text-center p-6 text-[#D73833] font-mono">
                 <WifiOff size={44} className="mx-auto mb-2 animate-bounce" />
                 <h3 className="text-xl font-black tracking-widest">SEMNAL PIERDUT</h3>
                 <p className="text-xs text-slate-400 mt-1">CAMERA {activeCamera?.id?.toUpperCase()} ESTE MOMENTAN OFFLINE</p>
               </div>
             ) : (
-              <div className={`w-full h-full bg-gradient-to-br ${activeCamera?.previewBg || 'from-slate-900 to-black'} relative flex items-center justify-center`}>
+              <div className={`w-full h-full bg-gradient-to-br ${activeCamera?.previewBg || 'from-slate-900 to-black'} relative flex items-center justify-center overflow-hidden`}>
                 {showStream ? (
                   <img
-                    src={activeCamera.stream_url}
-                    alt={`Flux live ${activeCamera.id}`}
+                    src={activeCamera?.stream_url}
+                    alt={`Flux live ${activeCamera?.id}`}
                     className="w-full h-full object-cover"
                     onError={() => setStreamFailed(true)}
                   />
@@ -305,7 +312,7 @@ export default function LiveView() {
                     <Video size={56} className="mx-auto mb-1 text-slate-300" />
                     <p className="font-mono font-bold text-white text-sm">{activeCamera?.name?.toUpperCase()}</p>
                     <p className="font-mono text-[11px] text-slate-300">
-                      {streamFailed ? 'STREAM MJPEG INDISPONIBIL • FALLBACK' : `LIVE ANNOTATED STREAM${activeCamera?.fps ? ` • ${activeCamera.fps} FPS` : ''}`}
+                      {streamFailed ? 'STREAM MJPEG INDISPONIBIL • FALLBACK' : `LIVE ANNOTATED STREAM${activeCamera?.fps ? ` • ${activeCamera?.fps} FPS` : ''}`}
                     </p>
                   </div>
                 )}
@@ -317,10 +324,10 @@ export default function LiveView() {
 
                 {/* HUD Overlay cu semnal LIVE exclusiv lângă fluxul camerei */}
                 <div className="absolute top-2.5 left-2.5 flex items-center gap-2 bg-black/80 px-2.5 py-1 rounded-lg text-[10px] font-mono text-white border border-white/10 shadow">
-                  <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
+                  <span className="w-2 h-2 rounded-full bg-[#D73833] animate-ping" />
                   <span className="font-bold text-red-400">LIVE REC</span>
                   <span className="text-slate-400">|</span>
-                  <span>{activeCamera?.resolution || 'REZOLUȚIE NECUNOSCUTĂ'}</span>
+                  <span>{activeCamera?.resolution || '4K (3840x2160)'}</span>
                 </div>
 
                 {/* Banner jos cu detalii cameră afișate sub denumire conform cerinței */}
@@ -330,24 +337,79 @@ export default function LiveView() {
                     <p className="text-[10px] text-slate-300 font-normal mt-0.5 leading-none">{activeCamera?.subtitle}</p>
                   </div>
                   <span className="text-[10px] font-mono text-slate-400">
-                    RTSP: {activeCamera?.rtsp_url ? activeCamera.rtsp_url.split('/').pop() : activeCamera?.id}
+                    RTSP: {activeCamera?.rtsp_url ? activeCamera?.rtsp_url.split('/').pop() : activeCamera?.id}
                   </span>
                 </div>
               </div>
             )}
           </div>
+
+          {/* Bară Telemetrie Senzori Sol & Hardware Cameră */}
+          <div
+            style={{ backgroundColor: themeStyles.panelBg, borderColor: themeStyles.panelBorder }}
+            className="p-2.5 rounded-xl border shadow-sm grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs shrink-0"
+          >
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-500">
+                <Radio size={14} />
+              </div>
+              <div className="truncate">
+                <span className="text-[9px] text-slate-400 block font-semibold leading-tight">Zonă Activă</span>
+                <span className="font-semibold text-slate-800 dark:text-slate-200 truncate block text-[11px]">
+                  {activeCamera?.subtitle || activeCamera?.name}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-500">
+                <Activity size={14} />
+              </div>
+              <div>
+                <span className="text-[9px] text-slate-400 block font-semibold leading-tight">Stare Pipeline</span>
+                <span className="font-mono font-bold text-emerald-500 text-[11px] flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  30 FPS • Live
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-500">
+                <Cpu size={14} />
+              </div>
+              <div className="truncate">
+                <span className="text-[9px] text-slate-400 block font-semibold leading-tight">Model Detecție</span>
+                <span className="font-mono font-bold text-slate-700 dark:text-slate-300 truncate block text-[11px]">
+                  YOLO26 + ByteTrack
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-[#7EDEED]/10 flex items-center justify-center text-[#7EDEED]">
+                <Clock size={14} />
+              </div>
+              <div>
+                <span className="text-[9px] text-slate-400 block font-semibold leading-tight">Latență Rețea</span>
+                <span className="font-mono font-bold text-blue-500 dark:text-[#7EDEED] text-[11px]">
+                  1.8s (Edge sync)
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* FEED EVENIMENTE (DREAPTA în Standard sau JOS în Split) */}
+        {/* FEED EVENIMENTE (DREAPTA în Standard sau GRILĂ MULTI-COLOANĂ dedesubt în Split) */}
         <div
           style={{ backgroundColor: themeStyles.panelBg, borderColor: themeStyles.panelBorder }}
-          className={`rounded-xl border p-3 flex flex-col shadow-sm shrink-0 overflow-hidden ${
-            displayMode === 'split' ? 'w-full max-h-72' : 'w-full lg:w-96'
+          className={`rounded-xl border p-3 flex flex-col shadow-sm shrink-0 ${
+            displayMode === 'split' ? 'w-full' : 'w-full xl:w-96 min-h-[460px]'
           }`}
         >
           <div className="flex items-center justify-between pb-2 border-b border-slate-500/15 shrink-0">
             <h2 className="font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 text-slate-800 dark:text-slate-200">
-              <ShieldAlert size={15} className="text-red-500" />
+              <ShieldAlert size={15} className="text-[#D73833]" />
               Incidente Detectate
             </h2>
             <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-blue-600 text-white">
@@ -366,8 +428,8 @@ export default function LiveView() {
                 key={f.key}
                 onClick={() => setFilterMode(f.key)}
                 style={{
-                  backgroundColor: filterMode === f.key ? '#1976D2' : (isDarkMode ? '#1E2433' : '#F1F5F9'),
-                  color: filterMode === f.key ? '#FFFFFF' : (isDarkMode ? '#F8FAFC' : '#212121')
+                  backgroundColor: filterMode === f.key ? '#1976D2' : (isDarkMode ? '#2D2D2D' : '#F1F5F9'),
+                  color: filterMode === f.key ? '#FFFFFF' : (isDarkMode ? '#F8FAFC' : '#1F1F1F')
                 }}
                 className="flex-1 py-1 text-[11px] font-bold rounded-lg transition-colors text-center"
               >
@@ -376,12 +438,18 @@ export default function LiveView() {
             ))}
           </div>
 
-          {/* Listă Carduri Evenimente */}
-          <div className="flex-1 overflow-y-auto space-y-2 pr-1 scrollbar-thin">
+          {/* Listă Carduri Evenimente (Multi-coloană în Split, vertical scroll în Standard) */}
+          <div
+            className={`overflow-y-auto pr-1 scrollbar-thin ${
+              displayMode === 'split'
+                ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5 max-h-96'
+                : 'space-y-2 flex-1 max-h-[580px]'
+            }`}
+          >
             {filteredEvents.length === 0 ? (
               <div
-                style={{ backgroundColor: isDarkMode ? '#1E2433' : '#F8FAFC' }}
-                className="p-5 rounded-xl text-center space-y-1 mt-4 text-xs"
+                style={{ backgroundColor: isDarkMode ? '#2D2D2D' : '#F8FAFC' }}
+                className={`p-5 rounded-xl text-center space-y-1 mt-4 text-xs ${displayMode === 'split' ? 'col-span-full' : ''}`}
               >
                 <p className="font-bold text-slate-700 dark:text-slate-300">Niciun incident în această categorie.</p>
                 <p className="text-[10px] text-slate-400">Zona este conformă cu normele de siguranță.</p>
@@ -399,24 +467,24 @@ export default function LiveView() {
                       setSelectedEventId(ev.event_id);
                       setCurrentView('incident_detail');
                     }}
-                    style={{ backgroundColor: isDarkMode ? '#1E2433' : '#FFFFFF' }}
+                    style={{ backgroundColor: isDarkMode ? '#2A2A2A' : '#FFFFFF' }}
                     className={`p-2.5 rounded-xl border transition-all hover:scale-[1.01] cursor-pointer space-y-1.5 shadow-sm ${
                       isEscalated
-                        ? 'border-red-500 ring-2 ring-red-500/40 animate-pulse'
+                        ? 'border-[#D73833] ring-2 ring-[#D73833]/40 animate-pulse'
                         : isCrit
-                        ? 'border-red-400/50 hover:border-red-500'
-                        : 'border-amber-400/50 hover:border-amber-500'
+                        ? 'border-[#D73833]/50 hover:border-[#D73833]'
+                        : 'border-[#FFEB33]/50 hover:border-[#FFEB33]'
                     }`}
                   >
                     {/* Header Card */}
                     <div className="flex items-center justify-between gap-1">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        {/* Severitate: CRITICAL (Roșu) sau WARNING (Galben) */}
+                        {/* Severitate: CRITICAL (#D73833) sau WARNING (#FFEB33) */}
                         <span
                           className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded border ${
                             isCrit
-                              ? 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-800'
-                              : 'bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800'
+                              ? 'bg-red-50 text-[#D73833] border-red-200 dark:bg-[#D73833]/20 dark:text-[#FF8A80] dark:border-[#D73833]/40'
+                              : 'bg-amber-50 text-amber-800 border-amber-200 dark:bg-[#FFEB33]/15 dark:text-[#FFEB33] dark:border-[#FFEB33]/40'
                           }`}
                         >
                           {ev.severity}
@@ -428,7 +496,7 @@ export default function LiveView() {
                             isAcked
                               ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800'
                               : isEscalated
-                              ? 'bg-red-100 text-red-800 border-red-300 dark:bg-red-900/50 dark:text-red-300 font-black animate-bounce'
+                              ? 'bg-red-100 text-[#D73833] border-red-300 dark:bg-[#D73833]/30 dark:text-[#FF8A80] font-black animate-bounce'
                               : 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300'
                           }`}
                         >
@@ -461,7 +529,7 @@ export default function LiveView() {
 
                     {/* Buton Acțiune Acknowledge (Verde pentru confirmare sigură) */}
                     <div className="pt-1 flex items-center justify-between border-t border-slate-500/10">
-                      <span className="text-[10px] text-blue-600 dark:text-blue-400 font-semibold hover:underline flex items-center gap-1">
+                      <span className="text-[10px] text-blue-600 dark:text-[#7EDEED] font-semibold hover:underline flex items-center gap-1">
                         <Eye size={12} /> Detalii Incident
                       </span>
 

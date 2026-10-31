@@ -21,7 +21,10 @@ export default function SettingsView() {
       <div>
         <h2 className="font-black text-lg uppercase tracking-tight flex items-center gap-2">
           <Settings size={20} className="text-indigo-400" />
-          Configurație Edge & Politici de Securitate (Read-Only)
+          Configurație Edge & Politici de Securitate
+          <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 font-mono">
+            DEMO / READ-ONLY
+          </span>
         </h2>
         <p style={{ color: themeStyles.textMuted }} className="text-xs font-mono">
           Securitate Date Aeroport • Arhitectură Edge-Native & Jurnal de Audit ICAO

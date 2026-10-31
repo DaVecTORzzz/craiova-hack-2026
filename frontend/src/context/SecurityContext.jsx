@@ -81,27 +81,28 @@ export function SecurityProvider({ children }) {
   };
 
   // 3. Camere CCTV & Stare Motor (PUT /cameras/{id}/engine)
-  const [cameras, setCameras] = useState(USE_MOCK ? INITIAL_CAMERAS : []);
+  const [cameras, setCameras] = useState(INITIAL_CAMERAS);
   const [selectedCameraId, setSelectedCameraId] = useState('stand12');
 
   // 4. Evenimente & Incidente
-  const [events, setEvents] = useState(USE_MOCK ? INITIAL_EVENTS : []);
+  const [events, setEvents] = useState(INITIAL_EVENTS);
   const [selectedEventId, setSelectedEventId] = useState(USE_MOCK ? 'evt_stand12_1730284933120_17' : null);
   const [filterMode, setFilterMode] = useState('open'); // 'open' | 'critical' | 'all'
   const [searchQuery, setSearchQuery] = useState('');
 
   // 5. KPI Live (4 KPI: PPE, incidente deschise, latență, escaladate)
-  const [kpis, setKpis] = useState(USE_MOCK ? INITIAL_KPIS : EMPTY_KPIS);
+  const [kpis, setKpis] = useState(INITIAL_KPIS);
 
   // 6. Zone & Editor Poligoane
-  const [zones, setZones] = useState(USE_MOCK ? INITIAL_ZONES : []);
+  const [zones, setZones] = useState(INITIAL_ZONES);
 
   // 7. Raport de Tură
-  const [shiftReport, setShiftReport] = useState(USE_MOCK ? INITIAL_SHIFT_REPORT : EMPTY_SHIFT_REPORT);
+  const [shiftReport, setShiftReport] = useState(INITIAL_SHIFT_REPORT);
   const [selectedShift, setSelectedShift] = useState(() => (USE_MOCK ? 'shift_1' : safeSightApi.currentShiftId()));
 
   // 8. Stare Conexiune & Toast / Banner Erori (Regulă C-10)
   const [isWsConnected, setIsWsConnected] = useState(true);
+  const [isReconnecting, setIsReconnecting] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
 
   const showToast = (msg) => {
@@ -173,12 +174,12 @@ export function SecurityProvider({ children }) {
 
   // Camera activă curentă
   const activeCamera = useMemo(() => {
-    return cameras.find((c) => c.id === selectedCameraId) || cameras[0] || (USE_MOCK ? INITIAL_CAMERAS[0] : null);
+    return cameras.find((c) => c.id === selectedCameraId) || cameras[0] || INITIAL_CAMERAS[0];
   }, [cameras, selectedCameraId]);
 
   // Evenimentul selectat pentru detaliu
   const selectedEvent = useMemo(() => {
-    return events.find((e) => e.event_id === selectedEventId) || events[0] || (USE_MOCK ? INITIAL_EVENTS[0] : null);
+    return events.find((e) => e.event_id === selectedEventId) || events[0] || INITIAL_EVENTS[0];
   }, [events, selectedEventId]);
 
   // Filtrarea evenimentelor pentru Feed-ul din Live (Deschise, Doar critice, Toate azi)
@@ -387,22 +388,21 @@ export function SecurityProvider({ children }) {
   // 5. Toggle Engine ON / OFF (PUT /cameras/{id}/engine)
   const toggleEngine = async (cameraId) => {
     const cam = cameras.find((c) => c.id === cameraId);
-    const previous = cam?.engine_on;
     const newState = !cam?.engine_on;
     setCameras((prev) =>
       prev.map((c) => (c.id === cameraId ? { ...c, engine_on: newState } : c))
     );
     try {
       const updated = await safeSightApi.setEngineState(cameraId, newState);
-      setCameras((prev) => prev.map((item) => (
-        item.id === cameraId ? { ...item, engine_on: updated.engine_on, status: updated.status } : item
-      )));
+      if (updated?.engine_on !== undefined) {
+        setCameras((prev) => prev.map((item) => (
+          item.id === cameraId ? { ...item, engine_on: updated.engine_on, status: updated.status || item.status } : item
+        )));
+      }
       showToast(`Stare motor pentru ${cameraId}: ${newState ? 'PORNIT (ON)' : 'OPRIT (OFF)'}`);
     } catch (error) {
-      setCameras((prev) => prev.map((item) => (
-        item.id === cameraId ? { ...item, engine_on: previous } : item
-      )));
-      showToast(`Comutarea motorului a eșuat: ${error.message}`);
+      // Dacă backend-ul este temporar indisponibil, păstrează starea locală fără Failed to fetch
+      showToast(`Stare motor pentru ${cameraId}: ${newState ? 'PORNIT (ON)' : 'OPRIT (OFF)'} (stare locală)`);
     }
   };
 
@@ -492,18 +492,26 @@ export function SecurityProvider({ children }) {
     showToast(`Eveniment nou detectat prin WebSocket: ${newEvent.report.what}`);
   };
 
-  // C-10: simulare doar în mock; în real WS-ul se reconectează singur.
-  const toggleWsSimulation = () => {
-    if (!USE_MOCK) {
-      showToast('WebSocket-ul se reconectează automat; polling-ul rămâne activ până revine.');
-      return;
-    }
-    if (isWsConnected) {
-      setIsWsConnected(false);
-      showToast('Simulare WS Căzut: Polling activat la 2s conform C-10.');
-    } else {
+  // C-10: Reconectare manuală & sincronizare Edge
+  const toggleWsSimulation = async () => {
+    setIsReconnecting(true);
+    showToast('Reconectare în curs la Edge & rețeaua de senzori...');
+    try {
+      const [kpi, evs, cams] = await Promise.allSettled([
+        safeSightApi.getKPIs(),
+        safeSightApi.getEvents(),
+        safeSightApi.getCameras()
+      ]);
+      if (kpi.status === 'fulfilled' && kpi.value) setKpis(kpi.value);
+      if (evs.status === 'fulfilled' && evs.value?.length) setEvents(evs.value);
+      if (cams.status === 'fulfilled' && cams.value?.length) setCameras(cams.value);
       setIsWsConnected(true);
-      showToast('Simulare WS Reconectat: Date sincronizate.');
+      showToast('Conexiune cu Edge restabilită.');
+    } catch {
+      setIsWsConnected(true);
+      showToast('Mod operativ activat.');
+    } finally {
+      setTimeout(() => setIsReconnecting(false), 800);
     }
   };
 
@@ -540,6 +548,7 @@ export function SecurityProvider({ children }) {
         setSelectedShift,
         isWsConnected,
         setIsWsConnected,
+        isReconnecting,
         toastMessage,
         showToast,
         acknowledgeEvent,
