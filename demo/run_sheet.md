@@ -53,7 +53,7 @@ python scripts/dev.py fallback
 | 50–58 s | Click **Acknowledge (Confirmă)** | „Operatorul confirmă; escaladarea se oprește. Human-in-the-loop.” |
 | 58–66 s | Arată mesajul Slack | „Slack primește text + link, fără imagini și fără butoane.” |
 | 66–78 s | Click **Rapoarte Tură** | „KPI pe tură, distribuție pe tipuri, rezumat.” |
-| 78–85 s | Click **Alerte Mobile PWA** | „Aceeași alertă ajunge pe telefon; butoane mari pentru operator.” |
+| 78–85 s | Click **Edge & Audit** | „Totul rulează la margine: detecție, tracking, blur și decizia. Backend-ul primește doar evenimentul, nu video.” |
 | 85–90 s | Închide cu privacy | „Video-ul brut nu iese din aeroport; fețele sunt blurate la edge înainte de orice salvare.” |
 
 ### Opțional: fluxul `NO_PPE` (simulat)

@@ -115,7 +115,7 @@ export default function VideoPlayer({ camera, onMaximize }) {
             <div className="absolute bottom-2 left-2.5 right-2.5 flex items-center justify-between text-[11px] font-mono bg-black/70 backdrop-blur px-2.5 py-1 rounded text-white border border-white/10">
               <span className="truncate">{currentCam.name}</span>
               <span className="text-slate-300 text-[10px]">
-                {currentCam.fps ? `${currentCam.fps} FPS` : '30 FPS'}
+                {currentCam.fps ? `${currentCam.fps} FPS` : '— FPS'}
               </span>
             </div>
           </div>

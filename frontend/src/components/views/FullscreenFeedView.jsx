@@ -87,7 +87,7 @@ export default function FullscreenFeedView() {
                   {activeCamera.name.toUpperCase()}
                 </p>
                 <p className="text-xs text-slate-300 font-mono">
-                  AI REAL-TIME VISION INFERENCE • {activeCamera.fps} FPS • DETECTING ANOMALIES
+                  AI REAL-TIME VISION INFERENCE{activeCamera.fps ? ` • ${activeCamera.fps} FPS` : ''} • DETECTING ANOMALIES
                 </p>
               </div>
 
