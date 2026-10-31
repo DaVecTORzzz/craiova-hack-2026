@@ -192,7 +192,7 @@ def main(argv: list[str] | None = None) -> int:
     else:
         capture = cv2.VideoCapture(args.source)
         if not capture.isOpened():
-            print(f"could not open source: {args.source}", file=sys.stderr)
+            print(f"could not open source: {_metrics_source(args.source)}", file=sys.stderr)
             return 2
         fps = _resolve_fps(args.fps, capture.get(cv2.CAP_PROP_FPS))
         if args.annotated_video:
