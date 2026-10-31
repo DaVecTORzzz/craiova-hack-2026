@@ -11,6 +11,7 @@ import numpy as np
 from .detector import Detector
 from .events import Confidence, EdgeEvent, EventContext, TemporalConfidence
 from .live import LiveFrameWriter
+from .overlay import draw_overlay, zone_active
 from .privacy import Blurrer
 from .sink import Sink
 from .zones import RuleEngine, Zone, point_in_polygon
@@ -55,9 +56,23 @@ class Pipeline:
         self.rules.prune(now_s)
         detections = self.detector.detect(frame, self.frame_index)
         boxes = [item.bbox for item in detections]
+        inside = {
+            item.track_id
+            for item in detections
+            for zone in self.zones
+            if zone.rule_type in EVENT_TYPE_BY_RULE
+            and zone_active(zone, self.engine_on)
+            and point_in_polygon(item.foot_point, zone.polygon)
+        }
         live_frame: np.ndarray | None = None
+
+        def annotated() -> np.ndarray:
+            # Blur first: the overlay must never hide or replace the privacy step.
+            blurred = self.blurrer.blur(frame, boxes)
+            return draw_overlay(blurred, self.zones, detections, inside, self.engine_on)
+
         if self.live_writer is not None and self.live_writer.due():
-            live_frame = self.blurrer.blur(frame, boxes)
+            live_frame = annotated()
             self.live_writer.write(live_frame)
 
         emitted: list[EdgeEvent] = []
@@ -82,8 +97,9 @@ class Pipeline:
                 detected_at = datetime.fromtimestamp(event_epoch, tz=UTC)
                 event_id = f"evt_{self.camera_id}_{int(event_epoch * 1000)}_{detection.track_id}"
 
-                blurred = live_frame if live_frame is not None else self.blurrer.blur(frame, boxes)
-                snapshot_url = self.sink.store_snapshot(event_id, blurred)
+                if live_frame is None:
+                    live_frame = annotated()
+                snapshot_url = self.sink.store_snapshot(event_id, live_frame)
 
                 event = EdgeEvent(
                     event_id=event_id,

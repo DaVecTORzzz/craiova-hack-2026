@@ -80,3 +80,57 @@ def test_pipeline_writes_live_frame_and_reuses_blur(tmp_path):
 
     assert (tmp_path / "stand12.jpg").is_file()
     assert blurrer.calls >= 1
+
+
+def test_live_writer_downscales_and_leaves_no_temp_file(tmp_path):
+    import cv2
+
+    writer = LiveFrameWriter(tmp_path, "stand12", interval_s=0, max_width=640)
+    assert writer.write(np.zeros((2160, 3840, 3), dtype=np.uint8))
+    image = cv2.imread(str(tmp_path / "stand12.jpg"))
+    assert image.shape[:2] == (360, 640)
+    assert [p.name for p in tmp_path.iterdir()] == ["stand12.jpg"]
+
+
+def test_overlay_marks_person_in_active_zone_red():
+    from safesight_ml.overlay import RED, GREEN, draw_overlay
+
+    frame = np.zeros((360, 640, 3), dtype=np.uint8)
+    inside = Detection(track_id=1, bbox=(0.20, 0.40, 0.30, 0.80), confidence=0.9)
+    outside = Detection(track_id=2, bbox=(0.80, 0.05, 0.90, 0.20), confidence=0.8)
+
+    out = draw_overlay(frame, [ZONE], [inside, outside], {1}, engine_on=True)
+
+    assert not np.array_equal(out, frame)
+    assert np.array_equal(frame, np.zeros_like(frame))  # input untouched
+    assert tuple(out[int(0.60 * 360), int(0.20 * 640)]) == RED  # left edge of box 1
+    assert tuple(out[int(0.15 * 360), int(0.90 * 640) - 1]) == GREEN  # right edge of box 2
+
+
+def test_pipeline_snapshot_is_annotated_after_blur():
+    detections = [[Detection(track_id=1, bbox=(0.20, 0.40, 0.30, 0.80), confidence=0.91)]]
+
+    class FrameSink(RecordingSink):
+        frames: list[np.ndarray] = []
+
+        def store_snapshot(self, event_id, frame):
+            self.frames.append(frame)
+            return super().store_snapshot(event_id, frame)
+
+    sink = FrameSink()
+    blurrer = RecordingBlurrer()
+    pipeline = Pipeline(
+        camera_id="stand12",
+        zones=[ZONE],
+        detector=FakeDetector(detections * 20),
+        blurrer=blurrer,
+        sink=sink,
+        engine_on=True,
+    )
+    blank = np.zeros((360, 640, 3), dtype=np.uint8)
+    for step in range(20):
+        pipeline.process(blank, now_s=step / 10)
+
+    assert len(sink.frames) == 1
+    assert blurrer.calls == 1
+    assert sink.frames[0].any()

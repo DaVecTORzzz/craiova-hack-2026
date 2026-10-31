@@ -35,7 +35,7 @@ uv run python -m safesight_ml.run \
   --live-dir ../backend/snapshots/live
 ```
 
-`fixtures/zones.stand12.json` are poligonul calibrat pe clip. `--live-dir` scrie `live/stand12.jpg`, pe care backend-ul îl servește la `/stream/stand12.mjpg`. Cu Docker, calea este `../backend/data/snapshots/live`.
+`fixtures/zones.stand12.json` are poligonul calibrat pe clip. `--live-dir` scrie `live/stand12.jpg`, pe care backend-ul îl servește la `/stream/stand12.mjpg`. Cadrul live și snapshot-urile sunt blurate întâi, apoi adnotate: zona (roșu dacă e activă, gri dacă nu), caseta fiecărei persoane cu track și scor (roșu în zonă, verde în afara ei) și o bară de stare. Cadrul live e scris atomic, la cel mult 1280 px lățime, de 2 ori pe secundă; blur-ul costă ~160 ms/cadru pe CPU, deci un ritm mai mare scade FPS-ul detecției. Cu Docker, calea este `../backend/data/snapshots/live`.
 
 Integrare cu backend-ul:
 
@@ -139,7 +139,8 @@ safesight_ml/
   privacy.py   # FaceBlurrer (YuNet) înainte de salvare/upload
   privacy_audit.py  # scanare snapshot-uri pentru fețe neblurate
   sink.py      # JsonlSink (dry-run) și HttpSink (/edge/snapshots, /edge/events)
-  live.py      # ultimul cadru blurat pentru /stream MJPEG
+  live.py      # ultimul cadru blurat + adnotat pentru /stream MJPEG
+  overlay.py   # desenează zone, casete și stare peste cadrul deja blurat
   pipeline.py  # cadru -> detecții -> reguli -> eveniment
   remote.py    # GET /edge/zones (zone + engine_on)
   run.py       # CLI
