@@ -42,7 +42,7 @@ Overlay-urile de verificare sunt în `review/` și nu intră în git. Fluxul com
 
 ## Validare
 
-- **31 octombrie 2026**, Andrei a deschis cele 4 overlay-uri din `review/` și a confirmat boxele și clasele.
+- **31 octombrie 2026**, Andrei a deschis cele 4 overlay-uri din `review/` și a confirmat boxele și clasele. Coordonatele nu au fost modificate; validarea a confirmat fișierele existente.
 - `no-ppe_cam01`: `person` + `hi_vis_vest`; absența `hard_hat` este corectă.
 - `no-ppe_cam02`: `person` + `hard_hat`; absența `hi_vis_vest` este corectă.
 - `fod_cam01_asfalt-curat`: fișier gol, exemplu negativ corect.

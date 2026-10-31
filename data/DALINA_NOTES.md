@@ -11,7 +11,7 @@ Am verificat eu `SafeSight/data` ca să nu pierdem timp. Nu sunt confirmate de t
 ## De confirmat / completat
 
 1. `2026-10-30_restricted-zone_cam02_lucratori-pushback-motor..mp4` are două puncte; de redenumit în `...pushback-motor.mp4`.
-2. `annotations/` e gol. Am lăsat `classes.txt` și formatul YOLO în `data/annotations/README.md`; nu am adnotat eu cadrele.
+2. `annotations/` era gol la data notiței; acum are 4 etichete validate vizual de Andrei (vezi `data/annotations/README.md`).
 3. Pentru demo lipsesc clipuri video pentru PPE și FOD. Cadrele din `reference_frames/` sunt bune pentru referință/adnotare, dar nu înlocuiesc un clip pentru A.
 4. Completează sursa, licența și cine a filmat pentru clipuri și cadre.
 5. Confirmă că `restricted-zone_cam01_persoana-langa-motor.mp4` este inputul pentru primul slice A.
