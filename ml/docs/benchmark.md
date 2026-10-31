@@ -2,16 +2,17 @@
 
 Testarea pe toate cele 6 clipuri, inclusiv B-roll și full stack pe `cam02`, este în [`clip-tests.md`](clip-tests.md). Soak-ul RTSP de 5 minute este în [`soak.md`](soak.md), iar eșantionul de falsuri în [`false-alarms.md`](false-alarms.md). Fișierul de față rămâne benchmark-ul detaliat pentru cazul de demo `cam01`.
 
-Măsurat pe 31 octombrie 2026, pe laptopul de demo.
+Măsurat pe 31 octombrie 2026, pe laptopul de demo: **AMD Ryzen 7 7840HS with Radeon 780M, 8 core-uri / 16 threads, fără GPU discret**.
 
 | Element | Valoare |
 |---|---|
-| Hardware | AMD Ryzen 7 7840HS, 16 threads, fără GPU discret |
+| Hardware | AMD Ryzen 7 7840HS with Radeon 780M, 8C/16T, fără GPU discret |
 | Model | `yolo26n.pt` |
 | Sursă | `2026-10-30_restricted-zone_cam01_persoana-langa-motor.mp4`, 1920×1080 |
 | Cadre procesate | 120 |
-| Timp total | 6,94 s (end-to-end, inclusiv pornirea Python și încărcarea modelului) |
-| FPS end-to-end | ~17,3 |
+| Timp total | **6,86 s median** (3 rulări; include pornirea Python și încărcarea modelului) |
+| FPS end-to-end | **~17,5** (median, cu startup) |
+| Procesare pură | **5,64 s median, ~21,3 FPS** (fără startup) |
 | Evenimente | 2 (track 3 și 4), ambele `RESTRICTED_ZONE` |
 | Confidence detector | 0,40–0,55 |
 | Ingestie la backend | 135–162 ms (`received_at − detected_at`) |
@@ -30,14 +31,39 @@ uv sync --extra yolo
   --zones fixtures/zones.stand12.json \
   --engine-on \
   --dry-run \
-  --max-frames 120
+  --max-frames 120 \
+  --metrics-json out/bench.json
 ```
 
 Pentru integrare, același run cu `--post --api-url http://127.0.0.1:8001 --edge-token dev-edge-token`.
 
-## Măsurători repetate
+## Protocol de 3 rulări
 
-Re-măsurat pe 31 octombrie 2026, dry-run, fără live/post, pe același clip de 120 cadre: **5,39 s end-to-end, ~22,3 FPS**. Prima inferență încălzește modelul, iar valoarea variază cu încărcarea mașinii; pentru pitch folosește cifra măsurată pe hardware-ul de demo, nu o medie între rulări.
+Trei rulări consecutive, dry-run, 120 cadre, același clip și aceleași zone. `wall` include pornirea Python și încărcarea modelului; `processing` este timpul raportat de `metrics.json`.
+
+| Run | Wall | FPS wall | Processing | FPS processing | Evenimente |
+|---|---:|---:|---:|---:|---:|
+| 1 | 6,80 s | 17,6 | 5,63 s | 21,3 | 2 |
+| 2 | 7,08 s | 17,0 | 5,88 s | 20,4 | 2 |
+| 3 | 6,86 s | 17,5 | 5,64 s | 21,3 | 2 |
+| **Median** | **6,86 s** | **17,5** | **5,64 s** | **21,3** | **2** |
+
+Pentru pitch folosește medianul, nu o singură rulare. Dacă demo-ul rulează pe alt laptop, remăsoară pe acela.
+
+Pentru reproducere, rulează aceeași comandă de trei ori:
+
+```bash
+for i in 1 2 3; do
+  /usr/bin/time -f "run=$i wall=%e s" \
+    uv run python -m safesight_ml.run \
+    --source ../data/videos/2026-10-30_restricted-zone_cam01_persoana-langa-motor.mp4 \
+    --zones fixtures/zones.stand12.json \
+    --camera-id stand12 --engine-on --dry-run --max-frames 120 \
+    --metrics-json "out/bench-$i.json"
+done
+```
+
+Nu am făcut warm-up separat; prima rulare poate fi mai lentă din cauza cache-ului.
 
 ## RTSP local (mediamtx)
 

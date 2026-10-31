@@ -23,7 +23,7 @@ Soak-ul RTSP de 5 minute este în [`soak.md`](soak.md); inventarul celor 5 eveni
 | `restricted-zone_cam01_persoana-langa-motor` | 1920×1080 | 263 | 2 | 29,3 | 0,40–0,55 | cazul validat pentru demo |
 | `restricted-zone_cam02_lucratori-pushback-motor` | 3840×2160 | 200 | 3 | 20,7 | 0,44–0,75 | al doilea caz real; poligonul nu e calibrat pe cam02 |
 
-Pentru comparație, eșantionul de 120 cadre din `cam01` din [`benchmark.md`](benchmark.md) a ieșit la ~17,3 FPS (6,94 s, inclusiv pornirea Python și încărcarea modelului), iar la re-măsurare ~22,3 FPS. Diferența față de rularea integrală vine din pornire, din prima inferență și din încălzirea modelului.
+Pentru comparație, eșantionul de 120 cadre din `cam01` din [`benchmark.md`](benchmark.md) are median **~17,5 FPS wall** (6,86 s, cu pornirea Python și modelul) și **~21,3 FPS processing**. Diferența față de rularea integrală vine din pornire, din prima inferență și din încălzirea modelului.
 
 ## Ce arată rezultatele
 
