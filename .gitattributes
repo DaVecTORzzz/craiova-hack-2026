@@ -1,0 +1,3 @@
+run.sh text eol=lf
+run.cmd text eol=crlf
+scripts/dev.py text eol=lf
