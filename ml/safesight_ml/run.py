@@ -30,7 +30,7 @@ from .pipeline import Pipeline
 from .privacy import FaceBlurrer, NoopBlurrer
 from .remote import fetch_edge_config
 from .sink import HttpSink, JsonlSink
-from .zones import Zone
+from .zones import Zone, ZoneMembership
 
 DEFAULT_FACE_MODEL = "models/face_detection_yunet_2023mar.onnx"
 
@@ -99,6 +99,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="video or image the zones were drawn on (first frame); zones then follow camera pan/zoom",
     )
     parser.add_argument("--align-every", type=int, default=5, help="re-estimate camera motion every N frames")
+    parser.add_argument(
+        "--zone-margin",
+        type=float,
+        default=0.10,
+        help="feet must be this many person-heights inside a zone to enter, and outside to leave; 0 = bare point test",
+    )
     parser.add_argument("--metrics-json", type=Path, help="write a JSON summary for this run")
     return parser
 
@@ -129,6 +135,8 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("--duration-s must be >= 0")
     if args.loop_cooldown_s < 0:
         parser.error("--loop-cooldown-s must be >= 0")
+    if args.zone_margin < 0:
+        parser.error("--zone-margin must be >= 0")
     if args.align_every < 1:
         parser.error("--align-every must be >= 1")
     engine_on = args.fake if args.engine_on is None else args.engine_on
@@ -184,6 +192,7 @@ def main(argv: list[str] | None = None) -> int:
         clock=time.time,
         live_writer=live_writer,
         aligner=aligner,
+        membership=ZoneMembership(margin=args.zone_margin),
     )
 
     total = 0
@@ -299,6 +308,7 @@ def main(argv: list[str] | None = None) -> int:
         "elapsed_s": round(elapsed_s, 3),
         "fps": round(total / elapsed_s, 2),
         "dropped_frames": dropped_frames,
+        "zone_transitions": pipeline.membership.transitions,
         "align_lost_updates": aligner.lost_updates if aligner is not None else None,
         "stages": pipeline.timer.summary(),
         "engine_on": pipeline.engine_on,
