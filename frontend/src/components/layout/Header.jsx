@@ -11,11 +11,19 @@ export default function Header() {
     setSearchQuery,
     isWsConnected,
     operatorName,
+    setOperatorName,
     simulateIncomingWsEvent,
     toggleWsSimulation
   } = useSecurity();
 
   const [showDemoMenu, setShowDemoMenu] = useState(false);
+  const [operatorDraft, setOperatorDraft] = useState(operatorName);
+
+  // Numele operatorului pleacă la ack / fals pozitiv / reopen; gol revine la numele curent.
+  const commitOperator = () => {
+    if (operatorDraft.trim()) setOperatorName(operatorDraft);
+    else setOperatorDraft(operatorName);
+  };
 
   return (
     <header
@@ -188,7 +196,18 @@ export default function Header() {
             <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-slate-900" />
           </div>
           <div className="hidden xl:block text-left text-xs leading-tight">
-            <p className="font-bold">Operator: {operatorName}</p>
+            <label className="font-bold flex items-center gap-1">
+              Operator:
+              <input
+                value={operatorDraft}
+                onChange={(e) => setOperatorDraft(e.target.value)}
+                onBlur={commitOperator}
+                onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+                maxLength={40}
+                aria-label="Numele operatorului de tură"
+                className="w-28 bg-transparent border-b border-white/20 focus:border-indigo-400 outline-none font-bold"
+              />
+            </label>
             <p style={{ color: themeStyles.textMuted }} className="text-[10px]">
               Tarmac Dispecerat
             </p>

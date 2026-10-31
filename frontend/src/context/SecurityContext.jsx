@@ -11,6 +11,16 @@ import { playCriticalAlertSound } from '../utils/sound';
 
 const SecurityContext = createContext();
 
+const OPERATOR_STORAGE_KEY = 'safesight.operator';
+
+function loadOperatorName() {
+  try {
+    return localStorage.getItem(OPERATOR_STORAGE_KEY) || 'Operator';
+  } catch {
+    return 'Operator';
+  }
+}
+
 const EMPTY_KPIS = {
   ppe_compliance_pct: '—',
   open_incidents_count: 0,
@@ -41,7 +51,17 @@ export function SecurityProvider({ children }) {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   // 2. Operator & Autentificare Simplă (Decizie N08: câmp operator în demo)
-  const [operatorName, setOperatorName] = useState('Ariana');
+  const [operatorName, setOperatorNameState] = useState(loadOperatorName);
+  const setOperatorName = (name) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    setOperatorNameState(trimmed);
+    try {
+      localStorage.setItem(OPERATOR_STORAGE_KEY, trimmed);
+    } catch {
+      // Fără storage, numele rămâne doar pentru sesiunea curentă.
+    }
+  };
 
   // 3. Camere CCTV & Stare Motor (PUT /cameras/{id}/engine)
   const [cameras, setCameras] = useState(USE_MOCK ? INITIAL_CAMERAS : []);
@@ -61,7 +81,7 @@ export function SecurityProvider({ children }) {
 
   // 7. Raport de Tură
   const [shiftReport, setShiftReport] = useState(USE_MOCK ? INITIAL_SHIFT_REPORT : EMPTY_SHIFT_REPORT);
-  const [selectedShift, setSelectedShift] = useState('shift_1');
+  const [selectedShift, setSelectedShift] = useState(() => safeSightApi.currentShiftId());
 
   // 8. Stare Conexiune & Toast / Banner Erori (Regulă C-10)
   const [isWsConnected, setIsWsConnected] = useState(true);
@@ -128,7 +148,7 @@ export function SecurityProvider({ children }) {
     if (USE_MOCK) return;
     let cancelled = false;
     safeSightApi
-      .getShiftReport(safeSightApi.shiftToApi(selectedShift))
+      .getShiftReport(safeSightApi.shiftToApi(selectedShift), safeSightApi.shiftDate(selectedShift))
       .then((report) => { if (!cancelled) setShiftReport(report); })
       .catch(() => { if (!cancelled) showToast('Raportul de tură nu a putut fi încărcat.'); });
     return () => { cancelled = true; };

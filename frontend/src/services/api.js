@@ -333,4 +333,19 @@ export const safeSightApi = {
   shiftToApi(shiftId) {
     return SHIFT_TO_API[shiftId] || 'morning';
   },
+
+  // Tura care conține acum ora locală (06–14, 14–22, 22–06), ca în backend.
+  currentShiftId(now = new Date()) {
+    const hour = now.getHours();
+    if (hour >= 6 && hour < 14) return 'shift_1';
+    if (hour >= 14 && hour < 22) return 'shift_2';
+    return 'shift_3';
+  },
+
+  // Tura de noapte începe în ziua anterioară când e între 00:00 și 06:00.
+  shiftDate(shiftId, now = new Date()) {
+    const day = new Date(now);
+    if (shiftId === 'shift_3' && now.getHours() < 6) day.setDate(day.getDate() - 1);
+    return localDateString(day);
+  },
 };
