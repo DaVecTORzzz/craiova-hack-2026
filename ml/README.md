@@ -63,6 +63,8 @@ uv run python -m safesight_ml.run \
   --edge-token "$EDGE_TOKEN"
 ```
 
+Cu `--loop`, clipul se reia la final, iar cadrul live se actualizează continuu. O trecere nouă emite evenimente doar dacă ultimul eveniment are cel puțin `--loop-cooldown-s` secunde (implicit 60). Pe `cam01` (9 s), asta înseamnă o alertă pe minut, nu una la 9 s. Fără limita asta, același incident ar ajunge în UI și pe Slack la fiecare trecere.
+
 `--remote-config` ia zonele și `engine_on` din `GET /edge/zones` și le reîmprospătează la 30 s. Dacă backend-ul nu răspunde, folosește `fixtures/zones.stand12.json` și flag-ul `--engine-on`. Pentru `--remote-config`, zona din backend trebuie să aibă poligonul calibrat; altfel folosește `--zones`.
 
 ## RTSP real, pentru demo

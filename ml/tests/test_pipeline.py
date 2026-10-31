@@ -212,3 +212,25 @@ def test_metrics_source_redacts_rtsp_credentials():
     assert _metrics_source("rtsp://user:secret@cam.local:8554/stand12?token=abc") == "rtsp://cam.local:8554/stand12"
     assert _metrics_source("clip.mp4") == "clip.mp4"
     assert _metrics_source(None) == "fake"
+
+
+def test_pipeline_skips_events_while_emit_events_is_off():
+    frames = [[Detection(track_id=1, bbox=(0.50, 0.20, 0.60, 0.60), confidence=0.91)] for _ in range(20)]
+    sink = RecordingSink()
+    pipeline = Pipeline(
+        camera_id="stand12",
+        zones=[ZONE],
+        detector=FakeDetector(frames),
+        blurrer=RecordingBlurrer(),
+        sink=sink,
+        engine_on=True,
+    )
+    pipeline.emit_events = False
+    blank = np.zeros((360, 640, 3), dtype=np.uint8)
+    for step in range(20):
+        assert pipeline.process(blank, now_s=step / 10) == []
+    assert sink.events == [] and sink.snapshots == []
+
+    pipeline.emit_events = True
+    emitted = [event for step in range(20, 40) for event in pipeline.process(blank, now_s=step / 10)]
+    assert len(emitted) == 1
