@@ -36,6 +36,19 @@ def test_b04_confidence_invalid_types_fail():
         EdgeEventIn.model_validate(payload_float)
 
 
+def test_snapshot_url_rejects_minio_and_bad_root():
+    for bad in ("minio://safesight/evt.jpg", "//evil.example/evt.jpg", "snapshots/evt.jpg"):
+        payload = edge_event(snapshot_url=bad)
+        with pytest.raises(ValidationError):
+            EdgeEventIn.model_validate(payload)
+
+
+def test_snapshot_url_accepts_contract_urls():
+    for good in ("/snapshots/evt.jpg", "http://localhost:8000/snapshots/evt.jpg"):
+        payload = edge_event(snapshot_url=good)
+        assert EdgeEventIn.model_validate(payload).snapshot_url == good
+
+
 def test_polygon_out_of_bounds_coordinate_fails():
     # polygon with a coordinate 1.2 fails
     zone_data = {

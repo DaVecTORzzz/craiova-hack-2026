@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from datetime import datetime
+
 from sqlmodel import Session
 
 from app.db import get_engine
@@ -59,7 +60,7 @@ async def build_report(event: EventOut) -> ReportOut:
     try:
         import automation.report as d
 
-        result = await asyncio.wait_for(asyncio.to_thread(d.generate, event.model_dump()), timeout=3.0)
+        result = await asyncio.wait_for(asyncio.to_thread(d.generate, event.model_dump(mode="json")), timeout=3.0)
         return ReportOut.model_validate(result)
     except Exception as e:
         logger.info(f"report fallback to template event_id={event.event_id} reason={type(e).__name__}")

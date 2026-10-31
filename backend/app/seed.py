@@ -1,5 +1,6 @@
-from datetime import timedelta
+from datetime import UTC, timedelta
 from pathlib import Path
+
 from PIL import Image
 from sqlmodel import Session, select
 
@@ -143,7 +144,7 @@ def seed_demo_events_if_requested(session: Session) -> None:
         track_id = 0 if ev_type in ("FOD", "CAMERA_OFFLINE") else (i + 1)
 
         event = Event(
-            event_id=f"evt_{cam}_{int(detected.timestamp() * 1000)}_{track_id}",
+            event_id=f"evt_{cam}_{int(detected.replace(tzinfo=UTC).timestamp() * 1000)}_{track_id}",
             type=ev_type,
             severity=sev,
             status=st,

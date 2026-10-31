@@ -1,6 +1,6 @@
-from datetime import datetime
 from enum import Enum
 from typing import Literal
+
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator
 
 
@@ -73,6 +73,17 @@ class EdgeEventIn(BaseModel):
     snapshot_url: str = Field(min_length=1, max_length=300)
     model: str = Field(min_length=1, max_length=64)
     detected_at: AwareDatetime
+
+    @field_validator("snapshot_url")
+    @classmethod
+    def validate_snapshot_url(cls, v: str) -> str:
+        if v.startswith("minio://"):
+            raise ValueError("snapshot_url must be an HTTP URL, never minio://")
+        if v.startswith("/") and not v.startswith("/snapshots/"):
+            raise ValueError("root-relative snapshot_url must start with /snapshots/")
+        if not v.startswith(("/snapshots/", "http://", "https://")):
+            raise ValueError("snapshot_url must be /snapshots/... or an HTTP URL")
+        return v
 
 
 class ReportOut(BaseModel):

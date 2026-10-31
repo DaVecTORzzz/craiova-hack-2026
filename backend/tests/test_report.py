@@ -83,6 +83,8 @@ def test_automation_report_is_used(client, monkeypatch):
     report = wait_for_report(client, ev_id)["report"]
     assert report == LLM_REPORT
     assert received[0]["event_id"] == ev_id
+    assert received[0]["type"] == "RESTRICTED_ZONE"
+    assert isinstance(received[0]["type"], str)
 
 
 def test_invalid_automation_output_falls_back(client, monkeypatch):

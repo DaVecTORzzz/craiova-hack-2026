@@ -1,4 +1,5 @@
 from sqlmodel import Session
+
 from app.db import get_engine
 from app.models import Camera
 from tests.conftest import edge_event
@@ -99,6 +100,13 @@ def test_unknown_zone_returns_404(client):
     res = client.post("/edge/events", json=payload, headers=HEADERS)
     assert res.status_code == 404
     assert res.json() == {"detail": "unknown zone_id"}
+
+
+def test_zone_from_another_camera_returns_422(client):
+    payload = edge_event(camera_id="stand12", zone_id="taxiway-b")
+    res = client.post("/edge/events", json=payload, headers=HEADERS)
+    assert res.status_code == 422
+    assert res.json() == {"detail": "zone does not belong to camera"}
 
 
 def test_camera_offline_with_unknown_zone_returns_201_and_sets_camera_offline(client):

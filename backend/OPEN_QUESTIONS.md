@@ -18,9 +18,9 @@ def slack_text(event: dict, escalated: bool) -> str:   # optional
 - `generate` runs in a thread with a 3 s budget; on import error, timeout, exception or invalid output the backend uses its own Romanian template (`source="template"`).
 - Until the module exists, every report is the backend template and Slack uses the default text.
 
-## Mismatch: `automation/README.md` vs `IMPLEMENTATION_PLAN.md`
+## Resolved: `automation/README.md` vs `IMPLEMENTATION_PLAN.md`
 
-`automation/README.md` describes `on_event_created(event)` starting an async task per event, a `Notifier.send(event)` adapter for Slack, and escalation inside `automation/`. The backend plan (7.4–7.6) instead has the backend own Slack sending, escalation timers and `notified_at`, and call only `generate` / `summarize` / `slack_text` from `automation.report`. The backend follows the plan. Max and Dalina need to agree on one split before Dalina writes Slack or escalation code, otherwise notifications would be sent twice.
+Decision: the backend owns Slack sending, escalation timers and `notified_at`. `automation/` only provides `generate`, `summarize` and optional `slack_text` from `automation/report.py`; it does not send notifications or run timers. `automation/README.md` was updated to match, so there is no double-send path.
 
 ## Stability run (step 16)
 

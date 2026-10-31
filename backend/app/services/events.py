@@ -1,5 +1,6 @@
 import asyncio
 import logging
+
 from fastapi import HTTPException, status
 from sqlmodel import Session
 
@@ -92,6 +93,11 @@ async def ingest(session: Session, payload: EdgeEventIn) -> tuple[EventOut, bool
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="unknown zone_id",
+            )
+        if zone.camera_id != payload.camera_id:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="zone does not belong to camera",
             )
 
     # 4. Idempotency check
