@@ -450,6 +450,10 @@ class DemoFeed:
     camera_id: str
     clip: Path
     zones: str  # relative to ml/
+    # Longest side after reading, 0 = native. Only where face recall was checked: on the
+    # 4K broll_cam02 YuNet finds 69 faces at 1920 px vs 55 at 4K (40 frames); on the other
+    # 4K clips 1920 px loses half the faces, so they stay native.
+    max_size: int = 0
 
 
 VIDEOS = ROOT / "data" / "videos"
@@ -458,7 +462,12 @@ VIDEOS = ROOT / "data" / "videos"
 DEMO_FEEDS = (
     DemoFeed("stand12", DEFAULT_CLIP, "fixtures/zones.stand12.json"),
     DemoFeed("taxiway-b", VIDEOS / "2026-10-30_broll_cam01_marshaller-conuri-apron.mp4", "fixtures/zones/broll-cam01.json"),
-    DemoFeed("baggage-area", VIDEOS / "2026-10-30_broll_cam02_avion-la-poarta-bagaje.mp4", "fixtures/zones/broll-cam02.json"),
+    DemoFeed(
+        "baggage-area",
+        VIDEOS / "2026-10-30_broll_cam02_avion-la-poarta-bagaje.mp4",
+        "fixtures/zones/broll-cam02.json",
+        max_size=1920,
+    ),
 )
 
 
@@ -550,6 +559,7 @@ def run_demo(args: argparse.Namespace) -> int:
                         # The clip camera pans; the zone follows the ground from its first frame.
                         # Not for RTSP: the published clip may differ and the zone would stay unknown.
                         *([] if args.rtsp else ["--align-reference", str(feed.clip)]),
+                        *(["--max-size", str(feed.max_size)] if feed.max_size else []),
                     ],
                 )
                 shown = [mask_url(part) if part == source else part for part in ml_command]

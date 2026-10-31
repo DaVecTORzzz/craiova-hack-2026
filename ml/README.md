@@ -124,6 +124,20 @@ uv run python -m safesight_ml.calibrate preview --source "$CLIP" \
 
 Rezultat pe 31 octombrie 2026 (toate clipurile întregi, dry-run, `--engine-on`): alinierea nu s-a pierdut pe niciun clip și costă 5–17 ms la fiecare al 5-lea cadru. Pe `broll_cam02`, poligonul fix ajungea după zoom peste banda de bagaje și alerta pe șoferul ei (fals); cu aliniere, zona rămâne în fața motorului și alerta e pe persoana care intră acolo. Pe `restricted-cam02`, alinierea prinde în plus lucrătorul aplecat la bara de tractare. Pe celelalte clipuri evenimentele sunt aceleași. Poligoanele de B-roll sunt propuse de noi și trebuie validate de echipă pe preview.
 
+## Clipuri 4K: `--max-size`
+
+`--max-size N` micșorează cadrul imediat după citire, astfel încât latura cea mai lungă să fie cel mult `N` px. Detecția, blur-ul, snapshot-urile și live-ul folosesc cadrul micșorat. Pe 4K, costul e blur-ul (YuNet pe cadrul complet), nu detecția.
+
+Se folosește doar unde s-a verificat că nu se pierd fețe. YuNet pe 40 de cadre din fiecare clip 4K (31 octombrie 2026):
+
+| Clip | Fețe la 4K | la 1920 px | la 1280 px |
+|---|---:|---:|---:|
+| `broll_cam02` (`baggage-area` în demo) | 55 | 69 | 52 |
+| `broll_cam03` | 143 | 71 | 5 |
+| `restricted-zone_cam02` | 85 | 31 | 17 |
+
+`dev.py demo` pornește `baggage-area` cu `--max-size 1920`; celelalte clipuri rămân la rezoluția lor. Cu 3 camere în paralel (RTX 3050), `baggage-area` trece de la 7,9 la 14,6 FPS, blur-ul de la 889 la 216 ms, snapshot-ul de la 2,4 MB la ~0,85 MB, cu aceleași evenimente; `privacy_audit` pe snapshot-uri și pe cadrul live: 0 fețe. Pentru alt clip 4K, repetă măsurarea înainte să-l micșorezi.
+
 ## RTSP real, pentru demo
 
 Pornește un server RTSP local (o singură dată; imaginea se descarcă prima dată):

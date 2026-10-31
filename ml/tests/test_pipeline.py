@@ -394,3 +394,14 @@ def test_a_compliant_person_in_a_ppe_zone_is_not_highlighted(monkeypatch):
 
     assert captured, "the pipeline never annotated a frame"
     assert all(inside == set() for inside in captured)
+def test_limit_size_shrinks_only_the_longest_side_above_the_limit():
+    from safesight_ml.run import limit_size
+
+    landscape = np.zeros((2160, 3840, 3), dtype=np.uint8)
+    portrait = np.zeros((3840, 2160, 3), dtype=np.uint8)
+    small = np.zeros((720, 1280, 3), dtype=np.uint8)
+
+    assert limit_size(landscape, 1920).shape == (1080, 1920, 3)
+    assert limit_size(portrait, 1920).shape == (1920, 1080, 3)
+    assert limit_size(small, 1920) is small
+    assert limit_size(landscape, 0) is landscape

@@ -79,4 +79,4 @@ Read the contract and affected files; propose a 3-line plan; ask one clarifying 
 
 ## Progressive disclosure
 
-`docs/contract.md` · `docs/demo_script.md` · `data/videos/README.md` · `data/annotations/README.md` · module READMEs.
+`docs/contract.md` · `demo/run_sheet.md` · `data/videos/README.md` · `data/annotations/README.md` · module READMEs.
