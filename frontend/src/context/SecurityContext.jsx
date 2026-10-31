@@ -9,6 +9,7 @@ import {
 } from '../constants/mockData';
 import { safeSightApi, USE_MOCK } from '../services/api';
 import { playCriticalAlertSound } from '../utils/sound';
+import { STATUS_TOKENS } from '../constants/theme';
 
 const SecurityContext = createContext();
 
@@ -401,6 +402,23 @@ export function SecurityProvider({ children }) {
   // ACȚIUNI PRINCIPALE:
 
   // 1. Acknowledge (Buton principal, un singur clic - C-02)
+  // A failed action: a 409 means the incident changed meanwhile (another operator, Slack, the
+  // escalation timer), so show it as it is now; anything else puts the old state back.
+  const recoverFromFailedAction = async (eventId, previous, error, failedMessage) => {
+    if (!USE_MOCK && String(error.message).startsWith('409')) {
+      try {
+        const current = await safeSightApi.getEventById(eventId);
+        setEvents((prev) => prev.map((ev) => (ev.event_id === eventId ? current : ev)));
+        showToast(`Incidentul fusese deja modificat; acum e „${STATUS_TOKENS[current.status]?.label || current.status}”.`);
+        return;
+      } catch {
+        // Fall through to the plain revert.
+      }
+    }
+    if (previous) setEvents((prev) => prev.map((ev) => (ev.event_id === eventId ? previous : ev)));
+    showToast(`${failedMessage}: ${error.message}`);
+  };
+
   const acknowledgeEvent = async (eventId, e) => {
     if (e) e.stopPropagation();
     const previous = events.find((ev) => ev.event_id === eventId);
@@ -421,8 +439,7 @@ export function SecurityProvider({ children }) {
       setEvents((prev) => prev.map((ev) => (ev.event_id === eventId ? { ...ev, ...updated } : ev)));
       showToast(`Evenimentul ${eventId.slice(-6)} confirmat de ${operatorName}. Escaladare anulată.`);
     } catch (error) {
-      if (previous) setEvents((prev) => prev.map((ev) => (ev.event_id === eventId ? previous : ev)));
-      showToast(`Ack eșuat: ${error.message}`);
+      await recoverFromFailedAction(eventId, previous, error, 'Confirmarea a eșuat');
     }
   };
 
@@ -446,8 +463,7 @@ export function SecurityProvider({ children }) {
       setEvents((prev) => prev.map((ev) => (ev.event_id === eventId ? { ...ev, ...updated } : ev)));
       showToast('Marcat ca Fals Pozitiv. Feedback înregistrat pentru modelul AI.');
     } catch (error) {
-      if (previous) setEvents((prev) => prev.map((ev) => (ev.event_id === eventId ? previous : ev)));
-      showToast(`Fals pozitiv eșuat: ${error.message}`);
+      await recoverFromFailedAction(eventId, previous, error, 'Marcarea ca fals pozitiv a eșuat');
     }
   };
 
@@ -460,7 +476,6 @@ export function SecurityProvider({ children }) {
           ? {
               ...ev,
               status: 'open',
-              detected_at: new Date().toISOString(),
               escalated_at: null,
               acked_at: null,
               acked_by: null
@@ -473,8 +488,7 @@ export function SecurityProvider({ children }) {
       setEvents((prev) => prev.map((ev) => (ev.event_id === eventId ? { ...ev, ...updated } : ev)));
       showToast('Eveniment redeschis. Timerul de escaladare a repornit.');
     } catch (error) {
-      if (previous) setEvents((prev) => prev.map((ev) => (ev.event_id === eventId ? previous : ev)));
-      showToast(`Reopen eșuat: ${error.message}`);
+      await recoverFromFailedAction(eventId, previous, error, 'Redeschiderea a eșuat');
     }
   };
 

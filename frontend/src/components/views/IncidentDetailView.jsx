@@ -19,6 +19,7 @@ import { useSecurity } from '../../context/SecurityContext';
 import { STATUS_TOKENS } from '../../constants/theme';
 import ConfidenceBadge from '../common/ConfidenceBadge';
 import { printAsPdf } from '../../utils/print';
+import { canDo } from '../../constants/eventActions';
 
 export default function IncidentDetailView() {
   const { isDarkMode, themeStyles } = useTheme();
@@ -52,6 +53,12 @@ export default function IncidentDetailView() {
 
   const isAcked = selectedEvent.status === 'acknowledged';
   const isFalsePos = selectedEvent.status === 'false_positive';
+  // A button is enabled only when the backend accepts that action from this status.
+  const canAck = canDo('ack', selectedEvent.status);
+  const canFalsePos = canDo('false_positive', selectedEvent.status);
+  const canReopen = canDo('reopen', selectedEvent.status);
+  // The report is written automatically at ingest; retry only when the AI was not used.
+  const canRetryReport = !selectedEvent.report || selectedEvent.report.source !== 'llm';
 
   // Formatare ore în Europe/Bucharest (Regulă din PDF: API trimite UTC, conversie în UI)
   const formatTime = (isoString) => {
@@ -211,15 +218,18 @@ export default function IncidentDetailView() {
             <div className="flex items-center justify-between pb-2 border-b border-white/10">
               <h3 className="font-bold text-sm uppercase tracking-wider flex items-center gap-2">
                 <Info size={16} className="text-indigo-400" />
-                Raport de Securitate ({selectedEvent.report?.source?.toUpperCase() || 'LLM'})
+                Raport incident ({selectedEvent.report?.source === 'llm' ? 'AI' : 'șablon'})
               </h3>
-              <button
-                onClick={handleRegenerate}
-                className="no-print text-xs text-indigo-400 hover:underline flex items-center gap-1 font-semibold"
-              >
-                <RefreshCw size={12} className={isRegenerating ? 'animate-spin' : ''} />
-                Regenerează Raportul
-              </button>
+              {canRetryReport && (
+                <button
+                  onClick={handleRegenerate}
+                  className="no-print text-xs text-indigo-400 hover:underline flex items-center gap-1 font-semibold"
+                  title="Raportul a fost scris din șablon (AI indisponibil); încearcă din nou cu AI"
+                >
+                  <RefreshCw size={12} className={isRegenerating ? 'animate-spin' : ''} />
+                  Reîncearcă cu AI
+                </button>
+              )}
             </div>
 
             {isRegenerating ? (
@@ -266,10 +276,10 @@ export default function IncidentDetailView() {
             <div className="grid grid-cols-2 gap-2 text-xs">
               {/* Buton 1: Acknowledge */}
               <button
-                disabled={isAcked}
+                disabled={!canAck}
                 onClick={(e) => acknowledgeEvent(selectedEvent.event_id, e)}
                 className={`py-2.5 px-3 rounded-lg font-bold flex items-center justify-center gap-2 shadow transition-all ${
-                  isAcked
+                  !canAck
                     ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-500/40 cursor-not-allowed'
                     : 'bg-emerald-600 hover:bg-emerald-500 text-white hover:scale-[1.02]'
                 }`}
@@ -280,10 +290,10 @@ export default function IncidentDetailView() {
 
               {/* Buton 2: Fals Pozitiv */}
               <button
-                disabled={isFalsePos}
+                disabled={!canFalsePos}
                 onClick={() => setShowNoteDialog(true)}
                 className={`py-2.5 px-3 rounded-lg font-bold flex items-center justify-center gap-2 border border-slate-600 transition-all ${
-                  isFalsePos
+                  !canFalsePos
                     ? 'bg-slate-900 text-slate-500 cursor-not-allowed'
                     : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
                 }`}
@@ -294,8 +304,11 @@ export default function IncidentDetailView() {
 
               {/* Buton 3: Reopen */}
               <button
+                disabled={!canReopen}
                 onClick={() => reopenEvent(selectedEvent.event_id)}
-                className="py-2.5 px-3 rounded-lg font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 flex items-center justify-center gap-2"
+                className={`py-2.5 px-3 rounded-lg font-bold border border-slate-600 flex items-center justify-center gap-2 ${
+                  canReopen ? 'bg-slate-800 hover:bg-slate-700 text-slate-200' : 'bg-slate-900 text-slate-500 cursor-not-allowed'
+                }`}
               >
                 <RotateCcw size={15} />
                 <span>Redeschide</span>
