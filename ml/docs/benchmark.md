@@ -1,5 +1,7 @@
 # Benchmark — edge
 
+Testarea pe toate cele 6 clipuri, inclusiv B-roll și full stack pe `cam02`, este în [`clip-tests.md`](clip-tests.md). Fișierul de față rămâne benchmark-ul detaliat pentru cazul de demo `cam01`.
+
 Măsurat pe 31 octombrie 2026, pe laptopul de demo.
 
 | Element | Valoare |
@@ -63,7 +65,7 @@ uv run python -m safesight_ml.run --source rtsp://127.0.0.1:8554/stand12 \
 - Rata de falsuri alarme pe 50–100 evenimente etichetate.
 - Soak de 5 minute pe RTSP, cu reconectare după o cădere scurtă.
 - FPS pe Jetson / hardware de pilot.
-- PPE și FOD, pentru că nu există încă clipuri/adnotări.
+- PPE și FOD: nu există clipuri, iar codul de detecție pentru ele nu e implementat (există doar adnotări preliminare).
 
 ## Observații
 
