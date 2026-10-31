@@ -150,10 +150,13 @@ function mapEvent(event) {
 }
 
 function mapZone(zone) {
+  const reference = zone.reference_frame;
   return {
     ...zone,
     zone_id: zone.id,
     polygon: (zone.polygon || []).map(([x, y]) => ({ x, y })),
+    // The edge uploads the (blurred) frame the zone is drawn on; the editor uses it as background.
+    reference_frame_url: reference ? (/^https?:\/\//.test(reference) ? reference : `${API_BASE_URL}${reference}`) : null,
   };
 }
 

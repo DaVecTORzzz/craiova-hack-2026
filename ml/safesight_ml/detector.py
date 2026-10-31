@@ -88,6 +88,17 @@ class YoloDetector:
         self.confidence = confidence
         self.classes = classes
 
+    def people(self, frame: np.ndarray) -> list[Box]:
+        """Person boxes on one frame, without touching the tracker state."""
+        results = self.model.predict(frame, conf=self.confidence, classes=list(self.classes), verbose=False)
+        if not results or results[0].boxes is None:
+            return []
+        height, width = frame.shape[:2]
+        return [
+            (float(x1) / width, float(y1) / height, float(x2) / width, float(y2) / height)
+            for x1, y1, x2, y2 in results[0].boxes.xyxy.cpu().numpy()
+        ]
+
     def detect(self, frame: np.ndarray, frame_index: int) -> list[Detection]:
         results = self.model.track(
             frame,

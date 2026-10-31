@@ -49,3 +49,20 @@ def test_http_sink_posts_snapshot_then_event_with_edge_token():
     sink.emit(make_event())
     assert [call[1] for call in calls] == ["/edge/snapshots", "/edge/events"]
     assert all(call[2] == "test-token" for call in calls)
+
+
+def test_upload_reference_posts_a_jpeg_for_the_zone():
+    seen: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["path"] = request.url.path
+        body = request.read()
+        seen["has_zone"] = b'name="zone_id"' in body and b"engine-left" in body
+        seen["jpeg"] = b"image/jpeg" in body and b"\xff\xd8" in body
+        return httpx.Response(200, json={"reference_frame": "/snapshots/reference/engine-left.jpg"})
+
+    sink = HttpSink("http://backend", "test-token", client=httpx.Client(transport=httpx.MockTransport(handler)))
+    url = sink.upload_reference("engine-left", np.zeros((36, 64, 3), dtype=np.uint8))
+
+    assert url == "/snapshots/reference/engine-left.jpg"
+    assert seen == {"path": "/zones/reference-frame", "has_zone": True, "jpeg": True}

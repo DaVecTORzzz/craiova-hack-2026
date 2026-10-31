@@ -19,6 +19,7 @@ Works on Linux, macOS and Windows with Python 3.12+.
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import shutil
 import signal
@@ -27,6 +28,7 @@ import subprocess
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
@@ -221,6 +223,36 @@ def enable_demo_engine(base_url: str, camera_id: str = "stand12") -> None:
             response.read(1)
     except (urllib.error.URLError, TimeoutError, OSError) as exc:
         print(f"warn: nu am putut porni motorul în backend: {exc}", file=sys.stderr)
+
+
+def sync_demo_zones(base_url: str, feed: "DemoFeed") -> None:
+    """Put the clip's calibrated zone into the backend once, so the edge, the editor and the
+    live view share it. A zone that already has a reference frame was set up by an earlier
+    demo run (and maybe edited in the UI) and is left alone.
+    """
+    fixture = json.loads((ML / feed.zones).read_text(encoding="utf-8"))
+    query = urllib.parse.urlencode({"camera_id": feed.camera_id})
+    try:
+        with urllib.request.urlopen(f"{base_url}/zones?{query}", timeout=3) as response:
+            current = {zone["id"]: zone for zone in json.loads(response.read())}
+    except (urllib.error.URLError, TimeoutError, OSError, ValueError) as exc:
+        print(f"warn: nu am putut citi zonele {feed.camera_id}: {exc}", file=sys.stderr)
+        return
+    for zone in fixture:
+        if zone["camera_id"] != feed.camera_id or current.get(zone["id"], {}).get("reference_frame"):
+            continue
+        request = urllib.request.Request(
+            f"{base_url}/zones/{zone['id']}",
+            data=json.dumps(zone).encode("utf-8"),
+            method="PUT",
+            headers={"Content-Type": "application/json"},
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=3) as response:
+                response.read(1)
+            print(f"Zonă:     {feed.camera_id}/{zone['id']} <- {feed.zones}")
+        except (urllib.error.URLError, TimeoutError, OSError) as exc:
+            print(f"warn: nu am putut salva zona {zone['id']}: {exc}", file=sys.stderr)
 
 
 def wait_for_http(url: str, timeout: float = 30.0, process: subprocess.Popen | None = None) -> bool:
@@ -512,6 +544,7 @@ def run_demo(args: argparse.Namespace) -> int:
         if not args.mock and not args.no_ml:
             for feed in runnable:
                 enable_demo_engine(api_url(args), feed.camera_id)
+                sync_demo_zones(api_url(args), feed)
         frontend = popen(frontend_command(args), cwd=FRONTEND, env=env)
     except BaseException:
         stop(backend)
@@ -548,6 +581,12 @@ def run_demo(args: argparse.Namespace) -> int:
                         "--camera-id",
                         feed.camera_id,
                         "--engine-on",
+                        # Zones and the engine come from the backend every 2 s, so the zone
+                        # editor and the MOTOR button act on the feed; the local zone file and
+                        # --engine-on are only the fallback when the backend does not answer.
+                        "--remote-config",
+                        "--config-refresh-s",
+                        "2",
                         "--loop",
                         "--post",
                         "--api-url",
