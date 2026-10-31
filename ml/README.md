@@ -46,7 +46,15 @@ uv run python -m safesight_ml --source ../data/videos/2026-10-30_restricted-zone
 
 Fiecare cadru e blurat și adnotat; la un eveniment apare 2 s un banner `ALERTA RESTRICTED_ZONE`. Randarea e mai lentă decât live-ul (~4 FPS pe 1080p, ~1 FPS pe 4K), pentru că blur-ul rulează pe fiecare cadru.
 
-Vesta (`ppe.py`) e detectată după culoare (portocaliu / galben-verde fluorescent pe trunchi), fără model antrenat, și e doar afișată. În clipurile noastre toți poartă echipament reflectorizant, iar unele geci au reflectorizant doar pe umeri, deci un scor mic înseamnă „nesigur”, nu „fără vestă”. Nu emitem `NO_PPE` până nu avem un clip cu o încălcare reală pe care să validăm regula.
+Vesta (`ppe.py`) e detectată după culoare (portocaliu / galben-verde fluorescent pe trunchi, inclusiv galben-verdele pal de pe vreme înnorată), fără model antrenat, și e doar afișată. Fiecare persoană are una din trei stări:
+
+| Stare | Etichetă | Când |
+|---|---|---|
+| vestă | `vesta` | scorul netezit ≥ 0,10 |
+| fără vestă | `FARA VESTA` (casetă portocalie dacă nu e și în zonă) | în ultimele 30 de cadre bune, 90% din scoruri < 0,03, persoana are ≥ 150 px și detecția e sigură (≥ 0,5) |
+| nesigur | `vesta ?` | sub 5 cadre bune sau orice altceva |
+
+Un cadru e „bun” doar dacă persoana are ≥ 80 px și caseta nu e tăiată de marginea cadrului. Regula pentru „fără vestă” e prudentă intenționat: pe clipurile noastre, scorurile mici veneau din casete parțiale, din obiecte luate drept persoane (barieră, echipament de bandă) și dintr-un marshaller mic, cu spatele, la care vesta se vede doar ca o fâșie la umeri, nu din oameni fără vestă. Măsurat pe 31 octombrie 2026: pe cele 6 clipuri, 0 cadre „fără vestă” (35 de persoane `vesta`, 16 `vesta ?`); pe imaginile etichetate, `vesta` (0,53) cu vestă și `FARA VESTA` (0,00) fără. Nu emitem `NO_PPE` până nu avem un clip cu o încălcare reală pe care să validăm regula.
 
 Integrare cu backend-ul:
 

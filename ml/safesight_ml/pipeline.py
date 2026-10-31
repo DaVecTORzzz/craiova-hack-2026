@@ -14,7 +14,7 @@ from .detector import Detector
 from .events import Confidence, EdgeEvent, EventContext, TemporalConfidence
 from .live import AnnotatedVideoWriter, LiveFrameWriter
 from .overlay import draw_alert, draw_overlay, zone_active
-from .ppe import VestTracker, hivis_ratio
+from .ppe import VestTracker, vest_sample
 from .privacy import Blurrer
 from .sink import Sink
 from .zones import RuleEngine, Zone, ZoneMembership
@@ -101,6 +101,7 @@ class Pipeline:
     def process(self, frame: np.ndarray, now_s: float) -> list[EdgeEvent]:
         self.rules.prune(now_s)
         self.membership.prune(now_s)
+        self.vests.prune(now_s)
         with self.timer.stage("detect"):
             detections = self.detector.detect(frame, self.frame_index)
         boxes = [item.bbox for item in detections]
@@ -129,7 +130,16 @@ class Pipeline:
             if zone_active(zone, self.engine_on) and in_zone.get((item.track_id, zone.id), False)
         }
         # Colour is read from the raw frame, before blur; it never leaves this process.
-        vest = {item.track_id: self.vests.update(item.track_id, hivis_ratio(frame, item.bbox)) for item in detections}
+        vest = {
+            item.track_id: self.vests.update(
+                item.track_id,
+                vest_sample(frame, item.bbox),
+                item.confidence,
+                now_s,
+                person_px=(item.bbox[3] - item.bbox[1]) * frame.shape[0],
+            )
+            for item in detections
+        }
         live_frame: np.ndarray | None = None
 
         def annotated() -> np.ndarray:

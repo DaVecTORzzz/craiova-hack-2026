@@ -162,6 +162,9 @@ def test_hivis_ratio_separates_vest_from_dark_jacket():
     assert hivis_ratio(frame, (0.5, 0.5, 0.5, 0.5)) is None
 
     tracker = VestTracker(alpha=0.5)
-    assert tracker.update(1, 1.0) == 1.0
-    assert tracker.update(1, 0.0) == 0.5
-    assert tracker.update(1, None) == 0.5
+    tracker.update(1, 1.0)
+    assert tracker.score(1) == 1.0
+    tracker.update(1, 0.0)
+    assert tracker.score(1) == 0.5
+    tracker.update(1, None)
+    assert tracker.score(1) == 0.5
