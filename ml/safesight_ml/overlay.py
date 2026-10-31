@@ -6,7 +6,7 @@ import cv2
 import numpy as np
 
 from .detector import Detection
-from .ppe import HIVIS_MIN
+from .ppe import VestState
 from .zones import Zone
 
 # BGR
@@ -14,6 +14,10 @@ RED = (40, 40, 220)
 GREEN = (70, 170, 60)
 GREY = (150, 150, 150)
 WHITE = (255, 255, 255)
+AMBER = (0, 160, 255)
+
+# ASCII: Hershey fonts have no diacritics.
+VEST_LABEL = {"vest": " | vesta", "no_vest": " | FARA VESTA", "unknown": " | vesta ?"}
 
 
 def zone_active(zone: Zone, engine_on: bool) -> bool:
@@ -26,7 +30,7 @@ def draw_overlay(
     detections: list[Detection],
     inside: set[int],
     engine_on: bool,
-    vest: dict[int, float | None] | None = None,
+    vest: dict[int, VestState] | None = None,
     zones_known: bool = True,
 ) -> np.ndarray:
     """Return a copy with zone polygons, boxes and labels. ``inside`` holds track ids in an active zone.
@@ -53,13 +57,14 @@ def draw_overlay(
         p1 = (round(x1 * width), round(y1 * height))
         p2 = (round(x2 * width), round(y2 * height))
         color = RED if detection.track_id in inside else GREEN
+        if vest is not None and vest.get(detection.track_id) == "no_vest" and detection.track_id not in inside:
+            color = AMBER
         cv2.rectangle(out, p1, p2, color, thick)
         foot = (round((x1 + x2) / 2 * width), p2[1])
         cv2.circle(out, foot, thick + 2, color, -1)
         text = f"persoana #{detection.track_id} {detection.confidence:.2f}"
         if vest is not None:
-            score = vest.get(detection.track_id)
-            text += " | vesta" if score is not None and score >= HIVIS_MIN else " | vesta ?"
+            text += VEST_LABEL[vest.get(detection.track_id, "unknown")]
         _label(out, text, p1, color, font, thick)
 
     status = "MOTOR PORNIT" if engine_on else "MOTOR OPRIT"
