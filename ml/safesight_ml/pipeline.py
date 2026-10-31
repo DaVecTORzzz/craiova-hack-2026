@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 
 import numpy as np
 
+from .align import ZoneAligner
 from .detector import Detector
 from .events import Confidence, EdgeEvent, EventContext, TemporalConfidence
 from .live import AnnotatedVideoWriter, LiveFrameWriter
@@ -69,6 +70,7 @@ class Pipeline:
         clock: Callable[[], float] | None = None,
         live_writer: LiveFrameWriter | None = None,
         video_writer: AnnotatedVideoWriter | None = None,
+        aligner: ZoneAligner | None = None,
     ) -> None:
         self.camera_id = camera_id
         self.zones = [zone for zone in zones if zone.camera_id == camera_id]
@@ -81,6 +83,7 @@ class Pipeline:
         self.clock = clock
         self.live_writer = live_writer
         self.video_writer = video_writer
+        self.aligner = aligner
         self.timer = StageTimer()
         self.frame_index = 0
         self._alert: tuple[str, float] | None = None
@@ -98,10 +101,18 @@ class Pipeline:
         with self.timer.stage("detect"):
             detections = self.detector.detect(frame, self.frame_index)
         boxes = [item.bbox for item in detections]
+        zones: list[Zone] | None = self.zones
+        if self.aligner is not None:
+            with self.timer.stage("align"):
+                self.aligner.update(frame)
+            zones = self.aligner.zones(self.zones)
+        # None: the camera view could not be matched to the reference, so no zone is trusted.
+        zones_known = zones is not None
+        zones = zones or []
         inside = {
             item.track_id
             for item in detections
-            for zone in self.zones
+            for zone in zones
             if zone.rule_type in EVENT_TYPE_BY_RULE
             and zone_active(zone, self.engine_on)
             and point_in_polygon(item.foot_point, zone.polygon)
@@ -117,7 +128,7 @@ class Pipeline:
             with self.timer.stage("blur"):
                 blurred = self.blurrer.blur(frame, boxes)
             with self.timer.stage("overlay"):
-                return draw_overlay(blurred, self.zones, detections, inside, self.engine_on, vest)
+                return draw_overlay(blurred, zones, detections, inside, self.engine_on, vest, zones_known)
 
         if self.live_writer is not None and self.live_writer.due():
             live_frame = annotated()
@@ -128,7 +139,7 @@ class Pipeline:
 
         for detection in detections if self.emit_events else ():
             foot = detection.foot_point
-            for zone in self.zones:
+            for zone in zones:
                 if zone.rule_type not in EVENT_TYPE_BY_RULE:
                     continue
                 in_zone = point_in_polygon(foot, zone.polygon)

@@ -27,6 +27,7 @@ def draw_overlay(
     inside: set[int],
     engine_on: bool,
     vest: dict[int, float | None] | None = None,
+    zones_known: bool = True,
 ) -> np.ndarray:
     """Return a copy with zone polygons, boxes and labels. ``inside`` holds track ids in an active zone.
 
@@ -62,7 +63,10 @@ def draw_overlay(
         _label(out, text, p1, color, font, thick)
 
     status = "MOTOR PORNIT" if engine_on else "MOTOR OPRIT"
-    _label(out, f"{status} | {len(detections)} persoane | {len(inside)} in zona", (0, 0), RED if inside else GREY, font, thick, below=True)
+    text = f"{status} | {len(detections)} persoane | {len(inside)} in zona"
+    if not zones_known:
+        text += " | ZONA NEALINIATA"
+    _label(out, text, (0, 0), RED if inside else GREY, font, thick, below=True)
     return out
 
 

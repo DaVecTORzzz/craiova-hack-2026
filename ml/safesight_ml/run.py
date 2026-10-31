@@ -21,6 +21,7 @@ import cv2
 import httpx
 import numpy as np
 
+from .align import ZoneAligner, load_reference
 from .capture import LatestFrameReader, is_live_source
 from .detector import SyntheticDetector, YoloDetector
 from .events import EdgeEvent
@@ -92,6 +93,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--config-refresh-s", type=float, default=30.0, help="remote config poll interval")
     parser.add_argument("--live-dir", default=os.getenv("LIVE_DIR", ""), help="write live/{camera}.jpg for backend MJPEG")
     parser.add_argument("--annotated-video", type=Path, help="write every frame, blurred and annotated, to this MP4")
+    parser.add_argument(
+        "--align-reference",
+        type=Path,
+        help="video or image the zones were drawn on (first frame); zones then follow camera pan/zoom",
+    )
+    parser.add_argument("--align-every", type=int, default=5, help="re-estimate camera motion every N frames")
     parser.add_argument("--metrics-json", type=Path, help="write a JSON summary for this run")
     return parser
 
@@ -122,6 +129,8 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("--duration-s must be >= 0")
     if args.loop_cooldown_s < 0:
         parser.error("--loop-cooldown-s must be >= 0")
+    if args.align_every < 1:
+        parser.error("--align-every must be >= 1")
     engine_on = args.fake if args.engine_on is None else args.engine_on
     zones: list[Zone] = []
 
@@ -157,6 +166,13 @@ def main(argv: list[str] | None = None) -> int:
     sink = HttpSink(args.api_url, args.edge_token) if args.post else JsonlSink(args.out)
 
     live_writer = LiveFrameWriter(args.live_dir, args.camera_id) if args.live_dir else None
+    aligner = None
+    if args.align_reference:
+        try:
+            aligner = ZoneAligner(load_reference(args.align_reference), every_n=args.align_every)
+        except OSError as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
     pipeline = Pipeline(
         camera_id=args.camera_id,
         zones=zones,
@@ -167,6 +183,7 @@ def main(argv: list[str] | None = None) -> int:
         start_epoch=start_epoch,
         clock=time.time,
         live_writer=live_writer,
+        aligner=aligner,
     )
 
     total = 0
@@ -282,6 +299,7 @@ def main(argv: list[str] | None = None) -> int:
         "elapsed_s": round(elapsed_s, 3),
         "fps": round(total / elapsed_s, 2),
         "dropped_frames": dropped_frames,
+        "align_lost_updates": aligner.lost_updates if aligner is not None else None,
         "stages": pipeline.timer.summary(),
         "engine_on": pipeline.engine_on,
         "sink": "http" if args.post else "jsonl",
