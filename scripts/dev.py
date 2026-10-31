@@ -601,6 +601,8 @@ def run_demo(args: argparse.Namespace) -> int:
                         # The clip camera pans; the zone follows the ground from its first frame.
                         # Not for RTSP: the published clip may differ and the zone would stay unknown.
                         *([] if args.rtsp else ["--align-reference", str(feed.clip)]),
+                        # A clip plays at its own FPS, like a camera; RTSP is paced by the source.
+                        *([] if args.rtsp else ["--realtime"]),
                         *(["--max-size", str(feed.max_size)] if feed.max_size else []),
                     ],
                 )

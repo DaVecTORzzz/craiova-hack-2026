@@ -12,7 +12,7 @@ from app.models import Camera
 router = APIRouter(tags=["stream"])
 
 FRAME_INTERVAL_S = 0.5
-POLL_INTERVAL_S = 0.05
+POLL_INTERVAL_S = 0.01
 WATCH_TOUCH_S = 1.0
 
 
@@ -45,7 +45,7 @@ def _touch_watch(camera_id: str) -> None:
 
 async def mjpeg_frames(camera_id: str) -> AsyncIterator[bytes]:
     # The file is checked every POLL_INTERVAL_S and a frame is sent only when it changed,
-    # so the browser gets the edge's own rate (up to ~15 fps) instead of a fixed 2 fps.
+    # so the browser gets the edge's own rate (up to its --live-fps) instead of a fixed 2 fps.
     # The current frame is resent every FRAME_INTERVAL_S anyway: a placeholder or a
     # stalled edge still shows a picture, and the connection stays alive.
     loop = asyncio.get_running_loop()

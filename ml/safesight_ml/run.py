@@ -117,6 +117,12 @@ def build_parser() -> argparse.ArgumentParser:
         "Blur, snapshots and the live view use the shrunk frame: check face recall first (ml/README.md)",
     )
     parser.add_argument("--fps", type=float, default=0.0, help="override source FPS")
+    parser.add_argument(
+        "--realtime",
+        action="store_true",
+        help="play a file source at its own FPS, like a live camera, instead of as fast as possible. "
+        "Without it a fast GPU outruns the clip and the live view drops most frames",
+    )
     parser.add_argument("--engine-on", dest="engine_on", action="store_true", default=None)
     parser.add_argument("--engine-off", dest="engine_on", action="store_false")
     parser.add_argument("--fake", action="store_true", help="synthetic frames; no model, no video")
@@ -303,8 +309,20 @@ def main(argv: list[str] | None = None) -> int:
         last_config_version: int | None = None
         # A live stream must not queue frames behind a slow pipeline: keep the newest one.
         reader = LatestFrameReader(capture) if is_live_source(args.source) else None
+        # --realtime on a file: frame n is due at paced_start + n / fps.
+        pace = args.realtime and reader is None
+        paced_start = time.monotonic()
+        paced_frames = 0
         try:
             while True:
+                if pace:
+                    lead = paced_start + paced_frames / fps - time.monotonic()
+                    if lead > 0:
+                        time.sleep(lead)
+                    elif lead < -0.5:
+                        # Too slow to keep up: carry on from now, no burst to catch up.
+                        paced_start, paced_frames = time.monotonic(), 0
+                    paced_frames += 1
                 read_started = time.perf_counter()
                 if reader is not None:
                     ok, frame, frame_index = reader.read()
@@ -316,6 +334,7 @@ def main(argv: list[str] | None = None) -> int:
                 if not ok:
                     if args.loop and reader is None:
                         capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                        paced_start, paced_frames = time.monotonic(), 0
                         # Each pass replays the same scene; without this the demo raises
                         # (and notifies) the same incident every few seconds.
                         pipeline.emit_events = (
