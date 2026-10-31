@@ -16,7 +16,7 @@ import json
 from pathlib import Path
 
 from app.models import Zone
-from app.seed import seed_zones
+from app.seed import seed_cameras, seed_zones
 
 REPO = Path(__file__).resolve().parents[2]
 FIXTURES = sorted((REPO / "ml" / "fixtures" / "zones").glob("*.json")) + [
@@ -26,7 +26,10 @@ FIXTURES = sorted((REPO / "ml" / "fixtures" / "zones").glob("*.json")) + [
 # These may differ per clip. `name` is a description of what that clip shows;
 # the polygon is calibrated on the clip's first frame. Everything else changes
 # behaviour or what the UI reports, so it must come from the seed.
-PER_CLIP_FIELDS = {"polygon", "reference_frame", "camera_id", "name"}
+#
+# `camera_id` is deliberately strict: the edge drops every zone whose camera does
+# not match the feed, so a wrong camera_id makes the zone silently disappear.
+PER_CLIP_FIELDS = {"polygon", "reference_frame", "name"}
 
 
 class _Session:
@@ -46,9 +49,9 @@ def seeded_zones() -> dict[str, Zone]:
     return {zone.id: zone for zone in session.added}
 
 
-def test_seed_has_four_zones():
+def test_seed_loads_the_demo_zones():
     # A guard on the guard: if the seed stops loading, the loop below proves nothing.
-    assert sorted(seeded_zones()) == ["apron-stand12", "baggage-area", "engine-left", "taxiway-b"]
+    assert set(seeded_zones()) >= {"engine-left", "apron-stand12", "taxiway-b", "baggage-area"}
 
 
 def test_every_fixture_matches_the_seed():
@@ -72,3 +75,16 @@ def test_every_fixture_matches_the_seed():
                     problems.append(f"{path.name}: {zone['id']} nu are câmpul {field}")
 
     assert not problems, "\n".join(problems)
+
+def test_camera_fixture_matches_the_seed():
+    """The same rule for cameras: the fixture is an export, not a second definition."""
+    session = _Session()
+    seed_cameras(session)
+    seeded = {camera.id: camera for camera in session.added}
+
+    fixture = json.loads((REPO / "backend" / "fixtures" / "cameras.json").read_text(encoding="utf-8"))
+    assert {c["id"] for c in fixture} == set(seeded), "fixture și seed au camere diferite"
+    for camera in fixture:
+        expected = seeded[camera["id"]]
+        for field in ("name", "rtsp_url", "online", "engine_on"):
+            assert camera[field] == getattr(expected, field), f"{camera['id']}.{field}"
