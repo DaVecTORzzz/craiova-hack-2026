@@ -28,19 +28,7 @@ Python 3.12 + `uv`, FastAPI, Pydantic v2, SQLite/SQLModel, YOLO26 (`YOLO26s`/`YO
 - Slack: text + link, no images, no buttons.
 - FOD: 3 s in demo, 10 s in production. Smoke is stretch and not in the demo.
 - Details and examples: `docs/contract.md`.
-
-## Ownership
-
-| Path | Owner |
-|---|---|
-| `ml/` | Andrei |
-| `backend/` | Max |
-| `automation/` | Dalina |
-| `frontend/` | Ariana |
-| `demo/` | Ariana + Dalina |
-| `docs/` | shared |
-
-Stay in your folder. A cross-folder change needs a message in team chat first. `docs/contract.md` changes only via a separate PR approved by all consumers.
+- `docs/contract.md` changes only via a separate PR approved by all consumers.
 
 ## Commands
 
@@ -79,7 +67,7 @@ Before finishing: run the check for the affected module and re-run the demo path
 ## Boundaries
 
 - Ask before: new dependency, contract change, deleting files, git push/merge, full build.
-- Never: force push, `reset --hard`, commit secrets, edit another owner's folder without asking.
+- Never: force push, `reset --hard`, commit secrets.
 - No unblurred faces, no names, no emotion recognition. Blur at the edge before saving or uploading.
 - No `.env`, models (`.pt`, `.onnx`), videos (`.mp4`) or local DBs in git.
 - `main` stays runnable. Small diffs. No broad refactors or speculative abstractions.
