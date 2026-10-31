@@ -40,11 +40,29 @@ function apiPath(path) {
   return `${API_BASE_URL}${path}`;
 }
 
+const SHIFT_TIME_ZONE = 'Europe/Bucharest';
+
+function zonedDateParts(date = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: SHIFT_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(date);
+  const values = Object.fromEntries(
+    parts.filter((part) => part.type !== 'literal').map((part) => [part.type, Number(part.value)])
+  );
+  return { year: values.year, month: values.month, day: values.day, hour: values.hour };
+}
+
+function dateStringFromParts({ year, month, day }) {
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
 function localDateString(date = new Date()) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  return dateStringFromParts(zonedDateParts(date));
 }
 
 function queryString(params = {}) {
@@ -334,18 +352,26 @@ export const safeSightApi = {
     return SHIFT_TO_API[shiftId] || 'morning';
   },
 
-  // Tura care conține acum ora locală (06–14, 14–22, 22–06), ca în backend.
+  // Tura care conține acum ora României (06–14, 14–22, 22–06), ca în backend.
   currentShiftId(now = new Date()) {
-    const hour = now.getHours();
+    const { hour } = zonedDateParts(now);
     if (hour >= 6 && hour < 14) return 'shift_1';
     if (hour >= 14 && hour < 22) return 'shift_2';
     return 'shift_3';
   },
 
-  // Tura de noapte începe în ziua anterioară când e între 00:00 și 06:00.
-  shiftDate(shiftId, now = new Date()) {
-    const day = new Date(now);
-    if (shiftId === 'shift_3' && now.getHours() < 6) day.setDate(day.getDate() - 1);
-    return localDateString(day);
+  // Înainte de 06:00, ziua operațională este ziua anterioară pentru toate turele.
+  shiftDate(_shiftId, now = new Date()) {
+    const { year, month, day, hour } = zonedDateParts(now);
+    if (hour >= 6) {
+      return dateStringFromParts({ year, month, day });
+    }
+    const previous = new Date(Date.UTC(year, month - 1, day));
+    previous.setUTCDate(previous.getUTCDate() - 1);
+    return dateStringFromParts({
+      year: previous.getUTCFullYear(),
+      month: previous.getUTCMonth() + 1,
+      day: previous.getUTCDate(),
+    });
   },
 };

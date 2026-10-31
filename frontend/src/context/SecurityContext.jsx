@@ -15,7 +15,8 @@ const OPERATOR_STORAGE_KEY = 'safesight.operator';
 
 function loadOperatorName() {
   try {
-    return localStorage.getItem(OPERATOR_STORAGE_KEY) || 'Operator';
+    const stored = localStorage.getItem(OPERATOR_STORAGE_KEY);
+    return stored?.trim() || 'Operator';
   } catch {
     return 'Operator';
   }
@@ -81,7 +82,7 @@ export function SecurityProvider({ children }) {
 
   // 7. Raport de Tură
   const [shiftReport, setShiftReport] = useState(USE_MOCK ? INITIAL_SHIFT_REPORT : EMPTY_SHIFT_REPORT);
-  const [selectedShift, setSelectedShift] = useState(() => safeSightApi.currentShiftId());
+  const [selectedShift, setSelectedShift] = useState(() => (USE_MOCK ? 'shift_1' : safeSightApi.currentShiftId()));
 
   // 8. Stare Conexiune & Toast / Banner Erori (Regulă C-10)
   const [isWsConnected, setIsWsConnected] = useState(true);
