@@ -36,16 +36,21 @@ class FaceBlurrer:
             score_threshold=score_threshold,
         )
 
-    def blur(self, frame: np.ndarray, boxes: list[tuple[float, float, float, float]] = ()) -> np.ndarray:
+    def detect_faces(self, frame: np.ndarray) -> list[tuple[int, int, int, int]]:
+        """Face boxes ``(x, y, width, height)`` in the source frame."""
         height, width = frame.shape[:2]
         self._detector.setInputSize((width, height))
-        _, faces = self._detector.detect(frame)
+        _, detections = self._detector.detect(frame)
+        if detections is None:
+            return []
+        return [(int(x), int(y), int(w), int(h)) for x, y, w, h in detections[:, :4]]
+
+    def blur(self, frame: np.ndarray, boxes: list[tuple[float, float, float, float]] = ()) -> np.ndarray:
+        height, width = frame.shape[:2]
 
         output = frame.copy()
-        if faces is not None:
-            for face in faces:
-                x, y, w, h = (int(v) for v in face[:4])
-                self._blur_box(output, x, y, x + w, y + h, width, height)
+        for x, y, w, h in self.detect_faces(frame):
+            self._blur_box(output, x, y, x + w, y + h, width, height)
 
         # Safety net for small/distant faces: blur the top of every person box.
         for x1, y1, x2, y2 in boxes:

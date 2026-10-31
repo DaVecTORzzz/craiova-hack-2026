@@ -92,6 +92,18 @@ podman rm -f safesight-rtsp 2>/dev/null || true
 
 Verificat local pe 31 octombrie 2026: 120 de cadre citite din `rtsp://127.0.0.1:8554/stand12` în 9,34 s end-to-end, 2 evenimente `RESTRICTED_ZONE`, `--remote-config` activ, iar `/stream/stand12.mjpg` a servit exact cadrul scris de edge. Dacă backend-ul nu răspunde, edge-ul folosește `fixtures/zones.stand12.json` și `--engine-on`.
 
+## Verificare privacy pe snapshot-uri
+
+După o sesiune reală, verifică snapshot-urile salvate cu același YuNet folosit la blur:
+
+```bash
+uv run python -m safesight_ml.privacy_audit --dir ../backend/snapshots
+uv run python -m safesight_ml.privacy_audit --dir ../backend/snapshots --json
+# cu Docker: --dir ../backend/data/snapshots
+```
+
+Exit code: `0` curat, `1` fețe detectate, `2` director/model lipsă, niciun snapshot sau imagine necitibilă. Tool-ul scanează recursiv `.jpg`, `.jpeg` și `.png`; nu blurează nimic, doar semnalează ce a scăpat. Pentru un singur fișier, dă calea direct la `--dir`.
+
 ## Ce produce
 
 - `out/events.jsonl` — un eveniment JSON pe linie, exact câmpurile din `docs/contract.md`;
@@ -107,6 +119,7 @@ safesight_ml/
   zones.py     # Zone, point_in_polygon, RuleEngine (debounce, cooldown)
   detector.py  # FakeDetector / SyntheticDetector / YoloDetector
   privacy.py   # FaceBlurrer (YuNet) înainte de salvare/upload
+  privacy_audit.py  # scanare snapshot-uri pentru fețe neblurate
   sink.py      # JsonlSink (dry-run) și HttpSink (/edge/snapshots, /edge/events)
   live.py      # ultimul cadru blurat pentru /stream MJPEG
   pipeline.py  # cadru -> detecții -> reguli -> eveniment
@@ -139,4 +152,4 @@ fixtures/
 - rata de falsuri alarme, măsurată pe 50–100 evenimente;
 - reconectare automată la căderea fluxului RTSP (acum procesul se oprește la primul `read()` eșuat).
 
-Verificare: `uv run pytest` (31 teste) și `uv run python -m safesight_ml.run --fake --engine-on --dry-run`. Cifrele reale sunt în [`docs/benchmark.md`](docs/benchmark.md).
+Verificare: `uv run pytest` (36 teste) și `uv run python -m safesight_ml.run --fake --engine-on --dry-run`. Cifrele reale sunt în [`docs/benchmark.md`](docs/benchmark.md).
