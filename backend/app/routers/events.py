@@ -29,8 +29,11 @@ async def list_events(
     query = query.order_by(Event.detected_at.desc()).limit(limit)
     events = session.exec(query).all()
     # One query for all reports: event_out()'s session.get() then hits the identity map.
-    session.exec(select(ReportText).where(ReportText.event_id.in_([ev.event_id for ev in events]))).all()  # type: ignore[attr-defined]
-    return [event_out(session, ev) for ev in events]
+    # Keep the reference: the identity map is weak, unreferenced rows are dropped.
+    reports = session.exec(select(ReportText).where(ReportText.event_id.in_([ev.event_id for ev in events]))).all()  # type: ignore[attr-defined]
+    out = [event_out(session, ev) for ev in events]
+    del reports
+    return out
 
 
 @router.get("/{event_id}", response_model=EventOut)
