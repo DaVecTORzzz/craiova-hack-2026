@@ -74,7 +74,7 @@ export default function Sidebar() {
         borderColor: isDarkMode ? 'rgba(255, 255, 255, 0.08)' : '#E5E7EB',
         width: isSidebarCollapsed ? '0px' : '15rem'
       }}
-      className={`flex flex-col justify-between border-r transition-all duration-300 z-20 select-none shadow-md shrink-0 h-full overflow-hidden ${isSidebarCollapsed ? "border-r-0" : ""}`}
+      className={`no-print flex flex-col justify-between border-r transition-all duration-300 z-20 select-none shadow-md shrink-0 h-full overflow-hidden ${isSidebarCollapsed ? "border-r-0" : ""}`}
     >
       {/* Zona de Sus: Meniu Principal & Lista Categorisită de Feed-uri */}
       <div className="flex-1 py-3 px-2 space-y-4 overflow-y-auto overflow-x-hidden">

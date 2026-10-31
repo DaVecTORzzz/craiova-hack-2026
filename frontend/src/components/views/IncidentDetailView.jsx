@@ -18,6 +18,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useSecurity } from '../../context/SecurityContext';
 import { STATUS_TOKENS } from '../../constants/theme';
 import ConfidenceBadge from '../common/ConfidenceBadge';
+import { printAsPdf } from '../../utils/print';
 
 export default function IncidentDetailView() {
   const { isDarkMode, themeStyles } = useTheme();
@@ -28,8 +29,7 @@ export default function IncidentDetailView() {
     acknowledgeEvent,
     markFalsePositive,
     reopenEvent,
-    regenerateReport,
-    showToast
+    regenerateReport
   } = useSecurity();
 
   const [falsePositiveNote, setFalsePositiveNote] = useState('');
@@ -82,7 +82,7 @@ export default function IncidentDetailView() {
           <button
             onClick={() => setCurrentView('incidents')}
             style={{ backgroundColor: themeStyles.cardBg }}
-            className="p-2 rounded-lg border hover:bg-white/10 flex items-center gap-1.5 text-xs font-bold"
+            className="no-print p-2 rounded-lg border hover:bg-white/10 flex items-center gap-1.5 text-xs font-bold"
           >
             <ArrowLeft size={16} /> Incidente
           </button>
@@ -127,7 +127,7 @@ export default function IncidentDetailView() {
               setSelectedCameraId(selectedEvent.camera_id);
               setCurrentView('live');
             }}
-            className="px-3 py-2 rounded-lg bg-[#7EDEED] hover:bg-[#5ccedc] text-[#1F1F1F] text-xs font-bold flex items-center gap-1.5"
+            className="no-print px-3 py-2 rounded-lg bg-[#7EDEED] hover:bg-[#5ccedc] text-[#1F1F1F] text-xs font-bold flex items-center gap-1.5"
           >
             <Video size={15} /> Vezi camera acum
           </button>
@@ -215,7 +215,7 @@ export default function IncidentDetailView() {
               </h3>
               <button
                 onClick={handleRegenerate}
-                className="text-xs text-indigo-400 hover:underline flex items-center gap-1 font-semibold"
+                className="no-print text-xs text-indigo-400 hover:underline flex items-center gap-1 font-semibold"
               >
                 <RefreshCw size={12} className={isRegenerating ? 'animate-spin' : ''} />
                 Regenerează Raportul
@@ -254,10 +254,10 @@ export default function IncidentDetailView() {
             )}
           </div>
 
-          {/* BLOC „HUMAN IN THE LOOP” (Acțiuni Operator) */}
+          {/* Decizia operatorului (acțiuni; nu apar în PDF) */}
           <div
             style={{ backgroundColor: themeStyles.panelBg, borderColor: themeStyles.panelBorder }}
-            className="rounded-xl border p-4 shadow-lg space-y-3"
+            className="no-print rounded-xl border p-4 shadow-lg space-y-3"
           >
             <h4 className="font-bold text-xs uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
               <Check size={15} /> Decizia operatorului
@@ -301,13 +301,13 @@ export default function IncidentDetailView() {
                 <span>Redeschide</span>
               </button>
 
-              {/* Buton 4: Export PDF Placeholder */}
+              {/* Buton 4: Export PDF (dialogul de tipărire al browserului) */}
               <button
-                onClick={() => showToast('Export PDF generat: tichet_incident_demo.pdf (Placeholder Demo).')}
+                onClick={() => printAsPdf(`SafeSight_incident_${selectedEvent.event_id}`)}
                 className="py-2.5 px-3 rounded-lg font-bold bg-indigo-900/60 hover:bg-indigo-900 text-indigo-200 border border-indigo-700/60 flex items-center justify-center gap-2"
               >
                 <FileDown size={15} />
-                <span>Export PDF [Demo]</span>
+                <span>Export PDF</span>
               </button>
             </div>
           </div>

@@ -41,7 +41,7 @@ export default function Header() {
         borderColor: themeStyles.navBorder || (isDarkMode ? 'rgba(255, 255, 255, 0.10)' : '#E5E7EB'),
         color: isDarkMode ? '#F5F5F5' : '#1F1F1F'
       }}
-      className="h-16 px-4 md:px-6 flex items-center justify-between border-b shadow-md z-30 sticky top-0 shrink-0 select-none transition-colors"
+      className="no-print h-16 px-4 md:px-6 flex items-center justify-between border-b shadow-md z-30 sticky top-0 shrink-0 select-none transition-colors"
     >
       {/* 1. Brand & Titlu SafeSight */}
       <div className="flex items-center gap-2.5">

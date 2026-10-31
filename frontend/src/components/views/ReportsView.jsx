@@ -2,10 +2,11 @@ import React from 'react';
 import { FileText, FileDown, Calendar, Clock, BarChart3, ShieldCheck, TrendingUp } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useSecurity } from '../../context/SecurityContext';
+import { printAsPdf } from '../../utils/print';
 
 export default function ReportsView() {
   const { themeStyles } = useTheme();
-  const { shiftReport, selectedShift, setSelectedShift, showToast } = useSecurity();
+  const { shiftReport, selectedShift, setSelectedShift } = useSecurity();
 
   const shifts = [
     { id: 'shift_1', label: 'Tura 1 (Dimineață: 06:00 - 14:00)' },
@@ -29,12 +30,12 @@ export default function ReportsView() {
           </p>
         </div>
 
-        {/* Buton Export PDF Placeholder [marcat DEMO conform PDF 5.2] */}
+        {/* Export PDF: dialogul de tipărire al browserului */}
         <button
-          onClick={() => showToast('Export PDF generat: Raport_Tura_1_SafeSight.pdf [Placeholder Demo].')}
-          className="px-3.5 py-2 rounded-lg bg-indigo-700 hover:bg-indigo-600 text-white font-bold text-xs flex items-center gap-2 shadow"
+          onClick={() => printAsPdf(`SafeSight_raport_${shiftReport.date}_${shiftReport.shift}`.replace(/[^\w.-]+/g, '_'))}
+          className="no-print px-3.5 py-2 rounded-lg bg-indigo-700 hover:bg-indigo-600 text-white font-bold text-xs flex items-center gap-2 shadow"
         >
-          <FileDown size={15} /> Export PDF [Demo]
+          <FileDown size={15} /> Export PDF
         </button>
       </div>
 
