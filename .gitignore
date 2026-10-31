@@ -40,7 +40,7 @@ data/**
 *.mp3
 *.mp4
 
-# Date generate la rulare
+# Date generate la rulare; păstrează folderul pentru volumul Docker
 backend/data/*
 !backend/data/.gitkeep
 *.db

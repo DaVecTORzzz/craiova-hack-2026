@@ -12,6 +12,7 @@ services:
       DATABASE_URL: sqlite:///./data/safesight.db
       SNAPSHOT_DIR: ./data/snapshots
       UV_CACHE_DIR: /tmp/uv
+      PYTHONDONTWRITEBYTECODE: "1"
     ports:
       - "8000:8000"
     volumes:
