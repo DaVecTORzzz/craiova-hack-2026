@@ -96,5 +96,5 @@ uv run python -m safesight_ml.run --source rtsp://127.0.0.1:8554/stand12 \
 ## Observații
 
 - Confidence-ul de 0,40–0,55 e aproape de pragul 0,35; pentru demo, verifică luminarea și pragul înainte de pitch.
-- Poligonul calibrat este în `fixtures/zones.stand12.json`; backend-ul are încă poligonul vechi în seed, deci pentru `--remote-config` actualizează zona prin UI/`PUT /zones/engine-left` sau folosește `--zones`.
+- Poligonul calibrat este în `fixtures/zones.stand12.json`, iar seed-ul backend-ului are aceeași zonă (`backend/tests/test_seed_zone_sync.py` verifică asta). Seed-ul adaugă doar zone lipsă: o bază existentă păstrează poligonul vechi până la `PUT /zones/engine-left` sau o bază nouă.
 - Rezultatul e pe CPU; cu GPU-ul din dotare, FPS-ul poate fi mai mare, dar se măsoară din nou.
