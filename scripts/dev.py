@@ -9,6 +9,7 @@ Works on Linux, macOS and Windows with Python 3.12+.
     python scripts/dev.py backend        # one process
     python scripts/dev.py frontend       # one process
     python scripts/dev.py ml -- --source ../data/videos/... --zones fixtures/zones.stand12.json
+    python scripts/dev.py fallback       # one demo event via the backend edge routes
     python scripts/dev.py check          # backend tests, ML tests, frontend build
     python scripts/dev.py doctor         # tools and required files
 """
@@ -287,6 +288,32 @@ def run_ml(args: argparse.Namespace) -> int:
     return subprocess.run(cmd, cwd=ML, env=base_env()).returncode
 
 
+def run_fallback(args: argparse.Namespace) -> int:
+    """Send one real edge-shaped event through backend/scripts/demo_event.py."""
+    token = resolve_edge_token(args.edge_token)
+    target = args.api_url or api_url(args)
+    extra: list[str] = [
+        "run",
+        "python",
+        "scripts/demo_event.py",
+        "--type",
+        args.type,
+        "--api-url",
+        target,
+        "--edge-token",
+        token,
+    ]
+    if args.snapshot:
+        extra.extend(["--snapshot", str(args.snapshot.expanduser().resolve())])
+    if args.no_engine:
+        extra.append("--no-engine")
+    cmd = command("uv", extra)
+    code = subprocess.run(cmd, cwd=BACKEND, env=base_env()).returncode
+    if code != 0:
+        print("Fallback-ul a eșuat. Backend-ul rulează? Încearcă: ./run.sh all", file=sys.stderr)
+    return code
+
+
 def run_servers(processes: list[tuple[str, subprocess.Popen]]) -> int:
     try:
         while True:
@@ -420,6 +447,15 @@ def build_parser() -> argparse.ArgumentParser:
     p_ml = sub.add_parser("ml", help="pornește edge-ul; argumentele după -- merg la run.py")
     p_ml.add_argument("ml_args", nargs=argparse.REMAINDER)
     p_ml.set_defaults(func=run_ml)
+
+    p_fallback = sub.add_parser("fallback", help="trimite un eveniment demo prin rutele edge")
+    p_fallback.add_argument("--type", default="RESTRICTED_ZONE", choices=("RESTRICTED_ZONE", "NO_PPE", "FOD"))
+    p_fallback.add_argument("--api-url", default=None, help="URL API; implicit http://localhost:<backend-port>")
+    p_fallback.add_argument("--backend-port", type=int, default=8000)
+    p_fallback.add_argument("--edge-token", default=None, help="token edge; implicit EDGE_TOKEN din mediu sau .env")
+    p_fallback.add_argument("--snapshot", type=Path, help="JPEG deja blurat; altfel se folosește cadrul sintetic")
+    p_fallback.add_argument("--no-engine", action="store_true", help="nu porni motorul pentru RESTRICTED_ZONE")
+    p_fallback.set_defaults(func=run_fallback)
 
     return parser
 
