@@ -5,6 +5,7 @@ import numpy as np
 from safesight_ml.detector import Detection, FakeDetector
 from safesight_ml.live import LiveFrameWriter
 from safesight_ml.pipeline import Pipeline
+from safesight_ml.run import main as run_main
 from safesight_ml.zones import Zone
 
 ZONE = Zone(
@@ -41,6 +42,24 @@ def test_live_writer_writes_latest_frame(tmp_path):
     assert writer.due()
     assert writer.write(np.zeros((36, 64, 3), dtype=np.uint8))
     assert (tmp_path / "stand12.jpg").is_file()
+
+
+def test_fake_cli_writes_live_frame(tmp_path):
+    code = run_main(
+        [
+            "--fake",
+            "--engine-on",
+            "--dry-run",
+            "--max-frames",
+            "5",
+            "--out",
+            str(tmp_path / "out"),
+            "--live-dir",
+            str(tmp_path / "live"),
+        ]
+    )
+    assert code == 0
+    assert (tmp_path / "live" / "stand12.jpg").is_file()
 
 
 def test_pipeline_writes_live_frame_and_reuses_blur(tmp_path):

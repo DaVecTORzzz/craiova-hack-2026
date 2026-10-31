@@ -99,4 +99,4 @@ fixtures/
 - buffer/retry la pană de conexiune;
 - rata de falsuri alarme, măsurată pe 50–100 evenimente.
 
-Verificare: `uv run pytest` (30 teste) și `uv run python -m safesight_ml.run --fake --engine-on --dry-run`. Cifrele reale sunt în [`docs/benchmark.md`](docs/benchmark.md).
+Verificare: `uv run pytest` (31 teste) și `uv run python -m safesight_ml.run --fake --engine-on --dry-run`. Cifrele reale sunt în [`docs/benchmark.md`](docs/benchmark.md).

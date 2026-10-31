@@ -8,8 +8,8 @@ Măsurat pe 31 octombrie 2026, pe laptopul de demo.
 | Model | `yolo26n.pt` |
 | Sursă | `2026-10-30_restricted-zone_cam01_persoana-langa-motor.mp4`, 1920×1080 |
 | Cadre procesate | 120 |
-| Timp total | 6,94 s |
-| FPS | ~17,3 |
+| Timp total | 6,94 s (end-to-end, inclusiv pornirea Python și încărcarea modelului) |
+| FPS end-to-end | ~17,3 |
 | Evenimente | 2 (track 3 și 4), ambele `RESTRICTED_ZONE` |
 | Confidence detector | 0,40–0,55 |
 | Ingestie la backend | 135–162 ms (`received_at − detected_at`) |
