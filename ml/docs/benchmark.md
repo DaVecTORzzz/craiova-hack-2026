@@ -50,6 +50,21 @@ Trei rulări consecutive, dry-run, 120 cadre, același clip și aceleași zone. 
 
 Pentru pitch folosește medianul, nu o singură rulare. Dacă demo-ul rulează pe alt laptop, remăsoară pe acela.
 
+Pentru reproducere, rulează aceeași comandă de trei ori:
+
+```bash
+for i in 1 2 3; do
+  /usr/bin/time -f "run=$i wall=%e s" \
+    uv run python -m safesight_ml.run \
+    --source ../data/videos/2026-10-30_restricted-zone_cam01_persoana-langa-motor.mp4 \
+    --zones fixtures/zones.stand12.json \
+    --camera-id stand12 --engine-on --dry-run --max-frames 120 \
+    --metrics-json "out/bench-$i.json"
+done
+```
+
+Nu am făcut warm-up separat; prima rulare poate fi mai lentă din cauza cache-ului.
+
 ## RTSP local (mediamtx)
 
 Măsurat pe 31 octombrie 2026, cu clipul din demo publicat în buclă prin `ml/scripts/rtsp-loop.sh`.
