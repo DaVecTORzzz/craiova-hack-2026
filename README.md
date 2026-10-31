@@ -43,6 +43,5 @@ Video-urile de test (`.mp4`), modelele antrenate (`.pt`, `.onnx`) și baza de da
 ## Reguli de lucru
 
 - `main` trebuie să ruleze mereu. Lucrați pe branch-uri scurte (`max/rule-engine`, `ariana/live-monitor`) și intrați în `main` prin pull request.
-- Fiecare lucrează în folderul lui. Pentru o schimbare în folderul altcuiva, deschideți un issue sau îi scrieți.
 - Commit-uri cu prefix: `ml:`, `api:`, `ui:`, `auto:`, `docs:`.
 - Asistenții AI (Claude Code etc.) citesc regulile din [`CLAUDE.md`](CLAUDE.md).

@@ -1,6 +1,6 @@
 # SafeSight — Agent Guide
 
-SafeSight transforms existing airport-apron cameras into structured safety events: edge detection → event → operator alert → AI incident report. Hackathon build; the demo is the product.
+SafeSight transforms existing airport-apron cameras into structured safety events: edge detection → event → operator alert → AI incident report. The demo path below is the core flow and must keep working.
 
 This file is the single source of truth for agents. `CLAUDE.md` only forwards here. Read it before touching code and update it in the same change when a durable rule changes.
 
@@ -50,13 +50,11 @@ Before finishing: run the check for the affected module and re-run the demo path
 4. Operator acks; escalation stops.
 5. Shift report shows KPI + summary.
 
-## Hackathon mode (T+0 → T+5:30)
+## Delivery
 
-- Riskiest first; one vertical slice; no speculative features.
-- Freeze at T+5:30: only bugs, captures and rehearsal.
 - Every external dependency has a fallback: recorded demo, template report, mock events.
 - Say what is real, what is stock and what is simulated.
-- If it is not on the demo path, it waits.
+- Any agent may change any folder; module owners in `README.md` are contacts, not gatekeepers.
 
 ## Working rules
 
