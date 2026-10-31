@@ -1,132 +1,254 @@
-import React from 'react';
-import { Settings, ShieldCheck, HardDrive, Lock, MessageSquare, Terminal } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { Settings, ShieldCheck, Server, Cpu, Lock, MessageSquare, Terminal, Video, Database } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useSecurity } from '../../context/SecurityContext';
+import { TYPE_LABELS } from '../../services/api';
+
+// Everything on this page comes from the backend (/health, /cameras, /zones, /events).
+// Nothing is hard-coded: a value we do not have is shown as "—".
+
+const AUDIT_LIMIT = 60;
+
+function formatDateTime(iso) {
+  if (!iso) return '—';
+  try {
+    return new Date(iso).toLocaleString('ro-RO', {
+      timeZone: 'Europe/Bucharest',
+      day: '2-digit',
+      month: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
+  } catch {
+    return iso;
+  }
+}
+
+// One incident -> the steps it actually went through, each with its own timestamp.
+function auditEntries(event) {
+  const what = `${TYPE_LABELS[event.type] || event.type} · ${event.camera_id}/${event.zone_id}`;
+  const rows = [
+    { at: event.detected_at, actor: 'Edge', action: `Detecție ${what} (track #${event.track_id})` },
+    event.notified_at && { at: event.notified_at, actor: 'Notificare', action: `Alertă Slack trimisă: ${what}` },
+    event.escalated_at && { at: event.escalated_at, actor: 'Escaladare', action: `Neconfirmat la timp: ${what}` },
+  ];
+  if (event.acked_at) {
+    const verb =
+      event.status === 'false_positive' ? 'Marcat fals pozitiv' : event.status === 'resolved' ? 'Rezolvat' : 'Confirmat';
+    rows.push({ at: event.acked_at, actor: 'Operator', action: `${verb}${event.acked_by ? ` de ${event.acked_by}` : ''}: ${what}` });
+  }
+  return rows.filter(Boolean).map((row) => ({ ...row, eventId: event.event_id }));
+}
+
+function Tile({ icon: Icon, label, value, detail, tone, themeStyles }) {
+  const color = { ok: 'text-emerald-400', warn: 'text-amber-400', bad: 'text-red-400', neutral: 'text-slate-300' }[tone];
+  return (
+    <div
+      style={{ backgroundColor: themeStyles.panelBg, borderColor: themeStyles.panelBorder }}
+      className="p-3 rounded-xl border space-y-1"
+    >
+      <p className="text-[11px] uppercase tracking-wider font-bold flex items-center gap-1.5" style={{ color: themeStyles.textMuted }}>
+        <Icon size={13} /> {label}
+      </p>
+      <p className={`font-mono font-bold text-sm ${color}`}>{value}</p>
+      {detail && (
+        <p className="text-[11px]" style={{ color: themeStyles.textMuted }}>
+          {detail}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function Panel({ icon: Icon, title, children, themeStyles }) {
+  return (
+    <section
+      style={{ backgroundColor: themeStyles.panelBg, borderColor: themeStyles.panelBorder }}
+      className="p-4 rounded-xl border space-y-3 text-xs"
+    >
+      <h3 className="font-bold text-sm uppercase flex items-center gap-1.5">
+        <Icon size={16} className="text-[#7EDEED]" /> {title}
+      </h3>
+      {children}
+    </section>
+  );
+}
 
 export default function SettingsView() {
   const { themeStyles } = useTheme();
-  const { cameras } = useSecurity();
+  const { cameras, zones, events, health, setSelectedEventId, setCurrentView } = useSecurity();
 
-  // Date de audit & securitate conform Deciziei N23
-  const auditLogs = [
-    { time: '10:42:14', actor: 'System (AI Edge)', action: 'RESTRICTED_ZONE event generated for stand12 (track #17)' },
-    { time: '10:42:15', actor: 'Webhook Relay', action: 'Slack incoming notification sent to #safety-ops-airside' },
-    { time: '10:32:05', actor: 'Operator: Ariana', action: 'Acknowledge event evt_stand12_1730283921004_12' },
-    { time: '10:25:43', actor: 'Escalation Engine', action: 'Escalated unattended luggage evt_checkin_1730283120011_99' },
-    { time: '10:15:05', actor: 'Health Daemon', action: 'CAMERA_OFFLINE trigger on baggage_south (5s missing frames)' }
-  ];
+  const edgeSeen = health?.edge_last_seen_s;
+  const edgeTone = edgeSeen == null ? 'warn' : edgeSeen < 60 ? 'ok' : 'warn';
+  const edgeValue = edgeSeen == null ? 'FĂRĂ DATE' : edgeSeen < 60 ? 'ACTIV' : 'ÎNTÂRZIAT';
+  // The model is whatever the edge put on its latest event; the backend has no other source.
+  const latestModel = useMemo(
+    () => [...events].sort((a, b) => String(b.detected_at).localeCompare(String(a.detected_at)))[0]?.model,
+    [events]
+  );
+
+  const audit = useMemo(
+    () =>
+      events
+        .flatMap(auditEntries)
+        .filter((row) => row.at)
+        .sort((a, b) => String(b.at).localeCompare(String(a.at)))
+        .slice(0, AUDIT_LIMIT),
+    [events]
+  );
+
+  const openIncident = (eventId) => {
+    setSelectedEventId(eventId);
+    setCurrentView('incident_detail');
+  };
 
   return (
-    <div className="flex-1 p-4 md:p-6 overflow-y-auto space-y-5 h-full select-none max-w-5xl mx-auto">
+    <div className="flex-1 p-4 md:p-6 overflow-y-auto space-y-5 h-full max-w-5xl mx-auto">
       <div>
         <h2 className="font-black text-lg uppercase tracking-tight flex items-center gap-2">
-          <Settings size={20} className="text-indigo-400" />
-          Configurație Edge & Politici de Securitate
-          <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 font-mono">
-            DEMO / READ-ONLY
-          </span>
+          <Settings size={20} className="text-[#7EDEED]" />
+          Edge & Audit
+          {health?.mock && (
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 font-mono">
+              MOD MOCK: evenimente simulate
+            </span>
+          )}
         </h2>
-        <p style={{ color: themeStyles.textMuted }} className="text-xs font-mono">
-          Securitate Date Aeroport • Arhitectură Edge-Native & Jurnal de Audit ICAO
+        <p style={{ color: themeStyles.textMuted }} className="text-xs">
+          Starea sistemului și istoricul acțiunilor, din datele backend-ului.
         </p>
       </div>
 
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <Tile
+          icon={Database}
+          label="Backend"
+          value={health?.db ? 'ONLINE' : 'OFFLINE'}
+          detail={health?.db ? 'Baza de date răspunde' : 'Backend-ul sau baza de date nu răspund'}
+          tone={health?.db ? 'ok' : 'bad'}
+          themeStyles={themeStyles}
+        />
+        <Tile
+          icon={Cpu}
+          label="Edge AI"
+          value={edgeValue}
+          detail={edgeSeen == null ? 'Niciun semnal de la edge' : `Ultimul semnal acum ${Math.round(edgeSeen)} s`}
+          tone={edgeTone}
+          themeStyles={themeStyles}
+        />
+        <Tile
+          icon={Server}
+          label="Model detecție"
+          value={latestModel || '—'}
+          detail="Din ultimul eveniment primit"
+          tone="neutral"
+          themeStyles={themeStyles}
+        />
+        <Tile
+          icon={Video}
+          label="Camere"
+          value={`${cameras.filter((c) => c.status === 'online').length} / ${cameras.length} online`}
+          detail={`${zones.length} zone configurate`}
+          tone={cameras.length && cameras.every((c) => c.status === 'online') ? 'ok' : 'warn'}
+          themeStyles={themeStyles}
+        />
+      </div>
+
+      <Panel icon={Video} title="Camere" themeStyles={themeStyles}>
+        {cameras.length === 0 ? (
+          <p style={{ color: themeStyles.textMuted }}>Nicio cameră înregistrată.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left font-mono text-[11px]">
+              <thead style={{ color: themeStyles.textMuted }}>
+                <tr className="border-b border-white/10">
+                  <th className="py-1.5 pr-3 font-semibold">Cameră</th>
+                  <th className="py-1.5 pr-3 font-semibold">Stare</th>
+                  <th className="py-1.5 pr-3 font-semibold">Motor</th>
+                  <th className="py-1.5 pr-3 font-semibold">Zone</th>
+                  <th className="py-1.5 font-semibold">Live</th>
+                </tr>
+              </thead>
+              <tbody>
+                {cameras.map((camera) => {
+                  const fps = health?.live_fps?.[camera.id];
+                  return (
+                    <tr key={camera.id} className="border-b border-white/5 last:border-0">
+                      <td className="py-1.5 pr-3">
+                        <span className="font-bold">{camera.code || camera.id}</span>{' '}
+                        <span style={{ color: themeStyles.textMuted }}>{camera.id}</span>
+                      </td>
+                      <td className={`py-1.5 pr-3 font-bold ${camera.status === 'online' ? 'text-emerald-400' : 'text-red-400'}`}>
+                        {camera.status === 'online' ? 'ONLINE' : 'OFFLINE'}
+                      </td>
+                      <td className="py-1.5 pr-3">{camera.engine_on ? 'pornit' : 'oprit'}</td>
+                      <td className="py-1.5 pr-3">{zones.filter((z) => z.camera_id === camera.id).length}</td>
+                      <td className="py-1.5">{fps != null ? `${fps} fps` : '—'}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Panel>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Card 1: Starea Nodului Edge */}
-        <div
-          style={{ backgroundColor: themeStyles.panelBg, borderColor: themeStyles.panelBorder }}
-          className="p-4 rounded-xl border shadow-sm space-y-3 text-xs"
-        >
-          <h3 className="font-bold text-sm uppercase flex items-center gap-1.5 text-emerald-400">
-            <ShieldCheck size={16} /> Stare Nod Edge Aeroport
-          </h3>
-          <div className="space-y-1.5 font-mono">
-            <div className="flex justify-between py-1 border-b border-white/5">
-              <span className="opacity-70">Nod AI Edge:</span>
-              <span className="font-bold text-emerald-400">ONLINE (Jetson AGX Orin 64GB)</span>
-            </div>
-            <div className="flex justify-between py-1 border-b border-white/5">
-              <span className="opacity-70">Camere Înrolate:</span>
-              <span className="font-bold text-white">{cameras.length} fluxuri RTSP</span>
-            </div>
-            <div className="flex justify-between py-1 border-b border-white/5">
-              <span className="opacity-70">Model Computer Vision:</span>
-              <span className="font-bold text-indigo-400">YOLO26-Tarmac + ByteTrack</span>
-            </div>
-            <div className="flex justify-between py-1">
-              <span className="opacity-70">Latență Procesare Cadru:</span>
-              <span className="font-bold text-emerald-400">28 ms / frame</span>
-            </div>
-          </div>
-        </div>
+        <Panel icon={Lock} title="Ce pleacă de pe edge" themeStyles={themeStyles}>
+          <ul className="space-y-1.5" style={{ color: themeStyles.textMuted }}>
+            <li>• Video brut rămâne pe edge; nu se trimite nicăieri.</li>
+            <li>
+              • Snapshot-urile și imaginea live au <span className="font-bold text-amber-400">fețele blurate pe edge</span>, înainte
+              de salvare sau trimitere.
+            </li>
+            <li>• Evenimentul conține doar metadate: tip, cameră, zonă, oră, încredere.</li>
+            <li>• Fără recunoaștere facială, fără nume, fără analiză de emoții.</li>
+          </ul>
+        </Panel>
 
-        {/* Card 2: Ce Pleacă din Aeroport (Privacy & GDPR) */}
-        <div
-          style={{ backgroundColor: themeStyles.panelBg, borderColor: themeStyles.panelBorder }}
-          className="p-4 rounded-xl border shadow-sm space-y-3 text-xs"
-        >
-          <h3 className="font-bold text-sm uppercase flex items-center gap-1.5 text-indigo-400">
-            <Lock size={16} /> Ce Pleacă din Aeroport (Privacy)
-          </h3>
-          <div className="space-y-2 text-slate-300">
-            <p>
-              Fluxurile video brute 4K <span className="font-bold text-emerald-400">NU părăsesc niciodată perimetrul aeroportului</span>. Ele sunt procesate local la edge.
-            </p>
-            <div className="p-2 rounded bg-black/30 space-y-1 font-mono text-[11px]">
-              <div className="text-white font-bold">Date exportate în exterior (doar la incident):</div>
-              <p className="text-slate-400">• Metadate JSON (tip incident, timestamp, coordonate)</p>
-              <p className="text-slate-400">• Snapshot foto cu <span className="text-amber-400 font-bold">fețele blurate la edge</span></p>
-              <p className="text-slate-400">• Retenție evenimente: 7 zile pe storage securizat</p>
-            </div>
-          </div>
-        </div>
+        <Panel icon={MessageSquare} title="Notificări" themeStyles={themeStyles}>
+          <ul className="space-y-1.5" style={{ color: themeStyles.textMuted }}>
+            <li>
+              • <span className="font-bold text-[#7EDEED]">Slack</span>: mesaj text + link la incident, fără imagini.
+            </li>
+            <li>• Escaladare dacă incidentul nu e confirmat în timpul setat pe zonă.</li>
+            <li>• Confirmarea operatorului oprește escaladarea.</li>
+          </ul>
+        </Panel>
       </div>
 
-      {/* Card 3: Canale de Notificare */}
-      <div
-        style={{ backgroundColor: themeStyles.panelBg, borderColor: themeStyles.panelBorder }}
-        className="p-4 rounded-xl border shadow-sm space-y-3 text-xs"
-      >
-        <h3 className="font-bold text-sm uppercase flex items-center gap-1.5 text-white">
-          <MessageSquare size={16} className="text-indigo-400" />
-          Canale Notificare & Integrare Dispecerat
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div className="p-3 rounded-lg bg-black/20 border border-white/5">
-            <span className="font-bold block text-indigo-400">Slack Webhook</span>
-            <span className="text-[11px] opacity-75">#safety-ops-airside (Alertă text + link incident)</span>
-          </div>
-          <div className="p-3 rounded-lg bg-black/20 border border-white/5">
-            <span className="font-bold block text-indigo-400">A-CDM Airport System</span>
-            <span className="text-[11px] opacity-75">Blocare automată autorizație Pushback TWR</span>
-          </div>
-          <div className="p-3 rounded-lg bg-black/20 border border-white/5">
-            <span className="font-bold block text-indigo-400">Radio TETRA</span>
-            <span className="text-[11px] opacity-75">Apel direct din PWA Mobil</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Card 4: Jurnal de Audit Read-Only */}
-      <div
-        style={{ backgroundColor: themeStyles.panelBg, borderColor: themeStyles.panelBorder }}
-        className="p-4 rounded-xl border shadow-sm space-y-3 text-xs"
-      >
-        <h3 className="font-bold text-sm uppercase flex items-center gap-1.5 text-white">
-          <Terminal size={16} className="text-emerald-400" />
-          Jurnal de Audit Operativ (Audit Log Read-Only)
-        </h3>
-
-        <div className="space-y-1.5 font-mono text-[11px] overflow-x-auto">
-          {auditLogs.map((log, idx) => (
-            <div key={idx} className="p-2 rounded bg-black/30 flex items-center gap-2 border border-white/5">
-              <span className="text-slate-400 shrink-0">[{log.time}]</span>
-              <span className="text-indigo-400 font-bold shrink-0">{log.actor}:</span>
-              <span className="text-slate-200 truncate">{log.action}</span>
-            </div>
-          ))}
-        </div>
-      </div>
+      <Panel icon={Terminal} title="Jurnal de audit" themeStyles={themeStyles}>
+        <p style={{ color: themeStyles.textMuted }}>
+          Pașii prin care a trecut fiecare incident (detecție, notificare, escaladare, confirmare), cei mai recenți primii.
+        </p>
+        {audit.length === 0 ? (
+          <p className="py-4 text-center" style={{ color: themeStyles.textMuted }}>
+            Niciun eveniment încă.
+          </p>
+        ) : (
+          <ul className="space-y-1 font-mono text-[11px]">
+            {audit.map((row, index) => (
+              <li key={`${row.eventId}-${index}`}>
+                <button
+                  onClick={() => openIncident(row.eventId)}
+                  className="w-full p-2 rounded bg-black/20 hover:bg-white/5 flex items-center gap-2 border border-white/5 text-left"
+                  title="Deschide incidentul"
+                >
+                  <span className="shrink-0" style={{ color: themeStyles.textMuted }}>
+                    [{formatDateTime(row.at)}]
+                  </span>
+                  <span className="text-[#7EDEED] font-bold shrink-0 w-20">{row.actor}</span>
+                  <span className="truncate">{row.action}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <p className="text-[11px] flex items-center gap-1.5" style={{ color: themeStyles.textMuted }}>
+          <ShieldCheck size={12} /> Din ultimele {events.length} incidente; doar citire.
+        </p>
+      </Panel>
     </div>
   );
 }
