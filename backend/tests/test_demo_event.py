@@ -34,6 +34,20 @@ def test_demo_event_restricted_zone(client, monkeypatch, capsys):
     assert stand12["engine_on"] is True
 
 
+def test_demo_event_no_ppe_does_not_enable_engine(client, monkeypatch, capsys):
+    _use_test_client(monkeypatch, client)
+
+    assert demo_event.main(["--edge-token", "test-token", "--type", "NO_PPE"]) == 0
+
+    event_id = capsys.readouterr().out.split()[2]
+    data = client.get(f"/events/{event_id}").json()
+    assert data["type"] == "NO_PPE"
+    assert data["context"] == {"engine_on": False}
+
+    stand12 = [c for c in client.get("/cameras").json() if c["id"] == "stand12"][0]
+    assert stand12["engine_on"] is False
+
+
 def test_demo_event_fod_without_engine(client, monkeypatch, capsys):
     _use_test_client(monkeypatch, client)
 

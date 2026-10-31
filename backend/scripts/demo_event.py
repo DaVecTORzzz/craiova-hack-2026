@@ -78,13 +78,15 @@ def main(argv: list[str] | None = None) -> int:
     track_id = 0 if args.type == EventType.FOD.value else random.randint(1, 99)
     event_id = f"evt_{camera_id}_{int(time.time() * 1000)}_{track_id}"
     headers = {"X-Edge-Token": args.edge_token}
-    engine_on = not args.no_engine
+    engine_on = args.type == EventType.RESTRICTED_ZONE.value and not args.no_engine
 
     with httpx.Client(base_url=args.api_url.rstrip("/"), timeout=5) as client:
-        # Engine on first, so the restricted zone is active and the UI matches the event context.
+        # Only the restricted-zone demo needs the engine on; FOD/NO_PPE do not.
         if engine_on:
             client.put(f"/cameras/{camera_id}/engine", json={"on": True}).raise_for_status()
 
+        if args.snapshot:
+            print("warning: --snapshot is uploaded as-is; only pass an already-blurred JPEG", file=sys.stderr)
         jpeg = args.snapshot.read_bytes() if args.snapshot else placeholder_jpeg(f"DEMO {args.type} {camera_id}")
         res = client.post(
             "/edge/snapshots",

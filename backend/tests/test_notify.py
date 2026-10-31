@@ -106,6 +106,13 @@ def test_notified_logs_detection_to_alert(client, monkeypatch, caplog):
         assert _wait_for(lambda: f"notified event_id={ev_id} detection_to_alert_ms=" in caplog.text)
 
 
+def test_http_loggers_do_not_log_urls(client):
+    import logging
+
+    assert logging.getLogger("httpx").level == logging.WARNING
+    assert logging.getLogger("httpcore").level == logging.WARNING
+
+
 def test_webhook_url_is_not_logged(client, monkeypatch, caplog):
     import httpx
     from app.config import get_settings
