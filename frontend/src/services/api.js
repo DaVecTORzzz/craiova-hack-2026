@@ -364,8 +364,13 @@ export const safeSightApi = {
 
     const connect = () => {
       socket = new WebSocket(wsUrl);
-      socket.onopen = () => onOpen?.();
+      // React StrictMode mounts, cleans up and mounts again; events from the
+      // first socket must not mark the second connection as lost.
+      socket.onopen = () => {
+        if (!stopped) onOpen?.();
+      };
       socket.onmessage = (event) => {
+        if (stopped) return;
         try {
           const message = JSON.parse(event.data);
           if (message?.data && (message.type === 'event.created' || message.type === 'event.updated')) {
@@ -376,10 +381,13 @@ export const safeSightApi = {
           console.error('WS parse error', error);
         }
       };
-      socket.onerror = () => onError?.();
+      socket.onerror = () => {
+        if (!stopped) onError?.();
+      };
       socket.onclose = () => {
+        if (stopped) return;
         onError?.();
-        if (!stopped) retryTimer = setTimeout(connect, 2000);
+        retryTimer = setTimeout(connect, 2000);
       };
     };
 
