@@ -11,7 +11,7 @@ Video-ul nu iese din aeroport. Fețele sunt blurate înainte de orice salvare.
 | `ml/` | Detecție (YOLO26), tracking, zone, FOD, blur pe fețe | Andrei |
 | `backend/` | FastAPI, rule engine, WebSocket, stream video, stocare | Max |
 | `automation/` | Raport AI, notificări Slack, escaladare, raport de tură | Dalina |
-| `frontend/` | Dashboard React + Vite și PWA pentru telefon | Ariana |
+| `frontend/` | Dashboard React + Vite | Ariana |
 | `demo/` | Scenariul demo și instrucțiunile pentru înregistrarea de rezervă | Ariana + Dalina |
 | `docs/` | Contractul API și alte documente comune | toți |
 
