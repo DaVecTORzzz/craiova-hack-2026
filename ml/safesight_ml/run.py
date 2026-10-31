@@ -15,6 +15,7 @@ import os
 import sys
 import time
 from pathlib import Path
+from urllib.parse import urlsplit, urlunsplit
 
 import cv2
 import httpx
@@ -37,6 +38,19 @@ def _resolve_fps(requested: float, source: float) -> float:
         if candidate and math.isfinite(candidate) and candidate > 0:
             return candidate
     return 25.0
+
+
+def _metrics_source(source: str | None) -> str:
+    """Do not write RTSP credentials or tokens from the source URL into metrics."""
+    if not source:
+        return "fake"
+    if "://" not in source:
+        return source
+    parsed = urlsplit(source)
+    host = parsed.hostname or ""
+    if parsed.port:
+        host = f"{host}:{parsed.port}"
+    return urlunsplit((parsed.scheme, host, parsed.path, "", ""))
 
 
 def load_zones(path: str | Path) -> list[Zone]:
@@ -217,7 +231,7 @@ def main(argv: list[str] | None = None) -> int:
     for row in event_rows:
         event_types[row["type"]] = event_types.get(row["type"], 0) + 1
     metrics = {
-        "source": args.source or "fake",
+        "source": _metrics_source(args.source),
         "camera_id": args.camera_id,
         "frames": total,
         "events": len(event_rows),
@@ -227,6 +241,9 @@ def main(argv: list[str] | None = None) -> int:
         "fps": round(total / elapsed_s, 2) if elapsed_s > 0 else 0.0,
         "engine_on": pipeline.engine_on,
         "sink": "http" if args.post else "jsonl",
+        "model": detector.model_name,
+        "max_frames": args.max_frames,
+        "duration_s": args.duration_s,
     }
     if args.metrics_json:
         args.metrics_json.parent.mkdir(parents=True, exist_ok=True)
