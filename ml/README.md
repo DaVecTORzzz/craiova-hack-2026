@@ -53,6 +53,43 @@ uv run python -m safesight_ml.run \
 
 `--remote-config` ia zonele și `engine_on` din `GET /edge/zones` și le reîmprospătează la 30 s. Dacă backend-ul nu răspunde, folosește `fixtures/zones.stand12.json` și flag-ul `--engine-on`. Pentru `--remote-config`, zona din backend trebuie să aibă poligonul calibrat; altfel folosește `--zones`.
 
+## RTSP real, pentru demo
+
+Pornește un server RTSP local (o singură dată; imaginea se descarcă prima dată):
+
+```bash
+podman run --rm -d --name safesight-rtsp -p 8554:8554 bluenviron/mediamtx:latest
+```
+
+Publică un clip în buclă, într-un terminal separat:
+
+```bash
+cd ml
+./scripts/rtsp-loop.sh
+# sau: ./scripts/rtsp-loop.sh ../data/videos/<clip>.mp4 rtsp://127.0.0.1:8554/stand12
+```
+
+Rulează edge-ul pe fluxul RTSP, nu pe fișier:
+
+```bash
+uv run python -m safesight_ml.run \
+  --source rtsp://127.0.0.1:8554/stand12 \
+  --camera-id stand12 \
+  --remote-config \
+  --post \
+  --live-dir ../backend/snapshots/live \
+  --api-url http://localhost:8000 \
+  --edge-token "$EDGE_TOKEN"
+```
+
+Oprește serverul după demo:
+
+```bash
+podman rm -f safesight-rtsp
+```
+
+Verificat local pe 31 octombrie 2026: 120 de cadre citite din `rtsp://127.0.0.1:8554/stand12` în 9,34 s end-to-end, 2 evenimente `RESTRICTED_ZONE`, `--remote-config` activ. Dacă backend-ul nu răspunde, edge-ul folosește `fixtures/zones.stand12.json` și `--engine-on`.
+
 ## Ce produce
 
 - `out/events.jsonl` — un eveniment JSON pe linie, exact câmpurile din `docs/contract.md`;
@@ -97,6 +134,7 @@ fixtures/
 - FOD pe cadru de referință;
 - VLM pentru fum;
 - buffer/retry la pană de conexiune;
-- rata de falsuri alarme, măsurată pe 50–100 evenimente.
+- rata de falsuri alarme, măsurată pe 50–100 evenimente;
+- reconectare automată la căderea fluxului RTSP (acum procesul se oprește la primul `read()` eșuat).
 
 Verificare: `uv run pytest` (31 teste) și `uv run python -m safesight_ml.run --fake --engine-on --dry-run`. Cifrele reale sunt în [`docs/benchmark.md`](docs/benchmark.md).
