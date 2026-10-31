@@ -12,7 +12,7 @@ import Toast from './components/common/Toast';
 
 function MainAppLayout() {
   const { themeStyles } = useTheme();
-  const { currentView } = useSecurity();
+  const { currentView, health } = useSecurity();
 
   const renderActiveView = () => {
     switch (currentView) {
@@ -39,6 +39,14 @@ function MainAppLayout() {
       }}
       className="h-screen w-screen flex flex-col overflow-hidden antialiased selection:bg-indigo-500 selection:text-white"
     >
+      {/* 0. Banner de dezvoltare: blur-ul de fețe e oprit (SAFESIGHT_ALLOW_UNBLURRED=1).
+          Nu e o setare a produsului; dacă apare, cineva testează local. */}
+      {health?.unblurred && (
+        <div className="shrink-0 bg-red-600 text-white text-center font-bold text-xs py-1.5 px-3 tracking-wide">
+          BLURAREA FEȚELOR E OPRITĂ — MOD DEZVOLTARE. Nu arăta acest ecran public.
+        </div>
+      )}
+
       {/* 1. Header (Bara de Sus cu Brand SafeSight AI) */}
       <Header />
 

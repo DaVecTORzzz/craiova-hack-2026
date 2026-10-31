@@ -1,4 +1,6 @@
 import time
+import os
+
 from fastapi import APIRouter, Response, status
 from sqlalchemy import text
 from sqlmodel import Session
@@ -48,6 +50,7 @@ async def health(response: Response):
             "edge_last_seen_s": edge_last_seen_s,
             "mock": mock,
             "live_fps": live_rate.snapshot(),
+            "unblurred": os.getenv("SAFESIGHT_ALLOW_UNBLURRED") == "1",
         }
 
     if (edge_last_seen_s is None or edge_last_seen_s > 60) and not mock:
@@ -61,4 +64,5 @@ async def health(response: Response):
         "edge_last_seen_s": edge_last_seen_s,
         "mock": mock,
         "live_fps": live_rate.snapshot(),
+        "unblurred": os.getenv("SAFESIGHT_ALLOW_UNBLURRED") == "1",
     }

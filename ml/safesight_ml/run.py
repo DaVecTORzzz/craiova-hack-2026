@@ -223,6 +223,18 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         detector = YoloDetector(args.model, confidence=args.conf)
         blurrer = FaceBlurrer(args.face_model)
+        # Unealtă de laborator, nu o setare a produsului: fără variabila de mediu
+        # explicită nu se întâmplă nimic, iar când e pornită urlă în consolă.
+        if os.getenv("SAFESIGHT_ALLOW_UNBLURRED") == "1":
+            print(
+                "\n" + "!" * 78 +
+                "\n!!  BLURAREA FEȚELOR E OPRITĂ  (SAFESIGHT_ALLOW_UNBLURRED=1)\n"
+                "!!  Cadrele din live/ și snapshots/ conțin fețe NEblurate.\n"
+                "!!  Doar pentru dezvoltare locală. Nu așa se ține un demo.\n" +
+                "!" * 78 + "\n",
+                file=sys.stderr,
+            )
+            blurrer = NoopBlurrer()
 
     sink = HttpSink(args.api_url, args.edge_token) if args.post else JsonlSink(args.out)
 
