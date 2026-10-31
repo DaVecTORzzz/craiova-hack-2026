@@ -44,12 +44,13 @@ Overlay-urile de verificare sunt în `review/` și nu intră în git. Fluxul com
 
 | Clasă | Sursă | Licență | Cine a adnotat | Data |
 |---|---|---|---|---|
-| `person` | de completat | de completat | Andrei (preliminar) | 2026-10-31 |
-| `hi_vis_vest` | de completat | de completat | Andrei (preliminar) | 2026-10-31 |
-| `hard_hat` | de completat | de completat | Andrei (preliminar) | 2026-10-31 |
 | `ear_defender` | de completat | de completat | — | — |
-| `fod_object` | de completat | de completat | Andrei (preliminar) | 2026-10-31 |
 | `cigarette` | de completat | de completat | — | — |
 | `smoke` | de completat | de completat | — | — |
+| `person` | Gemini (imagine sintetică, generată de echipă) | internă — nu se publică | Andrei (preliminar), verificat Dalina | 2026-10-31 |
+| `hi_vis_vest` | Gemini (imagine sintetică, generată de echipă) | internă — nu se publică | Andrei (preliminar), verificat Dalina | 2026-10-31 |
+| `hard_hat` | Gemini (imagine sintetică, generată de echipă) | internă — nu se publică | Andrei (preliminar), verificat Dalina | 2026-10-31 |
+| `fod_object` | Gemini (imagine sintetică, generată de echipă) | internă — nu se publică | Andrei (preliminar), cutia corectată de Dalina | 2026-10-31 |
+
 
 Reguli: un singur format pentru toate clasele, împărțire train/validare pe surse diferite, fără fețe identificabile în seturile publicate.
