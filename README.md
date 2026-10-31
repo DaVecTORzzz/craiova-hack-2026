@@ -22,8 +22,17 @@ Video-ul nu iese din aeroport. Fețele sunt blurate înainte de orice salvare.
 
 ## Pornire
 
+Pe Linux, macOS sau Windows, cu Python 3.12+:
+
+```bash
+python scripts/dev.py setup   # o singură dată
+python scripts/dev.py demo    # backend + frontend + un run real pe clip
+```
+
+sau `./run.sh demo` / `run.cmd demo`. Detalii, cerințe și variante: [`RUNNING.md`](RUNNING.md).
+
 0. `./scripts/agent-preflight.sh` — sincronizează repo-ul public și repo-ul privat de documente înainte de lucru.
-1. `cp .env.example .env` și completează cheile.
+1. `cp .env.example .env` și completează cheile; `.env` e opțional pentru demo.
 2. Fiecare modul are în folderul lui un `README.md` cu pornirea și comanda de verificare.
 3. Cât timp un modul nu e gata, ceilalți lucrează cu `USE_MOCK=true` și cu fixture-urile din `frontend/fixtures/`.
 
