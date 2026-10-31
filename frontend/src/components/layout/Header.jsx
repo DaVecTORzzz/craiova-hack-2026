@@ -220,7 +220,7 @@ export default function Header() {
             title="Schimbă operatorul activ"
           >
             <div className="w-7 h-7 rounded-lg bg-[#7EDEED] text-[#1F1F1F] font-bold text-xs flex items-center justify-center shadow-inner">
-              {operatorName?.[0] || 'A'}
+              {operatorName?.[0]?.toUpperCase() || 'O'}
             </div>
             <div className="hidden lg:block text-left text-xs leading-tight">
               <p className="font-bold flex items-center gap-1">
@@ -228,7 +228,7 @@ export default function Header() {
                 <ChevronDown size={11} className="opacity-70" />
               </p>
               <p className="text-[10px] text-slate-400 font-medium">
-                {activeOperator ? activeOperator.badge : 'AIRSIDE-LEAD'}
+                {activeOperator ? activeOperator.badge : 'OPERATOR'}
               </p>
             </div>
           </button>
@@ -243,7 +243,7 @@ export default function Header() {
               className="absolute right-0 mt-2 w-64 rounded-xl border p-2 shadow-2xl space-y-1 text-xs z-50 font-sans"
             >
               <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b pb-1 mb-1">
-                Selectare Operator / Rol
+                Rol
               </div>
               {availableOperators.map((op) => {
                 const isSelected = activeOperator && op.id === activeOperator.id;
@@ -273,7 +273,7 @@ export default function Header() {
 
               <div className="pt-2 border-t border-white/10 mt-1 space-y-1.5">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block px-1">
-                  Semnătură Audit
+                  Numele tău (apare în jurnal)
                 </span>
                 <input
                   type="text"
@@ -287,7 +287,7 @@ export default function Header() {
                     }
                   }}
                   className="w-full px-2.5 py-1 rounded text-xs bg-black/20 border border-white/20 focus:outline-none focus:ring-1 focus:ring-[#7EDEED]"
-                  placeholder="Nume pe raport tură..."
+                  placeholder="Ex: I. Popescu"
                 />
               </div>
             </div>

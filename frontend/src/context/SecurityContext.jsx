@@ -63,7 +63,7 @@ export function SecurityProvider({ children }) {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   // 2. Operator & autentificare simplă: selector de rol + nume afișat editabil.
-  const [operatorId, setOperatorId] = useState('ariana');
+  const [operatorId, setOperatorId] = useState('dispatcher');
   const activeOperator = useMemo(
     () => AVAILABLE_OPERATORS.find((operator) => operator.id === operatorId) || AVAILABLE_OPERATORS[0],
     [operatorId]
