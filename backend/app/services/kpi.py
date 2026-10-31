@@ -67,6 +67,11 @@ def compute_kpi(events: list[Event]) -> Kpi:
     )
 
 
+def _avg_ack_s(events: list[Event]) -> int | None:
+    delays = [(e.acked_at - e.detected_at).total_seconds() for e in events if e.acked_at is not None]
+    return round(sum(delays) / len(delays)) if delays else None
+
+
 def _severity_counts(events: list[Event]) -> dict[str, int]:
     return {
         "critical": sum(1 for e in events if e.severity == Severity.CRITICAL.value),
@@ -86,9 +91,7 @@ async def build_shift_report(session: Session, shift: Shift, day: date) -> Shift
     by_zone = []
     for zone_id in sorted({e.zone_id for e in events}):
         group = [e for e in events if e.zone_id == zone_id]
-        ack_delays = [(e.acked_at - e.detected_at).total_seconds() for e in group if e.acked_at is not None]
-        avg_ack = round(sum(ack_delays) / len(ack_delays)) if ack_delays else None
-        by_zone.append({"zone_id": zone_id, **_severity_counts(group), "avg_ack_s": avg_ack})
+        by_zone.append({"zone_id": zone_id, **_severity_counts(group), "avg_ack_s": _avg_ack_s(group)})
 
     hours: dict[str, int] = {}
     for e in events:
@@ -101,6 +104,7 @@ async def build_shift_report(session: Session, shift: Shift, day: date) -> Shift
         "shift": shift,
         "date": day_str,
         "kpi": kpi.model_dump(mode="json"),
+        "avg_ack_s": _avg_ack_s(events),
         "by_type": by_type,
         "by_zone": by_zone,
         "by_hour": by_hour,

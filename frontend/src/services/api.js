@@ -141,22 +141,8 @@ function mapShiftReport(report) {
   const total = byType.reduce((sum, row) => sum + row.count, 0);
   const critical = (report.by_type || []).reduce((sum, row) => sum + (row.critical || 0), 0);
   const warning = (report.by_type || []).reduce((sum, row) => sum + (row.warning || 0), 0);
-  // Backend-ul dă avg_ack_s per zonă; aproximăm media globală ponderând cu volumul zonei.
-  const ackRows = (report.by_zone || []).filter((zone) => zone.avg_ack_s != null);
-  const ackWeight = ackRows.reduce(
-    (sum, zone) => sum + (zone.critical || 0) + (zone.warning || 0),
-    0
-  );
-  const avgAck = ackRows.length
-    ? Math.round(
-        ackWeight > 0
-          ? ackRows.reduce(
-              (sum, zone) => sum + zone.avg_ack_s * ((zone.critical || 0) + (zone.warning || 0)),
-              0
-            ) / ackWeight
-          : ackRows.reduce((sum, zone) => sum + zone.avg_ack_s, 0) / ackRows.length
-      )
-    : null;
+  // Media globală vine din backend, calculată pe toate evenimentele confirmate din tură.
+  const avgAck = report.avg_ack_s;
 
   return {
     shift: SHIFT_LABELS[report.shift] || report.shift,

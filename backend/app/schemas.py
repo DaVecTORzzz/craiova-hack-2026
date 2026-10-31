@@ -181,6 +181,7 @@ class ShiftReport(BaseModel):
     shift: Literal["morning", "afternoon", "night"]
     date: str
     kpi: Kpi
+    avg_ack_s: int | None
     summary: str
     by_type: list[dict]
     by_zone: list[dict]
