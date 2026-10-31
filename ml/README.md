@@ -274,6 +274,7 @@ fixtures/
 - Modelul de fețe lipsește → `FaceBlurrer` fail-closed; nu se salvează imagine neblurată.
 - `--fake` folosește `NoopBlurrer` doar pentru cadre sintetice, fără fețe.
 - YuNet rulează pe cadrul la rezoluție completă. Micșorarea înainte de blur pierde fețe (pe `cam01`, 15 → 7 fețe la 1280 px; pe `cam02` 4K, 40 → 7), deci nu se folosește ca optimizare.
+- YuNet rulează prin **ONNX Runtime**, nu prin `cv2.FaceDetectorYN`: același model, aceeași matematică de decodare (`sqrt(cls*obj)`, NMS 0,3), aceleași fețe. Măsurat pe cele trei clipuri din demo, 40 de cadre fiecare (1 nov 2026): 42,1 → 26,4 ms pe `cam01`, 18,6 → 10,7 ms pe `broll_cam01`, 45,0 → 26,3 ms pe `broll_cam02`, cu număr de fețe identic și 100% potrivire la IoU 0,5. Live pe o cameră: 15,4 → 21,5 cadre/s. Modelul publicat are intrare fixă 640×640, deci `privacy.py` o face dinamică la încărcare și umple cadrul până la multiplu de 32 pe ambele laturi (rândurile și coloanele de umplutură sunt goale, deci coordonatele nu se rescalează). Firele se schimbă cu `SAFESIGHT_FACE_THREADS` (implicit 4; 1/2/3/4/6 fire dau 53/35/29/26/25 ms). Modelul `int8bq` din opencv_zoo **nu** poate rula în ONNX Runtime (block quantization nesuportată), deci implicit rămâne `face_detection_yunet_2023mar.onnx`.
 
 ## Ce nu intră încă
 
