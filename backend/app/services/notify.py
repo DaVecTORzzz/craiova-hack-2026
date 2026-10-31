@@ -46,6 +46,12 @@ def _default_slack_text(event: EventOut, escalated: bool) -> str:
     return text
 
 
+def _escalate_after_s(zone_id: str) -> int | None:
+    with Session(get_engine()) as session:
+        zone = session.get(Zone, zone_id)
+    return zone.escalate_after_s if zone is not None else None
+
+
 def slack_text(event: EventOut, escalated: bool) -> str:
     """Use automation.report.slack_text when present, else the default template."""
     try:
@@ -53,7 +59,11 @@ def slack_text(event: EventOut, escalated: bool) -> str:
 
         custom = getattr(d, "slack_text", None)
         if custom is not None:
-            return custom(event.model_dump(mode="json"), escalated)
+            payload = event.model_dump(mode="json")
+            payload["link"] = f"{get_settings().app_base_url}/incidents/{event.event_id}"
+            if escalated:
+                payload["escalate_after_s"] = _escalate_after_s(event.zone_id)
+            return custom(payload, escalated)
     except Exception as e:
         logger.debug(f"automation slack_text unavailable: {type(e).__name__}")
     return _default_slack_text(event, escalated)
