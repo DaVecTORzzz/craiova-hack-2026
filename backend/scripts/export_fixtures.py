@@ -22,7 +22,7 @@ from app.schemas import (
     ZoneIO,
 )
 from app.routers.zones import zone_io
-from app.seed import seed_zones
+from app.seed import seed_cameras, seed_zones
 
 
 class _CollectingSession:
@@ -38,6 +38,22 @@ class _CollectingSession:
         self.added.append(obj)
 
 
+def seeded_cameras() -> list[CameraOut]:
+    """The cameras exactly as app/seed.py defines them."""
+    session = _CollectingSession()
+    seed_cameras(session)
+    return [
+        CameraOut(
+            id=camera.id,
+            name=camera.name,
+            rtsp_url=camera.rtsp_url,
+            online=camera.online,
+            engine_on=camera.engine_on,
+        )
+        for camera in session.added
+    ]
+
+
 def seeded_zones() -> list[ZoneIO]:
     """The zones exactly as app/seed.py defines them."""
     session = _CollectingSession()
@@ -49,30 +65,9 @@ def export_fixtures() -> None:
     fixtures_dir = Path(__file__).resolve().parent.parent / "fixtures"
     fixtures_dir.mkdir(parents=True, exist_ok=True)
 
-    # 1. Cameras
-    cameras = [
-        CameraOut(
-            id="stand12",
-            name="Stand 12 apron",
-            rtsp_url="rtsp://localhost:8554/stand12",
-            online=True,
-            engine_on=False,
-        ),
-        CameraOut(
-            id="taxiway-b",
-            name="Taxiway B",
-            rtsp_url="rtsp://localhost:8554/taxiway-b",
-            online=True,
-            engine_on=False,
-        ),
-        CameraOut(
-            id="baggage-area",
-            name="Baggage area",
-            rtsp_url="rtsp://localhost:8554/baggage-area",
-            online=True,
-            engine_on=False,
-        ),
-    ]
+    # 1. Cameras — din seed, nu copiate aici. Aceeași listă duplicată ca la zone;
+    # la camere încă nu derivase, dar nimic nu o împiedica.
+    cameras = seeded_cameras()
     cameras_file = fixtures_dir / "cameras.json"
     cameras_data = [c.model_dump(mode="json") for c in cameras]
     cameras_file.write_text(json.dumps(cameras_data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
