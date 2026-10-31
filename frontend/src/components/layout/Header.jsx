@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Shield, Search, Moon, Sun, Wifi, WifiOff, RefreshCw, Zap, Bell, ChevronDown, Check, UserCheck } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useSecurity } from '../../context/SecurityContext';
+import { USE_MOCK } from '../../services/api';
 
 export default function Header() {
   const { isDarkMode, toggleTheme, themeStyles } = useTheme();
@@ -12,12 +13,23 @@ export default function Header() {
     activeOperator,
     availableOperators,
     switchOperator,
+    operatorName,
+    setOperatorName,
     simulateIncomingWsEvent,
     toggleWsSimulation
   } = useSecurity();
 
   const [showDemoMenu, setShowDemoMenu] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [operatorDraft, setOperatorDraft] = useState(operatorName);
+
+  useEffect(() => {
+    setOperatorDraft(operatorName);
+  }, [operatorName]);
+
+  const commitOperator = () => {
+    setOperatorName(operatorDraft);
+  };
 
   return (
     <header
@@ -28,14 +40,14 @@ export default function Header() {
       }}
       className="h-16 px-4 md:px-6 flex items-center justify-between border-b shadow-md z-30 sticky top-0 shrink-0 select-none transition-colors"
     >
-      {/* 1. Brand & Titlu SafeTarmac (Fără iconița Live lângă titlu, conform specificației) */}
+      {/* 1. Brand & Titlu SafeSight */}
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md border border-white/20">
           <Shield size={22} className="text-white" />
         </div>
         <div>
           <h1 className="font-black text-xl tracking-tight leading-none text-white uppercase drop-shadow-sm">
-            SafeTarmac
+            SafeSight
           </h1>
           <p className="text-xs font-medium text-blue-100/90 tracking-wide mt-0.5">
             Management condiții siguranță
@@ -84,7 +96,8 @@ export default function Header() {
 
       {/* 4. Controale Dreapta: Demo Triggers, Dark/Light Mode, Selector User */}
       <div className="flex items-center gap-2 md:gap-3">
-        {/* Buton Triggers Demo Pitch (Pentru juriu & scenarii rapide) */}
+        {/* Trigger-ele demo sunt doar pentru mock; în real se folosește backend/scripts/demo_event.py */}
+        {USE_MOCK && (
         <div className="relative">
           <button
             onClick={() => {
@@ -144,6 +157,7 @@ export default function Header() {
             </div>
           )}
         </div>
+        )}
 
         {/* Toggle Dark / Light Mode (WCAG compliant) */}
         <button
@@ -175,11 +189,11 @@ export default function Header() {
             title="Schimbă operatorul activ"
           >
             <div className="w-7 h-7 rounded-lg bg-blue-500 text-white font-bold text-xs flex items-center justify-center shadow-inner">
-              {activeOperator ? activeOperator.name[0] : 'A'}
+              {operatorName?.[0] || 'A'}
             </div>
             <div className="hidden lg:block text-left text-xs leading-tight">
               <p className="font-bold text-white flex items-center gap-1">
-                <span>{activeOperator ? activeOperator.name : 'Ariana V.'}</span>
+                <span>{operatorName || 'Operator'}</span>
                 <ChevronDown size={11} className="opacity-70" />
               </p>
               <p className="text-[10px] text-blue-200 font-medium">
@@ -225,6 +239,28 @@ export default function Header() {
                   </button>
                 );
               })}
+              <div className="border-t border-slate-500/20 pt-2 mt-2 space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-1 block">
+                  Nume afișat
+                </label>
+                <input
+                  value={operatorDraft}
+                  onChange={(event) => setOperatorDraft(event.target.value)}
+                  onBlur={commitOperator}
+                  onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur(); }}
+                  maxLength={40}
+                  aria-label="Numele operatorului de tură"
+                  style={{
+                    backgroundColor: isDarkMode ? 'rgba(255,255,255,0.08)' : '#F1F5F9',
+                    color: isDarkMode ? '#F8FAFC' : '#212121',
+                    borderColor: isDarkMode ? 'rgba(255,255,255,0.15)' : '#CBD5E1'
+                  }}
+                  className="w-full px-2.5 py-1.5 rounded-lg border text-xs font-semibold outline-none focus:ring-2 focus:ring-blue-400"
+                />
+                <p className="text-[10px] text-slate-400 px-1">
+                  Enter sau click în afara câmpului pentru salvare.
+                </p>
+              </div>
             </div>
           )}
         </div>

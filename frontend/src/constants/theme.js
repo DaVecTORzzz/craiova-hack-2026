@@ -1,4 +1,4 @@
-// SafeTarmac - Design System & Tokeni Oficiali
+// SafeSight - Design System & Tokeni Oficiali
 // Conform cerințelor de semnalizare industrială și autoritate aeroportuară
 
 export const THEME_CONFIG = {

@@ -108,7 +108,7 @@ export default function LiveView() {
                 <div className="text-center opacity-25 select-none">
                   <Video size={100} className="mx-auto mb-3 text-slate-300" />
                   <p className="font-mono font-bold text-white text-xl">{activeCamera?.name?.toUpperCase()}</p>
-                  <p className="font-mono text-sm text-slate-300">LIVE FEED • {activeCamera?.fps} FPS</p>
+                  <p className="font-mono text-sm text-slate-300">LIVE FEED{activeCamera?.fps ? ` • ${activeCamera.fps} FPS` : ''}</p>
                 </div>
               )}
 
@@ -135,7 +135,7 @@ export default function LiveView() {
               Conformitate PPE Sol
             </p>
             <p className="text-xl md:text-2xl font-black font-mono text-emerald-600 dark:text-emerald-400">
-              {kpis.ppe_compliance_pct}%
+              {kpis.ppe_compliance_pct === '—' ? '—' : `${kpis.ppe_compliance_pct}%`}
             </p>
           </div>
           <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
@@ -169,7 +169,7 @@ export default function LiveView() {
               Detecție → Alertă
             </p>
             <p className="text-xl md:text-2xl font-black font-mono text-blue-600 dark:text-blue-400">
-              {kpis.detection_to_alert_latency_s === '—' ? '1.8s' : `${kpis.detection_to_alert_latency_s}s`}
+              {kpis.detection_to_alert_latency_s === '—' ? '—' : `${kpis.detection_to_alert_latency_s}s`}
             </p>
           </div>
           <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
@@ -305,7 +305,7 @@ export default function LiveView() {
                     <Video size={56} className="mx-auto mb-1 text-slate-300" />
                     <p className="font-mono font-bold text-white text-sm">{activeCamera?.name?.toUpperCase()}</p>
                     <p className="font-mono text-[11px] text-slate-300">
-                      {streamFailed ? 'STREAM MJPEG INDISPONIBIL • SIMULARE ACTIVĂ' : `LIVE ANNOTATED STREAM • ${activeCamera?.fps || 30} FPS`}
+                      {streamFailed ? 'STREAM MJPEG INDISPONIBIL • FALLBACK' : `LIVE ANNOTATED STREAM${activeCamera?.fps ? ` • ${activeCamera.fps} FPS` : ''}`}
                     </p>
                   </div>
                 )}
@@ -320,7 +320,7 @@ export default function LiveView() {
                   <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
                   <span className="font-bold text-red-400">LIVE REC</span>
                   <span className="text-slate-400">|</span>
-                  <span>{activeCamera?.resolution || '4K'}</span>
+                  <span>{activeCamera?.resolution || 'REZOLUȚIE NECUNOSCUTĂ'}</span>
                 </div>
 
                 {/* Banner jos cu detalii cameră afișate sub denumire conform cerinței */}

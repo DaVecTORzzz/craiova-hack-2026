@@ -30,7 +30,7 @@ export default function Sidebar() {
     setSelectedCameraId
   } = useSecurity();
 
-  // Ecranele principale ale aplicației SafeTarmac
+  // Ecranele principale ale aplicației SafeSight
   const menuItems = [
     {
       id: 'live',
@@ -231,7 +231,7 @@ export default function Sidebar() {
               <span className="text-[10px] font-mono font-bold bg-emerald-500 text-white px-1.5 rounded">ACTIV</span>
             </div>
             <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">
-              YOLOv8 + ByteTrack • Auto-Snapshot
+              YOLO26 + ByteTrack • Auto-Snapshot
             </p>
           </div>
         )}
