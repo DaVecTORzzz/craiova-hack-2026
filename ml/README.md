@@ -87,7 +87,7 @@ uv run python -m safesight_ml.run \
 Oprește serverul după demo:
 
 ```bash
-podman rm -f safesight-rtsp
+podman rm -f safesight-rtsp 2>/dev/null || true
 ```
 
 Verificat local pe 31 octombrie 2026: 120 de cadre citite din `rtsp://127.0.0.1:8554/stand12` în 9,34 s end-to-end, 2 evenimente `RESTRICTED_ZONE`, `--remote-config` activ, iar `/stream/stand12.mjpg` a servit exact cadrul scris de edge. Dacă backend-ul nu răspunde, edge-ul folosește `fixtures/zones.stand12.json` și `--engine-on`.
