@@ -21,8 +21,11 @@ Perechea e bună pentru `absdiff`: fundalul și obiectul sunt din același punct
 - Fiecare fișier are sursă, licență și cine l-a filmat în README-ul de video sau aici.
 - Pentru FOD, clipul video trebuie filmat din același unghi cu cadrul de referință.
 
+## Adnotări
+
+Etichetele YOLO preliminare pentru aceste cadre sunt în `data/annotations/` (4 `.txt`). Trebuie confirmate de A înainte de antrenare.
+
 ## Lipsește
 
 - clip video FOD cu obiectul apărând;
-- clip video PPE (persoană fără vestă/cască);
-- adnotările YOLO pentru cadrele de aici.
+- clip video PPE (persoană fără vestă/cască).
