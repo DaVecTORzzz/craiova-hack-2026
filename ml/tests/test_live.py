@@ -1,0 +1,63 @@
+from __future__ import annotations
+
+import numpy as np
+
+from safesight_ml.detector import Detection, FakeDetector
+from safesight_ml.live import LiveFrameWriter
+from safesight_ml.pipeline import Pipeline
+from safesight_ml.zones import Zone
+
+ZONE = Zone(
+    id="engine-left",
+    camera_id="stand12",
+    name="Motor stâng",
+    rule_type="RESTRICTED",
+    active_when="engine_on",
+    severity="CRITICAL",
+    debounce_s=1.0,
+    polygon=[(0.08, 0.30), (0.66, 0.30), (0.66, 0.90), (0.08, 0.90)],
+)
+
+
+class RecordingSink:
+    def store_snapshot(self, event_id: str, frame: np.ndarray) -> str:
+        return f"/snapshots/{event_id}.jpg"
+
+    def emit(self, event) -> None:
+        pass
+
+
+class RecordingBlurrer:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def blur(self, frame: np.ndarray, boxes=()) -> np.ndarray:
+        self.calls += 1
+        return frame
+
+
+def test_live_writer_writes_latest_frame(tmp_path):
+    writer = LiveFrameWriter(tmp_path, "stand12", interval_s=0)
+    assert writer.due()
+    assert writer.write(np.zeros((36, 64, 3), dtype=np.uint8))
+    assert (tmp_path / "stand12.jpg").is_file()
+
+
+def test_pipeline_writes_live_frame_and_reuses_blur(tmp_path):
+    detections = [[Detection(track_id=1, bbox=(0.50, 0.20, 0.60, 0.60), confidence=0.91)]]
+    blurrer = RecordingBlurrer()
+    writer = LiveFrameWriter(tmp_path, "stand12", interval_s=0)
+    pipeline = Pipeline(
+        camera_id="stand12",
+        zones=[ZONE],
+        detector=FakeDetector(detections * 20),
+        blurrer=blurrer,
+        sink=RecordingSink(),
+        engine_on=True,
+        live_writer=writer,
+    )
+    for step in range(20):
+        pipeline.process(np.zeros((360, 640, 3), dtype=np.uint8), now_s=step / 10)
+
+    assert (tmp_path / "stand12.jpg").is_file()
+    assert blurrer.calls >= 1

@@ -21,6 +21,7 @@ import httpx
 import numpy as np
 
 from .detector import SyntheticDetector, YoloDetector
+from .live import LiveFrameWriter
 from .pipeline import Pipeline
 from .privacy import FaceBlurrer, NoopBlurrer
 from .remote import fetch_edge_config
@@ -65,6 +66,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--edge-token", default=os.getenv("EDGE_TOKEN", "dev-edge-token"))
     parser.add_argument("--remote-config", action="store_true", help="load zones and engine_on from GET /edge/zones")
     parser.add_argument("--config-refresh-s", type=float, default=30.0, help="remote config poll interval")
+    parser.add_argument("--live-dir", default=os.getenv("LIVE_DIR", ""), help="write live/{camera}.jpg for backend MJPEG")
     return parser
 
 
@@ -122,6 +124,7 @@ def main(argv: list[str] | None = None) -> int:
 
     sink = HttpSink(args.api_url, args.edge_token) if args.post else JsonlSink(args.out)
 
+    live_writer = LiveFrameWriter(args.live_dir, args.camera_id) if args.live_dir else None
     pipeline = Pipeline(
         camera_id=args.camera_id,
         zones=zones,
@@ -131,6 +134,7 @@ def main(argv: list[str] | None = None) -> int:
         engine_on=engine_on,
         start_epoch=start_epoch,
         clock=time.time,
+        live_writer=live_writer,
     )
 
     total = 0

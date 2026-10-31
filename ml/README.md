@@ -21,30 +21,37 @@ uv run python -m safesight_ml.run --fake --engine-on --dry-run
 cat out/events.jsonl
 ```
 
-Rulează pe un clip real, cu YOLO26:
+Rulează pe clipul real, cu YOLO26:
 
 ```bash
 uv sync --extra yolo
 ./scripts/fetch_face_model.sh
 uv run python -m safesight_ml.run \
-  --source ../data/videos/restricted_zone/<clip>.mp4 \
-  --zones fixtures/zones.json \
+  --source ../data/videos/2026-10-30_restricted-zone_cam01_persoana-langa-motor.mp4 \
+  --zones fixtures/zones.stand12.json \
+  --camera-id stand12 \
   --engine-on \
-  --dry-run
+  --dry-run \
+  --live-dir ../backend/snapshots/live
 ```
 
-Integrare cu backend-ul, după ce B are rutele de edge:
+`fixtures/zones.stand12.json` are poligonul calibrat pe clip. `--live-dir` scrie `live/stand12.jpg`, pe care backend-ul îl servește la `/stream/stand12.mjpg`. Cu Docker, calea este `../backend/data/snapshots/live`.
+
+Integrare cu backend-ul:
 
 ```bash
 uv run python -m safesight_ml.run \
-  --source ../data/videos/restricted_zone/<clip>.mp4 \
+  --source ../data/videos/2026-10-30_restricted-zone_cam01_persoana-langa-motor.mp4 \
+  --zones fixtures/zones.stand12.json \
+  --camera-id stand12 \
+  --engine-on \
   --post \
-  --remote-config \
+  --live-dir ../backend/snapshots/live \
   --api-url http://localhost:8000 \
   --edge-token "$EDGE_TOKEN"
 ```
 
-`--remote-config` ia zonele și `engine_on` din `GET /edge/zones` și le reîmprospătează la 30 s. Dacă backend-ul nu răspunde, folosește `fixtures/zones.json` și flag-ul `--engine-on`.
+`--remote-config` ia zonele și `engine_on` din `GET /edge/zones` și le reîmprospătează la 30 s. Dacă backend-ul nu răspunde, folosește `fixtures/zones.stand12.json` și flag-ul `--engine-on`. Pentru `--remote-config`, zona din backend trebuie să aibă poligonul calibrat; altfel folosește `--zones`.
 
 ## Ce produce
 
@@ -62,11 +69,13 @@ safesight_ml/
   detector.py  # FakeDetector / SyntheticDetector / YoloDetector
   privacy.py   # FaceBlurrer (YuNet) înainte de salvare/upload
   sink.py      # JsonlSink (dry-run) și HttpSink (/edge/snapshots, /edge/events)
+  live.py      # ultimul cadru blurat pentru /stream MJPEG
   pipeline.py  # cadru -> detecții -> reguli -> eveniment
   remote.py    # GET /edge/zones (zone + engine_on)
   run.py       # CLI
 fixtures/
-  zones.json   # zona engine-left din contract
+  zones.json          # zona engine-left din contract
+  zones.stand12.json  # poligon calibrat pe clipul real
 ```
 
 ## Reguli
@@ -88,6 +97,6 @@ fixtures/
 - FOD pe cadru de referință;
 - VLM pentru fum;
 - buffer/retry la pană de conexiune;
-- citirea zonelor și `engine_on` din `GET /edge/zones`.
+- rata de falsuri alarme, măsurată pe 50–100 evenimente.
 
-Verificare: `uv run pytest` și `uv run python -m safesight_ml.run --fake --engine-on --dry-run`.
+Verificare: `uv run pytest` (30 teste) și `uv run python -m safesight_ml.run --fake --engine-on --dry-run`. Cifrele reale sunt în [`docs/benchmark.md`](docs/benchmark.md).
