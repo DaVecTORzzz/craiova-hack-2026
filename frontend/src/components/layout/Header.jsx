@@ -37,9 +37,9 @@ export default function Header() {
   return (
     <header
       style={{
-        backgroundColor: themeStyles.navBg || themeStyles.panelBg,
-        borderColor: themeStyles.navBorder || themeStyles.panelBorder,
-        color: '#FFFFFF'
+        backgroundColor: themeStyles.navBg || (isDarkMode ? '#181818' : '#FFFFFF'),
+        borderColor: themeStyles.navBorder || (isDarkMode ? 'rgba(255, 255, 255, 0.10)' : '#E5E7EB'),
+        color: isDarkMode ? '#F5F5F5' : '#1F1F1F'
       }}
       className="h-16 px-4 md:px-6 flex items-center justify-between border-b shadow-md z-30 sticky top-0 shrink-0 select-none transition-colors"
     >
@@ -47,20 +47,20 @@ export default function Header() {
       <div className="flex items-center gap-2.5">
         <button
           onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-          className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center justify-center shrink-0"
+          className="p-2 rounded-xl bg-white/10 hover:bg-white/20 transition-colors flex items-center justify-center shrink-0"
           title={isSidebarCollapsed ? "Deschide meniu navigare" : "Restrânge meniu navigare"}
           aria-label="Comută meniu navigare"
         >
           <Menu size={18} />
         </button>
-        <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md border border-white/20 shrink-0">
-          <Shield size={22} className="text-white" />
+        <div className="w-10 h-10 rounded-xl bg-[#7EDEED] flex items-center justify-center text-[#1F1F1F] shadow-md border border-white/20 shrink-0 font-black">
+          <Shield size={22} className="text-[#1F1F1F]" />
         </div>
         <div>
-          <h1 className="font-black text-xl tracking-tight leading-none text-white uppercase drop-shadow-sm">
+          <h1 className="font-black text-xl tracking-tight leading-none uppercase drop-shadow-sm">
             SafeSight
           </h1>
-          <p className="text-xs font-medium text-blue-100/90 tracking-wide mt-0.5">
+          <p className="text-xs font-medium text-slate-400 tracking-wide mt-0.5">
             Management condiții siguranță
           </p>
         </div>
@@ -73,7 +73,8 @@ export default function Header() {
           <span>Semnal Edge Pierdut (Polling activat)</span>
           <button
             onClick={toggleWsSimulation}
-            className="ml-2 px-2 py-0.5 bg-black/40 hover:bg-black/60 rounded text-[10px] flex items-center gap-1 font-mono"
+            disabled={isReconnecting}
+            className="ml-2 px-2.5 py-1 bg-black/40 hover:bg-black/60 rounded text-[10px] flex items-center gap-1.5 font-mono transition-colors"
           >
             <RefreshCw size={11} className={isReconnecting ? "animate-spin" : ""} /> {isReconnecting ? "Se reconectează..." : "Reconectează"}
           </button>
@@ -92,12 +93,12 @@ export default function Header() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Cauta incidente"
-            className="w-full pl-10 pr-4 py-2 text-xs rounded-xl bg-white/10 hover:bg-white/15 focus:bg-white/20 border border-white/20 text-white placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all shadow-inner"
+            className="w-full pl-10 pr-4 py-2 text-xs rounded-xl bg-white/5 hover:bg-white/10 focus:bg-white/15 border border-white/10 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#7EDEED] transition-all shadow-inner"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 hover:text-white text-xs font-bold"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-xs font-bold"
             >
               ✕
             </button>
@@ -115,10 +116,10 @@ export default function Header() {
               setShowDemoMenu(!showDemoMenu);
               setShowUserMenu(false);
             }}
-            className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 text-xs font-bold flex items-center gap-1.5 transition-colors shadow-sm"
+            className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-xs font-bold flex items-center gap-1.5 transition-colors shadow-sm"
             title="Triggers pentru prezentarea live în fața juriului"
           >
-            <Zap size={14} className="text-amber-300 fill-amber-300" />
+            <Zap size={14} className="text-[#FFEB33] fill-[#FFEB33]" />
             <span className="hidden md:inline">Demo Pitch</span>
             <ChevronDown size={12} className="opacity-80" />
           </button>
@@ -126,9 +127,9 @@ export default function Header() {
           {showDemoMenu && (
             <div
               style={{
-                backgroundColor: isDarkMode ? '#1E2433' : '#FFFFFF',
-                borderColor: isDarkMode ? 'rgba(255,255,255,0.15)' : '#E2E8F0',
-                color: isDarkMode ? '#F8FAFC' : '#212121'
+                backgroundColor: isDarkMode ? '#282828' : '#FFFFFF',
+                borderColor: isDarkMode ? 'rgba(255,255,255,0.15)' : '#E5E7EB',
+                color: isDarkMode ? '#F5F5F5' : '#1F1F1F'
               }}
               className="absolute right-0 mt-2 w-64 rounded-xl border p-2 shadow-2xl space-y-1 text-xs z-50 font-sans"
             >
@@ -140,52 +141,71 @@ export default function Header() {
                   simulateIncomingWsEvent('RESTRICTED_ZONE', 'CRITICAL');
                   setShowDemoMenu(false);
                 }}
-                className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-red-500/10 text-red-600 dark:text-red-400 font-semibold flex items-center gap-2 transition-colors"
+                className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-[#D73833]/15 text-[#D73833] font-bold flex items-center justify-between"
               >
-                <span className="w-2 h-2 rounded-full bg-red-600 shrink-0" />
-                <span>+ Alertă Zonă Motor (C-01)</span>
+                <span>Persoană în Zonă Motor</span>
+                <span className="text-[10px] font-mono bg-[#D73833] text-white px-1.5 rounded">CRITICAL</span>
               </button>
               <button
                 onClick={() => {
                   simulateIncomingWsEvent('FOD', 'CRITICAL');
                   setShowDemoMenu(false);
                 }}
-                className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-amber-500/10 text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-2 transition-colors"
+                className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-[#D73833]/15 text-[#D73833] font-bold flex items-center justify-between"
               >
-                <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
-                <span>+ Fragment FOD Pistă 08R (3s)</span>
+                <span>FOD pe Cale Rulare</span>
+                <span className="text-[10px] font-mono bg-[#D73833] text-white px-1.5 rounded">CRITICAL</span>
               </button>
               <button
                 onClick={() => {
-                  toggleWsSimulation();
+                  simulateIncomingWsEvent('NO_PPE', 'WARNING');
                   setShowDemoMenu(false);
                 }}
-                className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-slate-500/10 font-semibold flex items-center gap-2 transition-colors"
+                className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-[#FFEB33]/15 text-amber-500 font-bold flex items-center justify-between"
               >
-                <WifiOff size={13} className="text-slate-400" />
-                <span>{isWsConnected ? 'Deconectează WS (C-10)' : 'Reconectează WS'}</span>
+                <span>Lucrător fără Vestă EIP</span>
+                <span className="text-[10px] font-mono bg-[#FFEB33] text-[#1F1F1F] px-1.5 rounded">WARNING</span>
+              </button>
+              <button
+                onClick={() => {
+                  simulateIncomingWsEvent('SMOKING', 'WARNING');
+                  setShowDemoMenu(false);
+                }}
+                className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-[#FFEB33]/15 text-amber-500 font-bold flex items-center justify-between"
+              >
+                <span>Fumat în Zonă Alimentare</span>
+                <span className="text-[10px] font-mono bg-[#FFEB33] text-[#1F1F1F] px-1.5 rounded">WARNING</span>
+              </button>
+              <button
+                onClick={() => {
+                  simulateIncomingWsEvent('CAMERA_OFFLINE', 'WARNING');
+                  setShowDemoMenu(false);
+                }}
+                className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-slate-500/10 text-slate-400 font-semibold flex items-center justify-between"
+              >
+                <span>Camera Rampa Sud Offline</span>
+                <span className="text-[10px] font-mono bg-slate-600 text-white px-1.5 rounded">OFFLINE</span>
               </button>
             </div>
           )}
         </div>
         )}
 
-        {/* Toggle Dark / Light Mode (WCAG compliant) */}
+        {/* Toggle Theme: Dark / Light Mode */}
         <button
           onClick={toggleTheme}
-          className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 transition-all shadow-sm flex items-center gap-1.5 text-xs font-bold"
-          title={isDarkMode ? 'Comută la Light Mode (Pânză neutră)' : 'Comută la Dark Mode (Consolă de noapte)'}
+          style={{
+            backgroundColor: isDarkMode ? '#282828' : '#F5F5F5',
+            borderColor: isDarkMode ? 'rgba(255, 255, 255, 0.15)' : '#E5E7EB'
+          }}
+          className="p-2 rounded-xl border transition-all text-xs flex items-center justify-center shadow-sm"
+          title={isDarkMode ? 'Comută în modul Light (Pânză curată)' : 'Comută în modul Dark (Consolă Tactică)'}
+          aria-label="Comută tema interfeței"
         >
           {isDarkMode ? (
-            <>
-              <Sun size={16} className="text-amber-300" />
-              <span className="hidden md:inline text-xs font-medium">Light</span>
-            </>
+            <Sun size={16} className="text-[#FFEB33]" />
           ) : (
-            <>
-              <Moon size={16} className="text-blue-200" />
-              <span className="hidden md:inline text-xs font-medium">Dark</span>
-            </>
+            <Moon size={16} className="text-[#1F1F1F]" />
           )}
         </button>
 
@@ -199,15 +219,15 @@ export default function Header() {
             className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 transition-all shadow-sm"
             title="Schimbă operatorul activ"
           >
-            <div className="w-7 h-7 rounded-lg bg-blue-500 text-white font-bold text-xs flex items-center justify-center shadow-inner">
+            <div className="w-7 h-7 rounded-lg bg-[#7EDEED] text-[#1F1F1F] font-bold text-xs flex items-center justify-center shadow-inner">
               {operatorName?.[0] || 'A'}
             </div>
             <div className="hidden lg:block text-left text-xs leading-tight">
-              <p className="font-bold text-white flex items-center gap-1">
+              <p className="font-bold flex items-center gap-1">
                 <span>{operatorName || 'Operator'}</span>
                 <ChevronDown size={11} className="opacity-70" />
               </p>
-              <p className="text-[10px] text-blue-200 font-medium">
+              <p className="text-[10px] text-slate-400 font-medium">
                 {activeOperator ? activeOperator.badge : 'AIRSIDE-LEAD'}
               </p>
             </div>
@@ -216,9 +236,9 @@ export default function Header() {
           {showUserMenu && availableOperators && (
             <div
               style={{
-                backgroundColor: isDarkMode ? '#1E2433' : '#FFFFFF',
-                borderColor: isDarkMode ? 'rgba(255,255,255,0.15)' : '#E2E8F0',
-                color: isDarkMode ? '#F8FAFC' : '#212121'
+                backgroundColor: isDarkMode ? '#282828' : '#FFFFFF',
+                borderColor: isDarkMode ? 'rgba(255,255,255,0.15)' : '#E5E7EB',
+                color: isDarkMode ? '#F5F5F5' : '#1F1F1F'
               }}
               className="absolute right-0 mt-2 w-64 rounded-xl border p-2 shadow-2xl space-y-1 text-xs z-50 font-sans"
             >
@@ -236,41 +256,39 @@ export default function Header() {
                     }}
                     className={`w-full text-left px-2.5 py-2 rounded-lg flex items-center justify-between transition-colors ${
                       isSelected
-                        ? 'bg-blue-600 text-white font-bold'
-                        : 'hover:bg-slate-500/10'
+                        ? 'bg-[#7EDEED] text-[#1F1F1F] font-bold'
+                        : 'hover:bg-white/5'
                     }`}
                   >
                     <div>
                       <p className="font-semibold text-xs leading-none">{op.name}</p>
-                      <p className={`text-[10px] mt-0.5 ${isSelected ? 'text-blue-100' : 'text-slate-500 dark:text-slate-400'}`}>
+                      <p className={`text-[10px] mt-0.5 ${isSelected ? 'text-[#1F1F1F]/80' : 'text-slate-400'}`}>
                         {op.role}
                       </p>
                     </div>
-                    {isSelected && <Check size={14} className="text-white shrink-0" />}
+                    {isSelected && <Check size={14} className="text-[#1F1F1F] shrink-0" />}
                   </button>
                 );
               })}
-              <div className="border-t border-slate-500/20 pt-2 mt-2 space-y-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-1 block">
-                  Nume afișat
-                </label>
+
+              <div className="pt-2 border-t border-white/10 mt-1 space-y-1.5">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block px-1">
+                  Semnătură Audit
+                </span>
                 <input
+                  type="text"
                   value={operatorDraft}
-                  onChange={(event) => setOperatorDraft(event.target.value)}
+                  onChange={(e) => setOperatorDraft(e.target.value)}
                   onBlur={commitOperator}
-                  onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur(); }}
-                  maxLength={40}
-                  aria-label="Numele operatorului de tură"
-                  style={{
-                    backgroundColor: isDarkMode ? 'rgba(255,255,255,0.08)' : '#F1F5F9',
-                    color: isDarkMode ? '#F8FAFC' : '#212121',
-                    borderColor: isDarkMode ? 'rgba(255,255,255,0.15)' : '#CBD5E1'
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      commitOperator();
+                      setShowUserMenu(false);
+                    }
                   }}
-                  className="w-full px-2.5 py-1.5 rounded-lg border text-xs font-semibold outline-none focus:ring-2 focus:ring-blue-400"
+                  className="w-full px-2.5 py-1 rounded text-xs bg-black/20 border border-white/20 focus:outline-none focus:ring-1 focus:ring-[#7EDEED]"
+                  placeholder="Nume pe raport tură..."
                 />
-                <p className="text-[10px] text-slate-400 px-1">
-                  Enter sau click în afara câmpului pentru salvare.
-                </p>
               </div>
             </div>
           )}

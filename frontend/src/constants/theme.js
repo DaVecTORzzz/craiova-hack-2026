@@ -1,40 +1,44 @@
 // SafeSight - Design System & Tokeni Oficiali
-// Conform cerințelor de semnalizare industrială și paletei Coolors oficiale:
-// Carbon Black (#1F1F1F), Scarlet Rush (#D73833), Bright Lemon (#FFEB33), Frosted Blue (#7EDEED), White Smoke (#F5F5F5)
+// Schema oficială Coolors:
+// 1. Carbon Black: #1F1F1F (Fundal Dark Mode & Text Light Mode)
+// 2. Scarlet Rush: #D73833 (Alerte Critice, Stop, Risc Major)
+// 3. Bright Lemon: #FFEB33 (Avertismente, Atenție, Motor ON)
+// 4. Frosted Blue: #7EDEED (Accent, Informare, EIP, Acțiuni Primare)
+// 5. White Smoke:  #F5F5F5 (Fundal Light Mode & Text Dark Mode)
 
 export const THEME_CONFIG = {
-  // Paleta Dark Mode (Veritabil Dark Mode pentru consolă de control aeroportuar)
+  // Paleta Dark Mode (Veritabil Dark Mode neutru, fără tentă albastră/violetă)
   dark: {
-    appBg: '#1F1F1F',           // Carbon Black oficial Coolors
-    panelBg: '#272727',         // Panou neutru profund cu contrast ridicat
+    appBg: '#1F1F1F',           // Carbon Black
+    panelBg: '#282828',         // Gri neutru profund
     panelBorder: 'rgba(255, 255, 255, 0.10)',
-    navBg: '#141414',           // Antracit profund / bleumarin autoritar foarte închis
-    navBorder: 'rgba(255, 255, 255, 0.12)',
-    accentColor: '#1976D2',     // Albastru industrial
-    accentHover: '#1565C0',
-    textColor: '#F8FAFC',       // Contrast WCAG > 7:1
-    textMuted: '#A3A3A3',       // Gri neutru lizibil
-    cardBg: '#2A2A2A',          // Fundal carduri neutru
-    cardHover: '#333333',
-    inputBg: '#171717',
-    badgeBg: 'rgba(126, 222, 237, 0.18)', // Frosted blue badge
+    navBg: '#181818',           // Bară neutră închisă
+    navBorder: 'rgba(255, 255, 255, 0.10)',
+    accentColor: '#7EDEED',     // Frosted Blue
+    accentHover: '#5ccedc',
+    textColor: '#F5F5F5',       // White Smoke (WCAG > 10:1 pe #1F1F1F)
+    textMuted: '#9E9E9E',       // Gri neutru lizibil
+    cardBg: '#2D2D2D',          // Card neutru
+    cardHover: '#363636',
+    inputBg: '#1C1C1C',
+    badgeBg: 'rgba(126, 222, 237, 0.18)',
     modalOverlay: 'rgba(0, 0, 0, 0.85)'
   },
   // Paleta Light Mode (Pânză curată White Smoke conform Coolors cu text Carbon Black)
   light: {
-    appBg: '#F5F5F5',           // White Smoke oficial Coolors
+    appBg: '#F5F5F5',           // White Smoke
     panelBg: '#FFFFFF',         // Alb curat
     panelBorder: '#E5E7EB',
-    navBg: '#0D47A1',           // Bleumarin autoritar pentru navigare
-    navBorder: 'rgba(255, 255, 255, 0.15)',
-    accentColor: '#1976D2',     // Albastru industrial
-    accentHover: '#1565C0',
-    textColor: '#1F1F1F',       // Carbon Black oficial (WCAG > 10:1)
+    navBg: '#FFFFFF',           // Header curat
+    navBorder: '#E5E7EB',
+    accentColor: '#7EDEED',     // Frosted Blue
+    accentHover: '#5ccedc',
+    textColor: '#1F1F1F',       // Carbon Black (WCAG > 12:1 pe #F5F5F5)
     textMuted: '#666666',       // Gri neutru lizibil
     cardBg: '#FFFFFF',
-    cardHover: '#F8FAFC',
-    inputBg: '#FAFAFA',
-    badgeBg: 'rgba(25, 118, 210, 0.12)',
+    cardHover: '#FAFAFA',
+    inputBg: '#FFFFFF',
+    badgeBg: 'rgba(126, 222, 237, 0.25)',
     modalOverlay: 'rgba(15, 23, 42, 0.65)'
   }
 };
@@ -42,10 +46,10 @@ export const THEME_CONFIG = {
 // Culori de Semnalizare Industrială & Aeroportuară (Folosite EXCLUSIV pentru status, acțiuni și alerte)
 export const SIGNAL_COLORS = {
   RED_CRITICAL: '#D73833',      // Scarlet Rush oficial Coolors (incidente critice, pericol major, oprire)
-  AMBER_WARNING: '#FFEB33',     // Bright Lemon oficial Coolors (avertismente, zone împiedicare, vehicule în mișcare)
+  AMBER_WARNING: '#FFEB33',     // Bright Lemon oficial Coolors (avertismente, atenționări motor activ)
   GREEN_SAFE: '#388E3C',        // Condiții sigure, prim-ajutor, confirmări (Verificare completă)
-  BLUE_MANDATORY: '#1976D2',    // Acțiuni obligatorii, EIP (vestă, căști antifonice)
-  FROSTED_BLUE: '#7EDEED'       // Frosted Blue oficial Coolors (informare, highlight tactil)
+  BLUE_MANDATORY: '#7EDEED',    // Frosted Blue oficial Coolors (acțiuni obligatorii, EIP, informare)
+  FROSTED_BLUE: '#7EDEED'       // Frosted Blue oficial Coolors
 };
 
 // Tokeni oficiali de stare și severitate (Decizie Canonică N06)

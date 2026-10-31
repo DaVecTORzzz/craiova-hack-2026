@@ -19,6 +19,14 @@ import os
 import urllib.request
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
+import sys
+
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
 
 try:
     LOCAL_TZ = ZoneInfo("Europe/Bucharest")

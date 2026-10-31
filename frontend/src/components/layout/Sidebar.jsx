@@ -34,7 +34,7 @@ export default function Sidebar() {
   const edgeSeen = health?.edge_last_seen_s;
   const edgeActive = Boolean(health?.db && edgeSeen != null && edgeSeen < 60);
   const edgeLabel = edgeActive ? 'ACTIV' : edgeSeen == null ? 'FĂRĂ DATE' : 'ÎNTÂRZIAT';
-  const edgeColor = edgeActive ? 'bg-emerald-500' : 'bg-amber-500';
+  const edgeColor = edgeActive ? 'bg-emerald-600' : 'bg-[#FFEB33] text-[#1F1F1F]';
 
   // Ecranele principale ale aplicației SafeSight
   const menuItems = [
@@ -108,8 +108,8 @@ export default function Sidebar() {
   return (
     <aside
       style={{
-        backgroundColor: isDarkMode ? '#141A28' : '#FFFFFF',
-        borderColor: isDarkMode ? 'rgba(255, 255, 255, 0.08)' : '#E2E8F0',
+        backgroundColor: isDarkMode ? (themeStyles.navBg || '#181818') : '#FFFFFF',
+        borderColor: isDarkMode ? 'rgba(255, 255, 255, 0.08)' : '#E5E7EB',
         width: isSidebarCollapsed ? '0px' : '15rem'
       }}
       className={`flex flex-col justify-between border-r transition-all duration-300 z-20 select-none shadow-md shrink-0 h-full overflow-hidden ${isSidebarCollapsed ? "border-r-0" : ""}`}
@@ -133,11 +133,11 @@ export default function Sidebar() {
                 key={item.id}
                 onClick={() => setCurrentView(item.id)}
                 style={{
-                  backgroundColor: isActive ? '#1976D2' : 'transparent',
-                  color: isActive ? '#FFFFFF' : (isDarkMode ? '#F8FAFC' : '#212121')
+                  backgroundColor: isActive ? '#7EDEED' : 'transparent',
+                  color: isActive ? '#1F1F1F' : (isDarkMode ? '#F5F5F5' : '#1F1F1F')
                 }}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs md:text-sm font-semibold transition-all group text-left relative ${
-                  isActive ? 'shadow-md' : 'hover:bg-slate-500/10'
+                  isActive ? 'shadow-md font-bold' : 'hover:bg-white/5'
                 }`}
                 title={item.label}
               >
@@ -145,7 +145,7 @@ export default function Sidebar() {
                 {!isSidebarCollapsed && (
                   <div className="flex-1 truncate">
                     <span className="block leading-tight truncate">{item.label}</span>
-                    <p className={`text-[10px] font-normal truncate mt-0.5 ${isActive ? 'text-blue-100' : 'text-slate-400'}`}>
+                    <p className={`text-[10px] font-normal truncate mt-0.5 ${isActive ? 'text-[#1F1F1F]/80' : 'text-slate-400'}`}>
                       {item.subtitle}
                     </p>
                   </div>
@@ -156,8 +156,10 @@ export default function Sidebar() {
                   <span
                     className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow shrink-0 ${
                       item.badgeCritical
-                        ? 'bg-red-600 text-white animate-pulse'
-                        : 'bg-blue-600 text-white'
+                        ? 'bg-[#D73833] text-white animate-pulse'
+                        : isActive
+                        ? 'bg-[#1F1F1F] text-[#7EDEED]'
+                        : 'bg-[#7EDEED] text-[#1F1F1F]'
                     }`}
                   >
                     {item.badge}
@@ -170,7 +172,7 @@ export default function Sidebar() {
 
         {/* FEED-URI CATEGORISITE PE ZONE AEROPORTUARE */}
         {!isSidebarCollapsed && (
-          <div className="pt-2 border-t border-slate-500/15 space-y-3">
+          <div className="pt-2 border-t border-white/10 space-y-3">
             <div className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">
               Zone & Feed-uri CCTV
             </div>
@@ -180,8 +182,8 @@ export default function Sidebar() {
               const CategoryIcon = group.icon;
               return (
                 <div key={categoryName} className="space-y-1">
-                  <div className="px-3 flex items-center gap-1.5 text-[11px] font-bold text-slate-500 dark:text-slate-400">
-                    <CategoryIcon size={13} className="text-blue-500 shrink-0" />
+                  <div className="px-3 flex items-center gap-1.5 text-[11px] font-bold text-slate-400">
+                    <CategoryIcon size={13} className="text-[#7EDEED] shrink-0" />
                     <span>{categoryName}</span>
                   </div>
 
@@ -194,8 +196,8 @@ export default function Sidebar() {
                           onClick={() => handleSelectCamera(cam.id)}
                           className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-all flex flex-col ${
                             isCamActive
-                              ? 'bg-blue-500/15 text-blue-600 dark:text-blue-400 font-bold border-l-2 border-blue-500'
-                              : 'hover:bg-slate-500/10 text-slate-700 dark:text-slate-300'
+                              ? 'bg-[#7EDEED]/20 text-[#7EDEED] font-bold border-l-2 border-[#7EDEED]'
+                              : 'hover:bg-white/5 text-slate-300'
                           }`}
                           title={`${cam.name} - ${cam.subtitle || ''}`}
                         >
@@ -203,7 +205,7 @@ export default function Sidebar() {
                             <span className="truncate text-[11px] font-semibold">{cam.name}</span>
                             <span
                               className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                                cam.status === 'offline' ? 'bg-red-500' : 'bg-emerald-500'
+                                cam.status === 'offline' ? 'bg-[#D73833]' : 'bg-emerald-500'
                               }`}
                             />
                           </div>
@@ -224,31 +226,31 @@ export default function Sidebar() {
 
       {/* Zona de Jos: Status Edge & Buton Minimizare (Fără textul "NAV") */}
       <div
-        style={{ borderColor: isDarkMode ? 'rgba(255, 255, 255, 0.08)' : '#E2E8F0' }}
-        className="p-2.5 border-t space-y-2 shrink-0 bg-black/5 dark:bg-white/5"
+        style={{ borderColor: isDarkMode ? 'rgba(255, 255, 255, 0.08)' : '#E5E7EB' }}
+        className="p-2.5 border-t space-y-2 shrink-0 bg-black/15"
       >
         {!isSidebarCollapsed && (
-          <div className="p-2 rounded-lg bg-blue-500/10 border border-blue-500/20 text-[11px] space-y-1">
-            <div className="flex items-center justify-between font-bold text-blue-600 dark:text-blue-400">
+          <div className="p-2 rounded-lg bg-[#7EDEED]/10 border border-[#7EDEED]/25 text-[11px] space-y-1">
+            <div className="flex items-center justify-between font-bold text-[#7EDEED]">
               <span className="flex items-center gap-1.5">
                 <ShieldCheck size={14} />
                 Edge AI Pipeline
               </span>
-              <span className={`text-[10px] font-mono font-bold text-white px-1.5 rounded ${edgeColor}`}>{edgeLabel}</span>
+              <span className={`text-[10px] font-mono font-bold px-1.5 rounded ${edgeColor}`}>{edgeLabel}</span>
             </div>
-            <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">
+            <p className="text-[10px] text-slate-400 leading-tight">
               {health?.db ? 'Backend online' : 'Backend offline'} · {edgeSeen == null ? 'edge fără date' : `edge acum ${Math.round(edgeSeen)}s`}
             </p>
-            <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">
+            <p className="text-[10px] text-slate-400 leading-tight">
               YOLO26 + ByteTrack • Auto-Snapshot
             </p>
           </div>
         )}
 
         <button
-          onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-          className="w-full flex items-center justify-center gap-2 py-2 px-2 rounded-xl bg-slate-500/10 hover:bg-slate-500/20 text-slate-700 dark:text-slate-200 transition-all font-semibold text-xs shadow-sm"
-          title={isSidebarCollapsed ? 'Extinde Meniul' : 'Restrânge Meniul'}
+          onClick={() => setIsSidebarCollapsed(true)}
+          className="w-full flex items-center justify-center gap-2 py-2 px-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 transition-all font-semibold text-xs shadow-sm"
+          title="Restrânge Meniul"
         >
           {isSidebarCollapsed ? (
             <ChevronRight size={18} />
@@ -261,6 +263,5 @@ export default function Sidebar() {
         </button>
       </div>
     </aside>
-
   );
 }

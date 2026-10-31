@@ -8,17 +8,28 @@ export default {
   theme: {
     extend: {
       colors: {
+        safesight: {
+          carbon: '#1F1F1F',
+          scarlet: '#D73833',
+          lemon: '#FFEB33',
+          frosted: '#7EDEED',
+          smoke: '#F5F5F5',
+        },
         dark: {
-          bg: '#292929',
-          panel: '#352F6B',
-          accent: '#4034AD',
-          accentHover: '#4e41cb'
+          bg: '#1F1F1F',
+          panel: '#282828',
+          card: '#2D2D2D',
+          border: 'rgba(255, 255, 255, 0.10)',
+          accent: '#7EDEED',
+          accentHover: '#5ccedc'
         },
         light: {
           bg: '#F5F5F5',
-          panel: '#B3F1B2',
-          accent: '#70ED6E',
-          accentHover: '#5cdc5a'
+          panel: '#FFFFFF',
+          card: '#FFFFFF',
+          border: '#E5E7EB',
+          accent: '#7EDEED',
+          accentHover: '#5ccedc'
         }
       },
       animation: {

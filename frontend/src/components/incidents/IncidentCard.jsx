@@ -20,12 +20,12 @@ export default function IncidentCard({ incident }) {
   return (
     <div
       style={{
-        backgroundColor: isDarkMode ? '#1E2433' : '#FFFFFF',
+        backgroundColor: themeStyles.cardBg || (isDarkMode ? '#2D2D2D' : '#FFFFFF'),
         borderColor: isCritical
-          ? 'rgba(211, 47, 47, 0.45)'
+          ? 'rgba(215, 56, 51, 0.50)'
           : isWarning
-          ? 'rgba(255, 193, 7, 0.45)'
-          : 'rgba(56, 142, 60, 0.45)'
+          ? 'rgba(255, 235, 51, 0.50)'
+          : 'rgba(56, 142, 60, 0.50)'
       }}
       className="rounded-xl border p-3 shadow-sm space-y-2.5 transition-all hover:scale-[1.01] hover:shadow-md relative overflow-hidden"
     >
@@ -34,14 +34,14 @@ export default function IncidentCard({ incident }) {
         <div>
           <div className="flex items-center gap-1.5">
             {isCritical && (
-              <span className="w-2 h-2 rounded-full bg-red-600 animate-ping" />
+              <span className="w-2 h-2 rounded-full bg-[#D73833] animate-ping" />
             )}
             <span
               className={`text-[10px] font-black uppercase px-2 py-0.5 rounded tracking-wider ${
                 isCritical
-                  ? 'bg-red-600 text-white'
+                  ? 'bg-[#D73833] text-white'
                   : isWarning
-                  ? 'bg-amber-500 text-slate-950 font-bold'
+                  ? 'bg-[#FFEB33] text-[#1F1F1F] font-bold'
                   : 'bg-emerald-600 text-white'
               }`}
             >
@@ -64,9 +64,9 @@ export default function IncidentCard({ incident }) {
         <button
           onClick={() => setSelectedCameraId(incident.cameraId)}
           className={`p-1 rounded-lg text-[10px] font-mono flex items-center gap-1 border transition-colors shrink-0 ${
-            activeCamera.id === incident.cameraId
-              ? 'bg-blue-600 text-white border-blue-500 font-bold'
-              : 'border-slate-500/20 hover:bg-slate-500/10 text-slate-700 dark:text-slate-300'
+            activeCamera?.id === incident.cameraId
+              ? 'bg-[#7EDEED] text-[#1F1F1F] border-[#7EDEED] font-bold'
+              : 'border-white/10 hover:bg-white/5 text-slate-300'
           }`}
           title={`Comută vizualizarea pe ${incident.cameraId}`}
         >
@@ -77,7 +77,7 @@ export default function IncidentCard({ incident }) {
 
       {/* Locație & Timestamp */}
       <div
-        className="flex items-center justify-between text-[10px] font-mono text-slate-500 dark:text-slate-400"
+        className="flex items-center justify-between text-[10px] font-mono text-slate-400"
       >
         <span>{incident.cameraName}</span>
         <span>{incident.detectedAt}</span>
@@ -90,25 +90,25 @@ export default function IncidentCard({ incident }) {
       <div
         style={{
           backgroundColor: isDarkMode
-            ? 'rgba(0, 0, 0, 0.3)'
+            ? 'rgba(0, 0, 0, 0.35)'
             : 'rgba(241, 245, 249, 0.7)'
         }}
-        className="p-2.5 rounded-lg border border-slate-500/15 space-y-1 text-xs"
+        className="p-2.5 rounded-lg border border-white/10 space-y-1 text-xs"
       >
-        <div className="flex items-center gap-1 text-[11px] font-bold text-blue-600 dark:text-blue-400">
+        <div className="flex items-center gap-1 text-[11px] font-bold text-[#7EDEED]">
           <Info size={12} />
           <span>AI Reasoning & Cauză:</span>
         </div>
-        <p className="text-[11px] leading-relaxed text-slate-600 dark:text-slate-300">
+        <p className="text-[11px] leading-relaxed text-slate-300">
           {incident.reasoning}
         </p>
-        <div className="pt-1 text-[10px] text-amber-600 dark:text-amber-400 font-medium">
+        <div className="pt-1 text-[10px] text-[#FFEB33] font-medium">
           <span className="font-bold">Măsură sugerată:</span> {incident.actionSuggested}
         </div>
       </div>
 
-      {/* Acțiuni: Vizualizare Captură & Acknowledge (Verde industrial) */}
-      <div className="pt-1 flex items-center justify-between gap-2 border-t border-slate-500/10">
+      {/* Acțiuni: Vizualizare Captură & Acknowledge */}
+      <div className="pt-1 flex items-center justify-between gap-2 border-t border-white/10">
         <button
           onClick={() => {
             setActiveSnapshot({
@@ -120,7 +120,7 @@ export default function IncidentCard({ incident }) {
             });
             setShowSnapshotModal(true);
           }}
-          className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+          className="text-[10px] font-semibold text-[#7EDEED] hover:underline flex items-center gap-1"
         >
           <Camera size={12} /> Vezi Captura Auto
         </button>
