@@ -83,6 +83,22 @@ export default function ZoneEditorView() {
     setEscalateAfterS(zone.escalate_after_s ?? null);
   }, [selectedCameraId, zones]);
 
+  if (!activeCamera) {
+    return (
+      <div className="flex-1 flex items-center justify-center p-6">
+        <div
+          style={{ backgroundColor: themeStyles.panelBg, borderColor: themeStyles.panelBorder }}
+          className="max-w-md rounded-xl border p-5 text-center space-y-2"
+        >
+          <h2 className="font-bold text-sm uppercase">Nu există camere</h2>
+          <p style={{ color: themeStyles.textMuted }} className="text-xs">
+            Backend-ul nu a returnat camere. Pornește stack-ul cu ./run.sh demo.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   // Click pe canvas pentru adăugare punct
   const handleCanvasClick = (e) => {
     if (isPolygonClosed) return;

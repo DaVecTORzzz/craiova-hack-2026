@@ -81,23 +81,23 @@ export function SecurityProvider({ children }) {
   };
 
   // 3. Camere CCTV & Stare Motor (PUT /cameras/{id}/engine)
-  const [cameras, setCameras] = useState(INITIAL_CAMERAS);
+  const [cameras, setCameras] = useState(USE_MOCK ? INITIAL_CAMERAS : []);
   const [selectedCameraId, setSelectedCameraId] = useState('stand12');
 
   // 4. Evenimente & Incidente
-  const [events, setEvents] = useState(INITIAL_EVENTS);
+  const [events, setEvents] = useState(USE_MOCK ? INITIAL_EVENTS : []);
   const [selectedEventId, setSelectedEventId] = useState(USE_MOCK ? 'evt_stand12_1730284933120_17' : null);
   const [filterMode, setFilterMode] = useState('open'); // 'open' | 'critical' | 'all'
   const [searchQuery, setSearchQuery] = useState('');
 
   // 5. KPI Live (4 KPI: PPE, incidente deschise, latență, escaladate)
-  const [kpis, setKpis] = useState(INITIAL_KPIS);
+  const [kpis, setKpis] = useState(USE_MOCK ? INITIAL_KPIS : EMPTY_KPIS);
 
   // 6. Zone & Editor Poligoane
-  const [zones, setZones] = useState(INITIAL_ZONES);
+  const [zones, setZones] = useState(USE_MOCK ? INITIAL_ZONES : []);
 
   // 7. Raport de Tură
-  const [shiftReport, setShiftReport] = useState(INITIAL_SHIFT_REPORT);
+  const [shiftReport, setShiftReport] = useState(USE_MOCK ? INITIAL_SHIFT_REPORT : EMPTY_SHIFT_REPORT);
   const [selectedShift, setSelectedShift] = useState(() => (USE_MOCK ? 'shift_1' : safeSightApi.currentShiftId()));
 
   // 8. Stare Conexiune & Toast / Banner Erori (Regulă C-10)
@@ -215,12 +215,12 @@ export function SecurityProvider({ children }) {
 
   // Camera activă curentă
   const activeCamera = useMemo(() => {
-    return cameras.find((c) => c.id === selectedCameraId) || cameras[0] || INITIAL_CAMERAS[0];
+    return cameras.find((c) => c.id === selectedCameraId) || cameras[0] || (USE_MOCK ? INITIAL_CAMERAS[0] : null);
   }, [cameras, selectedCameraId]);
 
   // Evenimentul selectat pentru detaliu
   const selectedEvent = useMemo(() => {
-    return events.find((e) => e.event_id === selectedEventId) || events[0] || INITIAL_EVENTS[0];
+    return events.find((e) => e.event_id === selectedEventId) || events[0] || (USE_MOCK ? INITIAL_EVENTS[0] : null);
   }, [events, selectedEventId]);
 
   // Filtrarea evenimentelor pentru Feed-ul din Live (Deschise, Doar critice, Toate azi)
