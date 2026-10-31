@@ -48,7 +48,7 @@ Variante:
 ```bash
 python scripts/dev.py demo --no-ml          # doar backend + frontend
 python scripts/dev.py demo --mock           # backend mock, fără model
-python scripts/dev.py demo --clip ../data/videos/<clip>.mp4
+python scripts/dev.py demo --clip data/videos/<clip>.mp4
 ```
 
 ## Pornire pe bucăți
@@ -107,7 +107,9 @@ cp .env.example .env
 # editează .env
 ```
 
-Scriptul forțează `USE_MOCK=false` și `VITE_USE_MOCK=false` pe `all`/`demo`; folosește `--mock` dacă vrei evenimente false.
+Scriptul forțează `USE_MOCK=false` pe `all`/`demo`; `--mock` pornește doar backend-ul cu evenimente false. UI-ul rămâne mereu pe API-ul real (`VITE_USE_MOCK=false`), ca evenimentele mock și ack-urile să treacă prin backend.
+
+Launcher-ul nu citește `.env`: pentru edge folosește `EDGE_TOKEN` din mediu (implicit `dev-edge-token`) și scrie cadrele live în `backend/snapshots/live`. Dacă schimbi `EDGE_TOKEN` sau `SNAPSHOT_DIR` în `.env`, exportă același `EDGE_TOKEN` înainte de `demo` și păstrează `SNAPSHOT_DIR=./snapshots`.
 
 ## Dacă ceva nu merge
 

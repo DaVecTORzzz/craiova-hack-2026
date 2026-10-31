@@ -82,7 +82,8 @@ def app_env(*, mock: bool, api_url: str, frontend_url: str, frontend_port: int) 
     env["USE_MOCK"] = "true" if mock else "false"
     env["APP_BASE_URL"] = frontend_url
     env["VITE_API_URL"] = api_url
-    env["VITE_USE_MOCK"] = "true" if mock else "false"
+    # The UI always talks to the backend; --mock only switches the backend to fake events.
+    env["VITE_USE_MOCK"] = "false"
     if frontend_port != 5173:
         origins = f"http://localhost:{frontend_port},http://127.0.0.1:{frontend_port}"
         if env.get("CORS_ORIGINS"):
@@ -131,9 +132,11 @@ def stop(process: subprocess.Popen) -> None:
                 pass
 
 
-def wait_for_http(url: str, timeout: float = 30.0) -> bool:
+def wait_for_http(url: str, timeout: float = 30.0, process: subprocess.Popen | None = None) -> bool:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
+        if process is not None and process.poll() is not None:
+            return False
         try:
             with urllib.request.urlopen(url, timeout=1) as response:
                 response.read(1)
@@ -295,7 +298,7 @@ def run_demo(args: argparse.Namespace) -> int:
     try:
         print(f"\nBackend:  {api_url(args)}/health")
         print(f"Frontend: {web_url(args)}")
-        if not wait_for_http(f"{api_url(args)}/health"):
+        if not wait_for_http(f"{api_url(args)}/health", process=backend):
             print("Backend-ul nu a răspuns la /health.", file=sys.stderr)
             return 1
 
