@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Sincronizează cele două repo-uri SafeTarmac înainte de un task.
+# Sincronizează cele două repo-uri SafeSight înainte de un task.
 # Merge și din repo-ul public, și din cel privat; sibling-ul este opțional.
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MAIN="${SAFETARMAC_MAIN_DIR:-$ROOT/../craiova-hack-2026}"
-DOCS="${SAFETARMAC_DOCS_DIR:-$ROOT/../safetarmac-docs}"
+DOCS="${SAFESIGHT_DOCS_DIR:-${SAFETARMAC_DOCS_DIR:-$ROOT/../safesight-docs}}"
+if [[ ! -d "$DOCS/.git" && -d "$ROOT/../safetarmac-docs/.git" ]]; then
+  DOCS="$ROOT/../safetarmac-docs"
+fi
 
 status=0
 

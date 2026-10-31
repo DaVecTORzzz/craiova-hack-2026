@@ -2,7 +2,7 @@
 
 Responsabil: **Max**
 
-Brief intern: `safetarmac-docs/02_B_backend.typ` (repo privat).
+Brief intern: `safesight-docs/02_B_backend.typ` (repo privat).
 
 - FastAPI + Uvicorn, Pydantic v2, SQLite prin SQLModel. Postgres doar plan B, cu aceeași schemă.
 - Ingestie edge: `POST /edge/events` idempotent după `event_id`; `POST /edge/snapshots`; `GET /edge/zones` cu `X-Edge-Token`.

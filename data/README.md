@@ -5,7 +5,7 @@ Materialele grele stau în folderul comun din Drive, nu în git. Aici rămân do
 ## Structura în Drive
 
 ```text
-SafeTarmac/
+SafeSight/
   data/
     videos/
       restricted_zone/
