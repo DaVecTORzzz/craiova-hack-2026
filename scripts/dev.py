@@ -27,6 +27,20 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+    for extra_path in [
+        r"C:\Users\PC\AppData\Local\Programs\nodejs",
+        r"C:\Program Files\nodejs",
+        str(Path.home() / "AppData" / "Local" / "Programs" / "nodejs"),
+    ]:
+        if os.path.isdir(extra_path) and extra_path not in os.environ.get("PATH", ""):
+            os.environ["PATH"] = extra_path + os.pathsep + os.environ.get("PATH", "")
+
 ROOT = Path(__file__).resolve().parent.parent
 BACKEND = ROOT / "backend"
 ML = ROOT / "ml"

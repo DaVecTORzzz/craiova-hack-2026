@@ -131,7 +131,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     start_epoch = time.time()
-    run_started = time.monotonic()
+    run_started = time.perf_counter()
 
     if args.fake:
         detector = SyntheticDetector(total_frames=args.max_frames or 60)
@@ -226,7 +226,7 @@ def main(argv: list[str] | None = None) -> int:
     if isinstance(sink, HttpSink):
         sink.close()
 
-    elapsed_s = time.monotonic() - run_started
+    elapsed_s = max(time.perf_counter() - run_started, 0.001)
     event_types: dict[str, int] = {}
     for row in event_rows:
         event_types[row["type"]] = event_types.get(row["type"], 0) + 1
@@ -238,7 +238,7 @@ def main(argv: list[str] | None = None) -> int:
         "event_types": event_types,
         "event_details": event_rows,
         "elapsed_s": round(elapsed_s, 3),
-        "fps": round(total / elapsed_s, 2) if elapsed_s > 0 else 0.0,
+        "fps": round(total / elapsed_s, 2),
         "engine_on": pipeline.engine_on,
         "sink": "http" if args.post else "jsonl",
         "model": detector.model_name,
