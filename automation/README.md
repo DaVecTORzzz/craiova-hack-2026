@@ -1,14 +1,34 @@
-# automation/ — raport AI, notificări, escaladare, raport de tură
+# automation/ — raport AI, rezumat de tură, text Slack
 
 Responsabil: **Dalina**
 
-Brief intern: `safesight-docs/04_D_date_pitch.typ` (repo privat).
+Backend-ul deține ingestia, escaladarea și trimiterea efectivă către Slack. Acest modul expune doar textele; nu trimite notificări și nu ține timere, ca să nu apară duplicate.
 
-- `on_event_created(event)` pornește un task asincron pentru fiecare eveniment nou; backend-ul îl apelează în proces, nu prin `PATCH /events/{id}`.
-- Raport de incident: Groq `openai/gpt-oss-20b` (configurabil prin `GROQ_MODEL`), mod JSON, temperatură 0,2. Acțiunea recomandată vine dintr-un tabel fix pe tip; LLM-ul doar reformulează. Dacă API-ul pică, raport-șablon din metadate, cu `source=template`.
-- Notificări: Slack incoming webhook, text + link la incident, fără imagini și fără butoane. Confirmarea se face în aplicație, ca să rămână în `event_actions`. Codul e un adaptor (`Notifier.send(event)`), ca alt canal să se adauge ușor.
-- Escaladare după `escalate_after_s` al zonei; `null` = fără escaladare. Seed demo 30 s, producție 120 s. `DEFAULT_ESCALATE_AFTER_S` este doar fallback.
-- Raport de tură: cifrele le calculează backend-ul; LLM-ul scrie doar rezumatul de 2–3 fraze, din cifrele primite.
-- VLM pentru fum (Claude Haiku) este stretch și nu intră în demo.
+## Interfața așteptată de backend
 
-Verificare: `python -m automation.smoke` trimite o alertă de test pe Slack, iar `python -m automation.report` generează un raport dintr-un fixture.
+```python
+# automation/report.py
+def generate(event: dict) -> dict:
+    """Returnează {what, where, when, severity_reason, recommended_action, source}."""
+
+def summarize(report: dict) -> str:
+    """2–3 propoziții din cifrele raportului de tură."""
+
+def slack_text(event: dict, escalated: bool) -> str:  # opțional
+    """Textul pentru Slack; dacă lipsește, backend-ul folosește șablonul lui."""
+```
+
+- `generate` rulează în thread cu buget de 3 s; dacă lipsește, pică sau întoarce invalid, backend-ul folosește șablonul românesc cu `source="template"`.
+- Acțiunea recomandată vine din tabelul fix pe tip; LLM-ul doar reformulează.
+- Model: Groq `openai/gpt-oss-20b` (configurabil prin `GROQ_MODEL`), mod JSON, temperatură 0,2. `qwen/qwen3.8-27b` rămâne candidat de test (preview).
+- Textul Slack: severitate, tip, cameră/zonă, oră locală și link; fără imagini și fără butoane.
+- Escaladarea și `notified_at` sunt ale backend-ului. Modulul D nu apelează webhook-ul.
+
+## Verificare
+
+```bash
+python -m automation.smoke
+python -m automation.report
+```
+
+Prima comandă verifică un text de raport; a doua generează un raport dintr-un fixture. Backend-ul are propriile teste pentru fallback și timeout.

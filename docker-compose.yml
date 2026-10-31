@@ -1,0 +1,26 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: sqlite:///./data/safesight.db
+      SNAPSHOT_DIR: ./data/snapshots
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/data:/srv/backend/data:z
+
+  rtsp:
+    image: bluenviron/mediamtx:latest
+    ports:
+      - "8554:8554"
+
+  # frontend:
+  #   owner: Ariana — fill in
+
+  # edge:
+  #   owner: Andrei — fill in
