@@ -10,6 +10,7 @@ import numpy as np
 
 from .detector import Detector
 from .events import Confidence, EdgeEvent, EventContext, TemporalConfidence
+from .live import LiveFrameWriter
 from .privacy import Blurrer
 from .sink import Sink
 from .zones import RuleEngine, Zone, point_in_polygon
@@ -32,6 +33,7 @@ class Pipeline:
         start_epoch: float | None = None,
         rules: RuleEngine | None = None,
         clock: Callable[[], float] | None = None,
+        live_writer: LiveFrameWriter | None = None,
     ) -> None:
         self.camera_id = camera_id
         self.zones = [zone for zone in zones if zone.camera_id == camera_id]
@@ -42,6 +44,7 @@ class Pipeline:
         self.start_epoch = start_epoch if start_epoch is not None else time.time()
         self.rules = rules or RuleEngine()
         self.clock = clock
+        self.live_writer = live_writer
         self.frame_index = 0
 
     def set_config(self, zones: list[Zone], engine_on: bool) -> None:
@@ -51,6 +54,12 @@ class Pipeline:
     def process(self, frame: np.ndarray, now_s: float) -> list[EdgeEvent]:
         self.rules.prune(now_s)
         detections = self.detector.detect(frame, self.frame_index)
+        boxes = [item.bbox for item in detections]
+        live_frame: np.ndarray | None = None
+        if self.live_writer is not None and self.live_writer.due():
+            live_frame = self.blurrer.blur(frame, boxes)
+            self.live_writer.write(live_frame)
+
         emitted: list[EdgeEvent] = []
 
         for detection in detections:
@@ -73,7 +82,7 @@ class Pipeline:
                 detected_at = datetime.fromtimestamp(event_epoch, tz=UTC)
                 event_id = f"evt_{self.camera_id}_{int(event_epoch * 1000)}_{detection.track_id}"
 
-                blurred = self.blurrer.blur(frame, [item.bbox for item in detections])
+                blurred = live_frame if live_frame is not None else self.blurrer.blur(frame, boxes)
                 snapshot_url = self.sink.store_snapshot(event_id, blurred)
 
                 event = EdgeEvent(
