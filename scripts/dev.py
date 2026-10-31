@@ -395,7 +395,12 @@ def run_fallback(args: argparse.Namespace) -> int:
     return code
 
 
-def run_servers(processes: list[tuple[str, subprocess.Popen]]) -> int:
+def run_servers(
+    processes: list[tuple[str, subprocess.Popen]],
+    watched: list[tuple[str, subprocess.Popen]] | None = None,
+) -> int:
+    """Stop when a server exits; only report a watched process (an edge) that exits."""
+    reported: set[str] = set()
     try:
         while True:
             for name, process in processes:
@@ -403,6 +408,15 @@ def run_servers(processes: list[tuple[str, subprocess.Popen]]) -> int:
                 if code is not None:
                     print(f"\n{name} s-a oprit cu codul {code}.")
                     return code or 1
+            for name, process in watched or []:
+                code = process.poll()
+                if code is not None and name not in reported:
+                    reported.add(name)
+                    print(
+                        f"\n{name} s-a oprit cu codul {code}; camera rămâne pe ultimul cadru. "
+                        "Celelalte camere și serverele rulează în continuare.",
+                        file=sys.stderr,
+                    )
             time.sleep(0.4)
     except KeyboardInterrupt:
         print("\nOprire cerută; închid procesele...")
@@ -453,7 +467,9 @@ def demo_feeds(args: argparse.Namespace) -> list[DemoFeed]:
     if args.clip or args.rtsp:
         clip = Path(args.clip).expanduser().resolve() if args.clip else DEFAULT_CLIP
         return [DemoFeed(args.camera_id, clip, "fixtures/zones.stand12.json")]
-    wanted = [item.strip() for item in args.cameras.split(",") if item.strip()]
+    wanted = list(dict.fromkeys(item.strip() for item in args.cameras.split(",") if item.strip()))
+    if not wanted:
+        fail("--cameras e gol; dă cel puțin o cameră (ex. --cameras stand12).")
     known = {feed.camera_id: feed for feed in DEMO_FEEDS}
     unknown = [camera for camera in wanted if camera not in known]
     if unknown:
@@ -491,13 +507,10 @@ def run_demo(args: argparse.Namespace) -> int:
     except BaseException:
         stop(backend)
         raise
-    edges: list[subprocess.Popen] = []
+    edges: list[tuple[str, subprocess.Popen]] = []
     processes: list[tuple[str, subprocess.Popen]] = [("backend", backend), ("frontend", frontend)]
     try:
         print(f"Frontend: {web_url(args)}")
-        for feed in feeds:
-            source = mask_url(args.rtsp) if args.rtsp else feed.clip.name
-            print(f"Edge:     {feed.camera_id} <- {source}")
         print()
 
         if args.mock:
@@ -541,15 +554,16 @@ def run_demo(args: argparse.Namespace) -> int:
                 )
                 shown = [mask_url(part) if part == source else part for part in ml_command]
                 shown = ["***" if previous == "--edge-token" else part for previous, part in zip(["", *shown], shown)]
-                edges.append(popen(ml_command, cwd=ML, env=base_env(), shown=shown))
+                print(f"Edge:     {feed.camera_id} <- {mask_url(args.rtsp) if args.rtsp else feed.clip.name}")
+                edges.append((f"edge {feed.camera_id}", popen(ml_command, cwd=ML, env=base_env(), shown=shown)))
             if not edges:
                 print("Niciun edge pornit. Folosește backend/scripts/demo_event.py pentru fallback.", file=sys.stderr)
 
         # Clipurile rulează în buclă; RTSP rulează continuu. Serverele rămân pornite.
         print("Ctrl-C pentru oprire.\n")
-        return run_servers(processes)
+        return run_servers(processes, watched=edges)
     finally:
-        for edge in edges:
+        for _, edge in edges:
             stop(edge)
         stop(backend)
         if frontend is not None:
