@@ -2,6 +2,8 @@
 
 Testare pe toate cele 6 clipuri din `data/videos/`, cu modelul real și poligonul calibrat pentru `stand12`. Rezultatele sunt măsurători de laborator, nu promisiuni de producție.
 
+Soak-ul RTSP de 5 minute este în [`soak.md`](soak.md); inventarul celor 5 evenimente reale este în [`false-alarms.md`](false-alarms.md).
+
 ## Metodă
 
 - Hardware: AMD Ryzen 7 7840HS, 16 threads, fără GPU discret.
@@ -73,8 +75,8 @@ Nu folosi numărul de evenimente din B-roll ca „rată de falsuri” și nu pro
 ## Limite
 
 - un singur poligon calibrat (`stand12`); `cam02` și B-roll nu au poligoane proprii;
-- fără etichetare manuală pe 50–100 evenimente, deci fără rată de falsuri;
-- fără soak de 5 minute și fără reconectare RTSP;
+- fără eșantion de 50–100 evenimente, deci fără rată de falsuri; cele 5 evenimente sunt în [`false-alarms.md`](false-alarms.md);
+- soak-ul RTSP de 5 minute e făcut, dar doar edge-only și fără reconectare;
 - fără PPE/FOD: nu există nici clipuri, nici cod de detecție;
 - FPS-ul depinde de hardware-ul final; de remăsurat pe mașina de demo.
 

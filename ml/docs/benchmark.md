@@ -1,6 +1,6 @@
 # Benchmark — edge
 
-Testarea pe toate cele 6 clipuri, inclusiv B-roll și full stack pe `cam02`, este în [`clip-tests.md`](clip-tests.md). Fișierul de față rămâne benchmark-ul detaliat pentru cazul de demo `cam01`.
+Testarea pe toate cele 6 clipuri, inclusiv B-roll și full stack pe `cam02`, este în [`clip-tests.md`](clip-tests.md). Soak-ul RTSP de 5 minute este în [`soak.md`](soak.md), iar eșantionul de falsuri în [`false-alarms.md`](false-alarms.md). Fișierul de față rămâne benchmark-ul detaliat pentru cazul de demo `cam01`.
 
 Măsurat pe 31 octombrie 2026, pe laptopul de demo.
 
@@ -63,7 +63,7 @@ uv run python -m safesight_ml.run --source rtsp://127.0.0.1:8554/stand12 \
 ## Ce nu e măsurat încă
 
 - Rata de falsuri alarme pe 50–100 evenimente etichetate.
-- Soak de 5 minute pe RTSP, cu reconectare după o cădere scurtă.
+- Reconectarea RTSP după o cădere scurtă; soak-ul de 5 minute e deja în `soak.md`.
 - FPS pe Jetson / hardware de pilot.
 - PPE și FOD: nu există clipuri, iar codul de detecție pentru ele nu e implementat (există doar adnotări preliminare).
 
