@@ -238,3 +238,16 @@ def test_pipeline_skips_events_while_emit_events_is_off():
     pipeline.emit_events = True
     emitted = [event for step in range(20, 40) for event in pipeline.process(blank, now_s=step / 10)]
     assert len(emitted) == 1
+
+
+def test_limit_size_shrinks_only_the_longest_side_above_the_limit():
+    from safesight_ml.run import limit_size
+
+    landscape = np.zeros((2160, 3840, 3), dtype=np.uint8)
+    portrait = np.zeros((3840, 2160, 3), dtype=np.uint8)
+    small = np.zeros((720, 1280, 3), dtype=np.uint8)
+
+    assert limit_size(landscape, 1920).shape == (1080, 1920, 3)
+    assert limit_size(portrait, 1920).shape == (1920, 1080, 3)
+    assert limit_size(small, 1920) is small
+    assert limit_size(landscape, 0) is landscape

@@ -55,6 +55,16 @@ def _metrics_source(source: str | None) -> str:
     return urlunsplit((parsed.scheme, host, parsed.path, "", ""))
 
 
+def limit_size(frame: np.ndarray, max_size: int) -> np.ndarray:
+    """Shrink the frame so its longest side is at most ``max_size`` px; 0 = unchanged."""
+    height, width = frame.shape[:2]
+    longest = max(height, width)
+    if not max_size or longest <= max_size:
+        return frame
+    scale = max_size / longest
+    return cv2.resize(frame, (round(width * scale), round(height * scale)), interpolation=cv2.INTER_AREA)
+
+
 def load_zones(path: str | Path) -> list[Zone]:
     payload = json.loads(Path(path).read_text(encoding="utf-8"))
     if not isinstance(payload, list):
@@ -80,6 +90,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="with --loop, a replayed pass raises events only if the last event is at least this old",
     )
     parser.add_argument("--duration-s", type=float, default=0.0, help="stop after wall-clock seconds; 0 = no limit")
+    parser.add_argument(
+        "--max-size",
+        type=int,
+        default=0,
+        help="shrink frames so the longest side is at most this many px, right after reading; 0 = off. "
+        "Blur, snapshots and the live view use the shrunk frame: check face recall first (ml/README.md)",
+    )
     parser.add_argument("--fps", type=float, default=0.0, help="override source FPS")
     parser.add_argument("--engine-on", dest="engine_on", action="store_true", default=None)
     parser.add_argument("--engine-off", dest="engine_on", action="store_false")
@@ -137,6 +154,8 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("--loop-cooldown-s must be >= 0")
     if args.zone_margin < 0:
         parser.error("--zone-margin must be >= 0")
+    if args.max_size < 0:
+        parser.error("--max-size must be >= 0")
     if args.align_every < 1:
         parser.error("--align-every must be >= 1")
     engine_on = args.fake if args.engine_on is None else args.engine_on
@@ -250,6 +269,8 @@ def main(argv: list[str] | None = None) -> int:
                     ok, frame, frame_index = reader.read()
                 else:
                     ok, frame = capture.read()
+                if ok:
+                    frame = limit_size(frame, args.max_size)
                 pipeline.timer.add("read", time.perf_counter() - read_started)
                 if not ok:
                     if args.loop and reader is None:
