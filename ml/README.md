@@ -124,6 +124,10 @@ uv run python -m safesight_ml.run --source rtsp://127.0.0.1:8554/stand12 \
 
 Rezumatul conține `frames`, `events`, `event_types`, `event_details` (id, tip, zonă, track, confidence, timp), `elapsed_s` și `fps` end-to-end. `event_details` este lista pe care o poți eticheta manual pentru rata de falsuri.
 
+`stages` dă timpul pe etape (`read`, `detect`, `blur`, `overlay`, `live_write`, `snapshot`, `emit`, `video_write`): `calls`, `total_s`, `mean_ms`. Aceeași linie apare la final în consolă (`stages: ...`). Pornește de aici înainte de orice optimizare: pe `cam01` cu `--live-dir`, `blur` (YuNet pe cadrul complet) costă de câteva ori mai mult decât `detect`, dar rulează doar de 2 ori pe secundă și la evenimente.
+
+Pe o sursă RTSP/HTTP, un thread citește continuu fluxul și pipeline-ul ia mereu **cel mai nou cadru**; cadrele sărite apar în `dropped_frames`. Astfel alerta nu rămâne în urma fluxului când pipeline-ul e mai lent decât camera. Timpul din reguli (`now_s`) folosește numărul de cadre al sursei, nu pe cele procesate, deci debounce-ul rămâne în secunde reale. Pe fișiere nu se sare nimic: fiecare cadru e procesat, ca înainte.
+
 ## Verificare privacy pe snapshot-uri
 
 După o sesiune reală, verifică snapshot-urile salvate cu același YuNet folosit la blur:
@@ -176,6 +180,7 @@ fixtures/
 - `status`, `report`, `received_at`, `notified_at`, `escalated_at`, `acked_at`, `acked_by` nu se trimit din edge.
 - Modelul de fețe lipsește → `FaceBlurrer` fail-closed; nu se salvează imagine neblurată.
 - `--fake` folosește `NoopBlurrer` doar pentru cadre sintetice, fără fețe.
+- YuNet rulează pe cadrul la rezoluție completă. Micșorarea înainte de blur pierde fețe (pe `cam01`, 15 → 7 fețe la 1280 px; pe `cam02` 4K, 40 → 7), deci nu se folosește ca optimizare.
 
 ## Ce nu intră încă
 
@@ -186,4 +191,4 @@ fixtures/
 - rata de falsuri alarme, măsurată pe 50–100 evenimente;
 - reconectare automată la căderea fluxului RTSP (acum procesul se oprește la primul `read()` eșuat).
 
-Verificare: `uv run pytest` (38 teste) și `uv run python -m safesight_ml.run --fake --engine-on --dry-run`. Cifrele reale sunt în [`docs/benchmark.md`](docs/benchmark.md), testarea pe toate clipurile în [`docs/clip-tests.md`](docs/clip-tests.md), soak-ul în [`docs/soak.md`](docs/soak.md), iar eșantionul de falsuri în [`docs/false-alarms.md`](docs/false-alarms.md).
+Verificare: `uv run pytest` și `uv run python -m safesight_ml.run --fake --engine-on --dry-run`. Cifrele reale sunt în [`docs/benchmark.md`](docs/benchmark.md), testarea pe toate clipurile în [`docs/clip-tests.md`](docs/clip-tests.md), soak-ul în [`docs/soak.md`](docs/soak.md), iar eșantionul de falsuri în [`docs/false-alarms.md`](docs/false-alarms.md).

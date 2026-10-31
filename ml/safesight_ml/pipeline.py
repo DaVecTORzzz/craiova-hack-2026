@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from datetime import UTC, datetime
 
 import numpy as np
@@ -21,6 +22,36 @@ EVENT_TYPE_BY_RULE = {
     "RESTRICTED": "RESTRICTED_ZONE",
 }
 ALERT_BANNER_S = 2.0
+
+
+class StageTimer:
+    """Wall-clock seconds and call count per pipeline stage, for metrics.json."""
+
+    def __init__(self) -> None:
+        self.total_s: dict[str, float] = {}
+        self.calls: dict[str, int] = {}
+
+    @contextmanager
+    def stage(self, name: str) -> Iterator[None]:
+        started = time.perf_counter()
+        try:
+            yield
+        finally:
+            self.add(name, time.perf_counter() - started)
+
+    def add(self, name: str, seconds: float) -> None:
+        self.total_s[name] = self.total_s.get(name, 0.0) + seconds
+        self.calls[name] = self.calls.get(name, 0) + 1
+
+    def summary(self) -> dict[str, dict[str, float]]:
+        return {
+            name: {
+                "calls": self.calls[name],
+                "total_s": round(total, 3),
+                "mean_ms": round(1000 * total / self.calls[name], 2),
+            }
+            for name, total in self.total_s.items()
+        }
 
 
 class Pipeline:
@@ -50,6 +81,7 @@ class Pipeline:
         self.clock = clock
         self.live_writer = live_writer
         self.video_writer = video_writer
+        self.timer = StageTimer()
         self.frame_index = 0
         self._alert: tuple[str, float] | None = None
         # False while a looped clip replays a pass too soon after the last alert: the
@@ -63,7 +95,8 @@ class Pipeline:
 
     def process(self, frame: np.ndarray, now_s: float) -> list[EdgeEvent]:
         self.rules.prune(now_s)
-        detections = self.detector.detect(frame, self.frame_index)
+        with self.timer.stage("detect"):
+            detections = self.detector.detect(frame, self.frame_index)
         boxes = [item.bbox for item in detections]
         inside = {
             item.track_id
@@ -79,12 +112,17 @@ class Pipeline:
 
         def annotated() -> np.ndarray:
             # Blur first: the overlay must never hide or replace the privacy step.
-            blurred = self.blurrer.blur(frame, boxes)
-            return draw_overlay(blurred, self.zones, detections, inside, self.engine_on, vest)
+            # Faces are searched on the full frame: downscaling first loses small faces
+            # (cam01: 15 -> 7 YuNet hits at 1280 px), so it is not a free speed-up.
+            with self.timer.stage("blur"):
+                blurred = self.blurrer.blur(frame, boxes)
+            with self.timer.stage("overlay"):
+                return draw_overlay(blurred, self.zones, detections, inside, self.engine_on, vest)
 
         if self.live_writer is not None and self.live_writer.due():
             live_frame = annotated()
-            self.live_writer.write(live_frame)
+            with self.timer.stage("live_write"):
+                self.live_writer.write(live_frame)
 
         emitted: list[EdgeEvent] = []
 
@@ -110,7 +148,8 @@ class Pipeline:
 
                 if live_frame is None:
                     live_frame = annotated()
-                snapshot_url = self.sink.store_snapshot(event_id, live_frame)
+                with self.timer.stage("snapshot"):
+                    snapshot_url = self.sink.store_snapshot(event_id, live_frame)
 
                 event = EdgeEvent(
                     event_id=event_id,
@@ -132,7 +171,8 @@ class Pipeline:
                     model=self.detector.model_name,
                     detected_at=detected_at,
                 )
-                self.sink.emit(event)
+                with self.timer.stage("emit"):
+                    self.sink.emit(event)
                 emitted.append(event)
 
         if self.video_writer is not None:
@@ -142,7 +182,8 @@ class Pipeline:
                 self._alert = (f"ALERTA {last.type} | {last.zone_id} | persoana #{last.track_id}", now_s)
             if self._alert is not None and now_s - self._alert[1] <= ALERT_BANNER_S:
                 out = draw_alert(out, self._alert[0])
-            self.video_writer.write(out)
+            with self.timer.stage("video_write"):
+                self.video_writer.write(out)
 
         self.frame_index += 1
         return emitted

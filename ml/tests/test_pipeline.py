@@ -206,6 +206,10 @@ def test_cli_writes_run_metrics(tmp_path):
     assert metrics["model"] == "synthetic-person-v1"
     assert metrics["max_frames"] == 30
     assert metrics["duration_s"] == 0
+    assert metrics["dropped_frames"] == 0
+    assert metrics["stages"]["detect"]["calls"] == 30
+    assert metrics["stages"]["snapshot"]["calls"] == 1
+    assert metrics["stages"]["detect"]["mean_ms"] >= 0
 
 
 def test_metrics_source_redacts_rtsp_credentials():

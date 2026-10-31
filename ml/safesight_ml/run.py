@@ -21,6 +21,7 @@ import cv2
 import httpx
 import numpy as np
 
+from .capture import LatestFrameReader, is_live_source
 from .detector import SyntheticDetector, YoloDetector
 from .events import EdgeEvent
 from .live import AnnotatedVideoWriter, LiveFrameWriter
@@ -169,6 +170,7 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     total = 0
+    dropped_frames = 0
     event_rows: list[dict] = []
 
     last_event_at: float | None = None
@@ -213,11 +215,18 @@ def main(argv: list[str] | None = None) -> int:
             pipeline.video_writer = AnnotatedVideoWriter(args.annotated_video, fps)
         frame_index = 0
         last_refresh = time.monotonic()
+        # A live stream must not queue frames behind a slow pipeline: keep the newest one.
+        reader = LatestFrameReader(capture) if is_live_source(args.source) else None
         try:
             while True:
-                ok, frame = capture.read()
+                read_started = time.perf_counter()
+                if reader is not None:
+                    ok, frame, frame_index = reader.read()
+                else:
+                    ok, frame = capture.read()
+                pipeline.timer.add("read", time.perf_counter() - read_started)
                 if not ok:
-                    if args.loop and not str(args.source).lower().startswith(("rtsp://", "http://", "https://")):
+                    if args.loop and reader is None:
                         capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
                         # Each pass replays the same scene; without this the demo raises
                         # (and notifies) the same incident every few seconds.
@@ -248,7 +257,11 @@ def main(argv: list[str] | None = None) -> int:
                 if args.max_frames and total >= args.max_frames:
                     break
         finally:
-            capture.release()
+            if reader is not None:
+                dropped_frames = reader.dropped
+                reader.release()
+            else:
+                capture.release()
 
     if isinstance(sink, HttpSink):
         sink.close()
@@ -268,6 +281,8 @@ def main(argv: list[str] | None = None) -> int:
         "event_details": event_rows,
         "elapsed_s": round(elapsed_s, 3),
         "fps": round(total / elapsed_s, 2),
+        "dropped_frames": dropped_frames,
+        "stages": pipeline.timer.summary(),
         "engine_on": pipeline.engine_on,
         "sink": "http" if args.post else "jsonl",
         "model": detector.model_name,
@@ -282,6 +297,8 @@ def main(argv: list[str] | None = None) -> int:
         f"frames={total} events={len(event_rows)} engine_on={pipeline.engine_on} "
         f"sink={'http' if args.post else 'jsonl'} elapsed={elapsed_s:.2f}s fps={metrics['fps']}"
     )
+    stages = " ".join(f"{name}={row['mean_ms']}ms" for name, row in metrics["stages"].items())
+    print(f"stages: {stages} dropped={dropped_frames}")
     if not args.post:
         print(f"events: {Path(args.out) / 'events.jsonl'}")
         print(f"snapshots: {Path(args.out) / 'snapshots'}")
