@@ -475,9 +475,11 @@ export default function LiveView() {
                 <Clock size={14} />
               </div>
               <div>
-                <span className="text-[9px] text-slate-400 block font-semibold leading-tight">Latență Rețea</span>
+                <span className="text-[9px] text-slate-400 block font-semibold leading-tight">Detecție → Alertă</span>
                 <span className="font-mono font-bold text-blue-500 dark:text-[#7EDEED] text-[11px]">
-                  1.8s (Edge sync)
+                  {kpis.detection_to_alert_latency_s === '—'
+                    ? '—'
+                    : `${kpis.detection_to_alert_latency_s}s`}
                 </span>
               </div>
             </div>
