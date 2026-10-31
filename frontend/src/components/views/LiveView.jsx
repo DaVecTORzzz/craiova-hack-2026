@@ -29,7 +29,6 @@ export default function LiveView() {
     kpis,
     cameras,
     activeCamera,
-    selectedCameraId,
     setSelectedCameraId,
     toggleEngine,
     filteredEvents,
@@ -265,11 +264,16 @@ export default function LiveView() {
                   activeCamera?.status === 'offline' ? 'bg-[#D73833]' : 'bg-emerald-500'
                 }`}
               />
-              <span style={{ color: themeStyles.textMuted }} className="text-[11px] font-semibold shrink-0">
+              <span
+                id="live-camera-label"
+                style={{ color: themeStyles.textMuted }}
+                className="text-[11px] font-semibold shrink-0"
+              >
                 Cameră
               </span>
               <select
-                value={selectedCameraId || ''}
+                id="live-camera-select"
+                value={activeCamera?.id || ''}
                 onChange={(event) => setSelectedCameraId(event.target.value)}
                 style={{
                   backgroundColor: themeStyles.panelBg,
@@ -277,7 +281,7 @@ export default function LiveView() {
                   color: isDarkMode ? '#F5F5F5' : '#1F1F1F'
                 }}
                 className="min-w-0 max-w-[16rem] px-2 py-1.5 rounded-lg text-xs font-semibold border focus:outline-none focus:ring-2 focus:ring-[#7EDEED]"
-                aria-label="Alege camera"
+                aria-labelledby="live-camera-label"
               >
                 {(cameras || []).map((c) => {
                   const offline = c.status === 'offline';
