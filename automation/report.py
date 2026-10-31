@@ -198,6 +198,9 @@ def _plural(count: int, one: str, many: str) -> str:
     return one if count == 1 else many
 
 
+SHIFT_LABELS = {"morning": "de dimineață", "afternoon": "de după-amiază", "night": "de noapte"}
+
+
 def summarize(report: dict) -> str:
     """2–3 propoziții din cifrele raportului de tură al backend-ului."""
     report = report or {}
@@ -205,7 +208,7 @@ def summarize(report: dict) -> str:
     kpi = report.get("kpi") or {}
     open_incidents = int(kpi.get("open_incidents") or report.get("open_incidents") or 0)
     escalated = int(kpi.get("escalated") or report.get("escalated") or 0)
-    shift = report.get("shift") or "curentă"
+    shift = SHIFT_LABELS.get(report.get("shift"), report.get("shift") or "curentă")
     day = report.get("date") or "necunoscută"
     return (
         f"Tura {shift} din {day}: {total} {_plural(total, 'eveniment', 'evenimente')}, "

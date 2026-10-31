@@ -14,6 +14,7 @@ logger = logging.getLogger("safesight.kpi")
 Shift = Literal["morning", "afternoon", "night"]
 
 # shift -> local start hour; every shift lasts 8 h (night ends the next day)
+SHIFT_LABELS: dict[str, str] = {"morning": "de dimineață", "afternoon": "de după-amiază", "night": "de noapte"}
 SHIFT_START: dict[str, int] = {"morning": 6, "afternoon": 14, "night": 22}
 
 
@@ -124,6 +125,6 @@ async def _summary(numbers: dict, n_events: int) -> str:
         logger.info(f"shift summary fallback reason={type(e).__name__}")
     kpi = numbers["kpi"]
     return (
-        f"Tura {numbers['shift']} din {numbers['date']}: {n_events} evenimente, "
+        f"Tura {SHIFT_LABELS.get(numbers['shift'], numbers['shift'])} din {numbers['date']}: {n_events} evenimente, "
         f"{kpi['open_incidents']} deschise, {kpi['escalated']} escaladate."
     )
