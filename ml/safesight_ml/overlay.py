@@ -6,6 +6,7 @@ import cv2
 import numpy as np
 
 from .detector import Detection
+from .ppe import HIVIS_MIN
 from .zones import Zone
 
 # BGR
@@ -25,6 +26,7 @@ def draw_overlay(
     detections: list[Detection],
     inside: set[int],
     engine_on: bool,
+    vest: dict[int, float | None] | None = None,
 ) -> np.ndarray:
     """Return a copy with zone polygons, boxes and labels. ``inside`` holds track ids in an active zone.
 
@@ -53,7 +55,11 @@ def draw_overlay(
         cv2.rectangle(out, p1, p2, color, thick)
         foot = (round((x1 + x2) / 2 * width), p2[1])
         cv2.circle(out, foot, thick + 2, color, -1)
-        _label(out, f"persoana #{detection.track_id} {detection.confidence:.2f}", p1, color, font, thick)
+        text = f"persoana #{detection.track_id} {detection.confidence:.2f}"
+        if vest is not None:
+            score = vest.get(detection.track_id)
+            text += " | vesta" if score is not None and score >= HIVIS_MIN else " | vesta ?"
+        _label(out, text, p1, color, font, thick)
 
     status = "MOTOR PORNIT" if engine_on else "MOTOR OPRIT"
     _label(out, f"{status} | {len(detections)} persoane | {len(inside)} in zona", (0, 0), RED if inside else GREY, font, thick, below=True)
@@ -85,3 +91,17 @@ def _label(
         max(1, thick - 1),
         cv2.LINE_AA,
     )
+
+
+def draw_alert(frame: np.ndarray, text: str) -> np.ndarray:
+    """Red banner across the bottom of the frame, shown for a moment after an event."""
+    out = frame.copy()
+    height, width = out.shape[:2]
+    scale = max(width / 1280.0, 0.5)
+    thick = max(2, round(2 * scale))
+    font = 0.8 * scale
+    (tw, th), base = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, font, thick)
+    bar = th + base + 4 * thick
+    cv2.rectangle(out, (0, height - bar), (width, height), RED, -1)
+    cv2.putText(out, text, ((width - tw) // 2, height - base - 2 * thick), cv2.FONT_HERSHEY_SIMPLEX, font, WHITE, thick, cv2.LINE_AA)
+    return out

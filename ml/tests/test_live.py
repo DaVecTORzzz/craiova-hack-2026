@@ -134,3 +134,34 @@ def test_pipeline_snapshot_is_annotated_after_blur():
     assert len(sink.frames) == 1
     assert blurrer.calls == 1
     assert sink.frames[0].any()
+
+
+def test_fake_cli_writes_annotated_video(tmp_path):
+    import cv2
+
+    video = tmp_path / "annotated.mp4"
+    code = run_main(
+        ["--fake", "--engine-on", "--dry-run", "--max-frames", "30", "--out", str(tmp_path / "out"), "--annotated-video", str(video)]
+    )
+    assert code == 0
+    capture = cv2.VideoCapture(str(video))
+    assert int(capture.get(cv2.CAP_PROP_FRAME_COUNT)) == 30
+    capture.release()
+
+
+def test_hivis_ratio_separates_vest_from_dark_jacket():
+    from safesight_ml.ppe import HIVIS_MIN, VestTracker, hivis_ratio
+
+    frame = np.full((360, 640, 3), 60, dtype=np.uint8)
+    frame[100:300, 100:200] = (0, 120, 255)  # fluorescent orange (BGR) person
+    vest_box = (100 / 640, 80 / 360, 200 / 640, 320 / 360)
+    dark_box = (400 / 640, 80 / 360, 500 / 640, 320 / 360)
+
+    assert hivis_ratio(frame, vest_box) > HIVIS_MIN
+    assert hivis_ratio(frame, dark_box) < HIVIS_MIN
+    assert hivis_ratio(frame, (0.5, 0.5, 0.5, 0.5)) is None
+
+    tracker = VestTracker(alpha=0.5)
+    assert tracker.update(1, 1.0) == 1.0
+    assert tracker.update(1, 0.0) == 0.5
+    assert tracker.update(1, None) == 0.5
