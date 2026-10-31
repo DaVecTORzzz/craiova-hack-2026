@@ -1,9 +1,12 @@
-// Contractul canonic SafeSight AI conform specificațiilor din 03_C_frontend.pdf
+// Contractul canonic SafeSight conform specificațiilor din 03_C_frontend.pdf
 
 export const INITIAL_CAMERAS = [
   {
     id: "stand12",
-    name: "Stand 12 - Avion B777 (Apron)",
+    code: "CAM-01",
+    name: "CAM-01 • Stand 12 Avion B777",
+    subtitle: "Alimentare & Întreținere (Zonă Motor Apron)",
+    category: "Alimentare & Rampă",
     zone_id: "engine-left",
     rtsp_url: "rtsp://edge.airport.local/live/stand12",
     status: "online",
@@ -32,7 +35,10 @@ export const INITIAL_CAMERAS = [
   },
   {
     id: "runway08",
-    name: "Pista 08R - Runway & Tarmac",
+    code: "CAM-02",
+    name: "CAM-02 • Pista 08R Runway",
+    subtitle: "Cale de Rulare & Axa Centrală Decolare",
+    category: "Pistă & Căi Rulare",
     zone_id: "runway-center",
     rtsp_url: "rtsp://edge.airport.local/live/runway08",
     status: "online",
@@ -53,7 +59,10 @@ export const INITIAL_CAMERAS = [
   },
   {
     id: "gate4b",
-    name: "Terminal 1 - Poarta 4B",
+    code: "CAM-03",
+    name: "CAM-03 • Terminal 1 - Poarta 4B",
+    subtitle: "Zonă Îmbarcare Pasageri & Finger",
+    category: "Terminal & Porți",
     zone_id: "gate-boarding",
     rtsp_url: "rtsp://edge.airport.local/live/gate4b",
     status: "online",
@@ -74,7 +83,10 @@ export const INITIAL_CAMERAS = [
   },
   {
     id: "checkin_t1",
-    name: "Terminal Plecări - Check-In",
+    code: "CAM-04",
+    name: "CAM-04 • Terminal Plecări",
+    subtitle: "Hol Public & Ghișee Check-In",
+    category: "Terminal & Porți",
     zone_id: "public-hall",
     rtsp_url: "rtsp://edge.airport.local/live/checkin",
     status: "online",
@@ -95,7 +107,10 @@ export const INITIAL_CAMERAS = [
   },
   {
     id: "baggage_south",
-    name: "Triere Bagaje & Rampă Sud",
+    code: "CAM-05",
+    name: "CAM-05 • Rampă Sud",
+    subtitle: "Triere & Manipulare Bagaje Cală",
+    category: "Alimentare & Rampă",
     zone_id: "ramp-south",
     rtsp_url: "rtsp://edge.airport.local/live/baggage_south",
     status: "offline", // CAMERA_OFFLINE generat după 5s fără cadre
@@ -105,6 +120,12 @@ export const INITIAL_CAMERAS = [
     previewBg: "from-neutral-900 to-black",
     boxes: []
   }
+];
+
+export const AVAILABLE_OPERATORS = [
+  { id: 'ariana', name: 'Ariana V.', role: 'Dispatcher Principal (Lead)', badge: 'AIRSIDE-LEAD' },
+  { id: 'mihai', name: 'Mihai D.', role: 'Șef Tură Rampă & Apron', badge: 'RAMP-CHIEF' },
+  { id: 'radu', name: 'Radu P.', role: 'Inspector Siguranță Sol', badge: 'SAFETY-INSP' }
 ];
 
 export const INITIAL_EVENTS = [
@@ -185,7 +206,7 @@ export const INITIAL_EVENTS = [
     escalated_at: null,
     escalate_after_s: 60,
     acked_at: "2026-10-31T07:32:05.100Z",
-    acked_by: "Ariana",
+    acked_by: "Ariana V.",
     report: {
       what: "Tehnician de mentenanță fără căști antifonice conforme EN 352.",
       where: "Stand 12, proximitate motor B777.",

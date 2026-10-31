@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ShieldAlert,
   HardHat,
@@ -9,7 +9,10 @@ import {
   Check,
   Video,
   WifiOff,
-  Maximize2
+  Maximize2,
+  Minimize2,
+  Columns,
+  LayoutDashboard
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useSecurity } from '../../context/SecurityContext';
@@ -34,22 +37,94 @@ export default function LiveView() {
     setCurrentView
   } = useSecurity();
 
+  // Moduri interactive de afișare (elimină rubricile redundante din meniul lateral)
+  const [displayMode, setDisplayMode] = useState('standard');
   const [streamFailed, setStreamFailed] = useState(false);
 
   useEffect(() => {
     setStreamFailed(false);
   }, [activeCamera?.id]);
 
-  if (!activeCamera) {
-    return <div className="p-8 text-center font-mono text-sm">Se încarcă camerele...</div>;
-  }
+  const isOffline = activeCamera?.status === 'offline';
+  const showStream = Boolean(activeCamera?.stream_url && !streamFailed && !isOffline);
 
-  const isOffline = activeCamera.status === 'offline';
-  const showStream = Boolean(activeCamera.stream_url) && !isOffline && !streamFailed;
+  // Mod Full-Screen Imersiv
+  if (displayMode === 'fullscreen') {
+    return (
+      <div className="fixed inset-0 z-50 bg-black flex flex-col select-none">
+        <div className="h-14 bg-black/90 backdrop-blur px-6 flex items-center justify-between border-b border-white/10 z-10">
+          <div className="flex items-center gap-3">
+            <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping" />
+            <div>
+              <h2 className="text-white font-bold text-sm tracking-wide">
+                {activeCamera?.name}
+              </h2>
+              <p className="text-[11px] text-slate-400">
+                {activeCamera?.subtitle} • {activeCamera?.resolution}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => toggleEngine(activeCamera?.id)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold flex items-center gap-1.5 transition-all ${
+                activeCamera?.engine_on
+                  ? 'bg-amber-500 text-slate-950 font-black'
+                  : 'bg-slate-800 text-slate-300'
+              }`}
+            >
+              <Power size={13} />
+              ENGINE: {activeCamera?.engine_on ? 'ON' : 'OFF'}
+            </button>
+
+            <button
+              onClick={() => setDisplayMode('standard')}
+              className="px-3.5 py-1.5 rounded-xl bg-white/20 hover:bg-white/30 text-white text-xs font-bold flex items-center gap-1.5 transition-all"
+            >
+              <Minimize2 size={14} />
+              <span>Ieșire Full-Screen</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="flex-1 relative flex items-center justify-center overflow-hidden bg-black">
+          {isOffline ? (
+            <div className="text-center p-8 text-red-500 font-mono">
+              <WifiOff size={60} className="mx-auto mb-3 animate-bounce" />
+              <h3 className="text-3xl font-black tracking-widest">SEMNAL PIERDUT</h3>
+              <p className="text-sm text-slate-400 mt-1">CAMERA {activeCamera?.id} ESTE MOMENTAN OFFLINE</p>
+            </div>
+          ) : (
+            <div className={`w-full h-full bg-gradient-to-br ${activeCamera?.previewBg || 'from-slate-950 to-black'} relative flex items-center justify-center`}>
+              {showStream ? (
+                <img
+                  src={activeCamera.stream_url}
+                  alt={`Flux ${activeCamera.id}`}
+                  className="w-full h-full object-cover"
+                  onError={() => setStreamFailed(true)}
+                />
+              ) : (
+                <div className="text-center opacity-25 select-none">
+                  <Video size={100} className="mx-auto mb-3 text-slate-300" />
+                  <p className="font-mono font-bold text-white text-xl">{activeCamera?.name?.toUpperCase()}</p>
+                  <p className="font-mono text-sm text-slate-300">LIVE FEED • {activeCamera?.fps} FPS</p>
+                </div>
+              )}
+
+              {activeCamera?.boxes?.map((box) => (
+                <BoundingBox key={box.id} box={box} />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 flex flex-col p-3 md:p-4 overflow-y-auto space-y-3 h-full select-none">
-      {/* 1. Cele 4 KPI din Live (Conform Brief-ului C) */}
+      {/* 1. Cele 4 KPI din Live */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 shrink-0">
         <div
           style={{ backgroundColor: themeStyles.panelBg, borderColor: themeStyles.panelBorder }}
@@ -57,13 +132,15 @@ export default function LiveView() {
         >
           <div>
             <p style={{ color: themeStyles.textMuted }} className="text-[11px] font-semibold">
-              Conformitate PPE
+              Conformitate PPE Sol
             </p>
-            <p className="text-xl md:text-2xl font-black font-mono text-emerald-400">
+            <p className="text-xl md:text-2xl font-black font-mono text-emerald-600 dark:text-emerald-400">
               {kpis.ppe_compliance_pct === '—' ? '—' : `${kpis.ppe_compliance_pct}%`}
             </p>
           </div>
-          <HardHat size={26} className="text-emerald-400 opacity-80" />
+          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+            <HardHat size={22} className="text-emerald-600 dark:text-emerald-400" />
+          </div>
         </div>
 
         <div
@@ -74,11 +151,13 @@ export default function LiveView() {
             <p style={{ color: themeStyles.textMuted }} className="text-[11px] font-semibold">
               Incidente Deschise
             </p>
-            <p className="text-xl md:text-2xl font-black font-mono text-amber-400">
+            <p className="text-xl md:text-2xl font-black font-mono text-amber-500">
               {kpis.open_incidents_count}
             </p>
           </div>
-          <AlertTriangle size={26} className="text-amber-400 opacity-80" />
+          <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center">
+            <AlertTriangle size={22} className="text-amber-500" />
+          </div>
         </div>
 
         <div
@@ -89,11 +168,13 @@ export default function LiveView() {
             <p style={{ color: themeStyles.textMuted }} className="text-[11px] font-semibold">
               Detecție → Alertă
             </p>
-            <p className="text-xl md:text-2xl font-black font-mono text-indigo-400">
+            <p className="text-xl md:text-2xl font-black font-mono text-blue-600 dark:text-blue-400">
               {kpis.detection_to_alert_latency_s === '—' ? '—' : `${kpis.detection_to_alert_latency_s}s`}
             </p>
           </div>
-          <Clock size={26} className="text-indigo-400 opacity-80" />
+          <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
+            <Clock size={22} className="text-blue-600 dark:text-blue-400" />
+          </div>
         </div>
 
         <div
@@ -102,74 +183,116 @@ export default function LiveView() {
         >
           <div>
             <p style={{ color: themeStyles.textMuted }} className="text-[11px] font-semibold">
-              Escaladate
+              Escaladate la Turn
             </p>
-            <p className="text-xl md:text-2xl font-black font-mono text-red-500">
+            <p className="text-xl md:text-2xl font-black font-mono text-red-600 dark:text-red-500">
               {kpis.escalated_incidents_count}
             </p>
           </div>
-          <ShieldAlert size={26} className="text-red-500 opacity-80 animate-pulse" />
+          <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center">
+            <ShieldAlert size={22} className="text-red-600 dark:text-red-500 animate-pulse" />
+          </div>
         </div>
       </div>
 
-      {/* 2. Corp Principal Live: Video Adnotat Stânga + Feed Evenimente Dreapta */}
-      <div className="flex-1 flex flex-col lg:flex-row gap-3 min-h-[460px] overflow-hidden">
+      {/* 2. Corp Principal: Video & Butoane Mod Vizualizare */}
+      <div className={`flex-1 flex ${displayMode === 'split' ? 'flex-col' : 'flex-col lg:flex-row'} gap-3 overflow-hidden`}>
         {/* ZONA VIDEO & CONTROALE CAMERA */}
-        <div className="flex-1 flex flex-col space-y-2.5 min-w-0">
-          {/* Bară Selector Cameră + Engine Switch */}
+        <div className="flex-1 flex flex-col space-y-2 min-w-0">
+          {/* Bară Selector Camere & Mod Afișare */}
           <div
             style={{ backgroundColor: themeStyles.panelBg, borderColor: themeStyles.panelBorder }}
-            className="p-2.5 rounded-xl border shadow-sm flex items-center justify-between gap-2 shrink-0 flex-wrap"
+            className="p-2 rounded-xl border shadow-sm flex items-center justify-between gap-2 shrink-0 flex-wrap"
           >
-            {/* Selector Cameră */}
+            {/* Butoane Camere */}
             <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
-              {cameras.map((c) => (
-                <button
-                  key={c.id}
-                  onClick={() => setSelectedCameraId(c.id)}
-                  style={{
-                    backgroundColor: c.id === selectedCameraId ? themeStyles.accentColor : 'transparent',
-                    color: c.id === selectedCameraId ? '#FFFFFF' : themeStyles.textColor
-                  }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold border border-white/10 shrink-0 transition-colors ${
-                    c.status === 'offline' ? 'opacity-60' : ''
-                  }`}
-                >
-                  <span
-                    className={`inline-block w-2 h-2 rounded-full mr-1.5 ${
-                      c.status === 'offline' ? 'bg-red-500' : 'bg-emerald-400'
-                    }`}
-                  />
-                  {c.id}
-                </button>
-              ))}
+              {(cameras || []).map((c) => {
+                const isSelected = c.id === selectedCameraId;
+                return (
+                  <button
+                    key={c.id}
+                    onClick={() => setSelectedCameraId(c.id)}
+                    style={{
+                      backgroundColor: isSelected ? '#1976D2' : 'transparent',
+                      color: isSelected ? '#FFFFFF' : (isDarkMode ? '#F8FAFC' : '#212121')
+                    }}
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all shrink-0 flex items-center gap-1.5 ${
+                      isSelected
+                        ? 'border-blue-500 shadow-sm'
+                        : 'border-slate-500/20 hover:bg-slate-500/10'
+                    } ${c.status === 'offline' ? 'opacity-65' : ''}`}
+                  >
+                    <span
+                      className={`w-2 h-2 rounded-full ${
+                        c.status === 'offline' ? 'bg-red-500' : 'bg-emerald-500'
+                      }`}
+                    />
+                    <span>{c.code || c.id}</span>
+                  </button>
+                );
+              })}
             </div>
 
-            {/* Buton Engine ON / OFF Switch (Conform Regulii N11) */}
-            <button
-              onClick={() => toggleEngine(activeCamera.id)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold flex items-center gap-2 shadow transition-all ${
-                activeCamera.engine_on
-                  ? 'bg-amber-500 text-slate-950 animate-pulse'
-                  : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-              }`}
-              title="Comută starea motorului aeronavei pentru acest stand"
-            >
-              <Power size={14} />
-              <span>ENGINE: {activeCamera.engine_on ? 'ON (Pornit)' : 'OFF (Oprit)'}</span>
-            </button>
+            {/* Butoane Mod Vizualizare (Înlocuiesc rubricile amestecate din meniu) */}
+            <div className="flex items-center gap-1.5">
+              <div className="flex items-center bg-slate-500/10 rounded-lg p-0.5 border border-slate-500/20">
+                <button
+                  onClick={() => setDisplayMode('standard')}
+                  className={`px-2 py-1 rounded text-[11px] font-semibold flex items-center gap-1 transition-colors ${
+                    displayMode === 'standard' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                  title="Mod Standard: Feed Video + Alerte laterale"
+                >
+                  <LayoutDashboard size={12} />
+                  <span className="hidden sm:inline">Standard</span>
+                </button>
+                <button
+                  onClick={() => setDisplayMode('split')}
+                  className={`px-2 py-1 rounded text-[11px] font-semibold flex items-center gap-1 transition-colors ${
+                    displayMode === 'split' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                  title="Mod Split: Feed Video sus, Probleme extinse dedesubt"
+                >
+                  <Columns size={12} />
+                  <span className="hidden sm:inline">Split</span>
+                </button>
+              </div>
+
+              {/* Buton Engine ON / OFF */}
+              <button
+                onClick={() => toggleEngine(activeCamera?.id)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold flex items-center gap-1.5 shadow transition-all ${
+                  activeCamera?.engine_on
+                    ? 'bg-amber-500 text-slate-950 animate-pulse'
+                    : 'bg-slate-700 text-slate-200 hover:bg-slate-600'
+                }`}
+                title="Comută starea motorului aeronavei pentru acest stand"
+              >
+                <Power size={13} />
+                <span>MOTOR: {activeCamera?.engine_on ? 'ON' : 'OFF'}</span>
+              </button>
+
+              {/* Buton Full-Screen direct pe feed */}
+              <button
+                onClick={() => setDisplayMode('fullscreen')}
+                className="p-1.5 rounded-lg bg-slate-500/10 hover:bg-slate-500/20 text-slate-700 dark:text-slate-300 border border-slate-500/20"
+                title="Deschide în modul Full-Screen Imersiv"
+              >
+                <Maximize2 size={14} />
+              </button>
+            </div>
           </div>
 
-          {/* Player-ul Video Adnotat */}
-          <div className="flex-1 relative rounded-xl overflow-hidden bg-black border border-slate-700 flex items-center justify-center min-h-[300px] shadow-lg">
+          {/* Player-ul Video Adnotat (Fereastră compactă / restrânsă ergonomic conform cerinței) */}
+          <div className="relative rounded-xl overflow-hidden bg-black border border-slate-700 shadow-md h-64 md:h-72 lg:h-[320px] max-h-[340px] shrink-0 flex items-center justify-center">
             {isOffline ? (
               <div className="text-center p-6 text-red-500 font-mono">
-                <WifiOff size={48} className="mx-auto mb-2 animate-bounce" />
-                <h3 className="text-2xl font-black tracking-widest">SEMNAL PIERDUT</h3>
-                <p className="text-xs text-slate-400 mt-1">CAMERA {activeCamera.id} ESTE MOMENTAN OFFLINE</p>
+                <WifiOff size={44} className="mx-auto mb-2 animate-bounce" />
+                <h3 className="text-xl font-black tracking-widest">SEMNAL PIERDUT</h3>
+                <p className="text-xs text-slate-400 mt-1">CAMERA {activeCamera?.id?.toUpperCase()} ESTE MOMENTAN OFFLINE</p>
               </div>
             ) : (
-              <div className={`w-full h-full bg-gradient-to-br ${activeCamera.previewBg} relative flex items-center justify-center`}>
+              <div className={`w-full h-full bg-gradient-to-br ${activeCamera?.previewBg || 'from-slate-900 to-black'} relative flex items-center justify-center`}>
                 {showStream ? (
                   <img
                     src={activeCamera.stream_url}
@@ -178,46 +301,56 @@ export default function LiveView() {
                     onError={() => setStreamFailed(true)}
                   />
                 ) : (
-                  <div className="text-center opacity-40 select-none">
-                    <Video size={70} className="mx-auto mb-2 text-slate-300" />
-                    <p className="font-mono font-bold text-white text-base">{activeCamera.name.toUpperCase()}</p>
-                    <p className="font-mono text-xs text-slate-300">
-                      {streamFailed ? 'STREAM INDISPONIBIL • SNAPSHOT FALLBACK' : 'LIVE ANNOTATED STREAM'}
+                  <div className="text-center opacity-30 select-none">
+                    <Video size={56} className="mx-auto mb-1 text-slate-300" />
+                    <p className="font-mono font-bold text-white text-sm">{activeCamera?.name?.toUpperCase()}</p>
+                    <p className="font-mono text-[11px] text-slate-300">
+                      {streamFailed ? 'STREAM MJPEG INDISPONIBIL • FALLBACK' : `LIVE ANNOTATED STREAM${activeCamera?.fps ? ` • ${activeCamera.fps} FPS` : ''}`}
                     </p>
                   </div>
                 )}
 
-                {/* Bounding Boxes (dacă backend-ul le trimite) */}
-                {activeCamera.boxes?.map((box) => (
+                {/* Bounding Boxes */}
+                {activeCamera?.boxes?.map((box) => (
                   <BoundingBox key={box.id} box={box} />
                 ))}
 
-                {/* HUD Overlay */}
-                <div className="absolute top-3 left-3 flex items-center gap-2 bg-black/80 px-2.5 py-1 rounded text-[11px] font-mono text-white border border-white/10">
+                {/* HUD Overlay cu semnal LIVE exclusiv lângă fluxul camerei */}
+                <div className="absolute top-2.5 left-2.5 flex items-center gap-2 bg-black/80 px-2.5 py-1 rounded-lg text-[10px] font-mono text-white border border-white/10 shadow">
                   <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
-                  <span>REC: LIVE</span>
-                  <span>|</span>
-                  <span>{activeCamera.resolution}</span>
+                  <span className="font-bold text-red-400">LIVE REC</span>
+                  <span className="text-slate-400">|</span>
+                  <span>{activeCamera?.resolution || 'REZOLUȚIE NECUNOSCUTĂ'}</span>
+                </div>
+
+                {/* Banner jos cu detalii cameră afișate sub denumire conform cerinței */}
+                <div className="absolute bottom-2.5 left-2.5 right-2.5 bg-black/75 backdrop-blur px-3 py-1.5 rounded-lg border border-white/10 flex items-center justify-between text-xs">
+                  <div>
+                    <p className="font-bold text-white text-xs leading-none">{activeCamera?.name}</p>
+                    <p className="text-[10px] text-slate-300 font-normal mt-0.5 leading-none">{activeCamera?.subtitle}</p>
+                  </div>
+                  <span className="text-[10px] font-mono text-slate-400">
+                    RTSP: {activeCamera?.rtsp_url ? activeCamera.rtsp_url.split('/').pop() : activeCamera?.id}
+                  </span>
                 </div>
               </div>
             )}
           </div>
         </div>
 
-        {/* FEED EVENIMENTE DREAPTA (Deschise, Doar critice, Toate azi) */}
+        {/* FEED EVENIMENTE (DREAPTA în Standard sau JOS în Split) */}
         <div
           style={{ backgroundColor: themeStyles.panelBg, borderColor: themeStyles.panelBorder }}
-          className="w-full lg:w-96 rounded-xl border p-3 flex flex-col shadow-lg shrink-0 overflow-hidden"
+          className={`rounded-xl border p-3 flex flex-col shadow-sm shrink-0 overflow-hidden ${
+            displayMode === 'split' ? 'w-full max-h-72' : 'w-full lg:w-96'
+          }`}
         >
-          <div className="flex items-center justify-between pb-2 border-b border-white/10 shrink-0">
-            <h2 className="font-bold text-sm uppercase tracking-wider flex items-center gap-1.5">
-              <ShieldAlert size={16} className="text-red-400" />
-              Feed Evenimente
+          <div className="flex items-center justify-between pb-2 border-b border-slate-500/15 shrink-0">
+            <h2 className="font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 text-slate-800 dark:text-slate-200">
+              <ShieldAlert size={15} className="text-red-500" />
+              Incidente Detectate
             </h2>
-            <span
-              style={{ backgroundColor: themeStyles.accentColor }}
-              className="text-xs font-mono font-bold px-2 py-0.5 rounded-full text-white"
-            >
+            <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-blue-600 text-white">
               {filteredEvents.length}
             </span>
           </div>
@@ -233,10 +366,10 @@ export default function LiveView() {
                 key={f.key}
                 onClick={() => setFilterMode(f.key)}
                 style={{
-                  backgroundColor: filterMode === f.key ? themeStyles.accentColor : themeStyles.cardBg,
-                  color: filterMode === f.key ? '#FFFFFF' : themeStyles.textColor
+                  backgroundColor: filterMode === f.key ? '#1976D2' : (isDarkMode ? '#1E2433' : '#F1F5F9'),
+                  color: filterMode === f.key ? '#FFFFFF' : (isDarkMode ? '#F8FAFC' : '#212121')
                 }}
-                className="flex-1 py-1 text-[11px] font-bold rounded transition-colors text-center"
+                className="flex-1 py-1 text-[11px] font-bold rounded-lg transition-colors text-center"
               >
                 {f.label}
               </button>
@@ -244,10 +377,14 @@ export default function LiveView() {
           </div>
 
           {/* Listă Carduri Evenimente */}
-          <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 scrollbar-thin">
+          <div className="flex-1 overflow-y-auto space-y-2 pr-1 scrollbar-thin">
             {filteredEvents.length === 0 ? (
-              <div style={{ backgroundColor: themeStyles.cardBg }} className="p-5 rounded-xl text-center space-y-2 mt-4 text-xs">
-                <p className="font-bold">Niciun incident în această categorie.</p>
+              <div
+                style={{ backgroundColor: isDarkMode ? '#1E2433' : '#F8FAFC' }}
+                className="p-5 rounded-xl text-center space-y-1 mt-4 text-xs"
+              >
+                <p className="font-bold text-slate-700 dark:text-slate-300">Niciun incident în această categorie.</p>
+                <p className="text-[10px] text-slate-400">Zona este conformă cu normele de siguranță.</p>
               </div>
             ) : (
               filteredEvents.map((ev) => {
@@ -262,79 +399,79 @@ export default function LiveView() {
                       setSelectedEventId(ev.event_id);
                       setCurrentView('incident_detail');
                     }}
-                    style={{ backgroundColor: themeStyles.cardBg }}
-                    className={`p-3 rounded-xl border transition-all hover:scale-[1.01] cursor-pointer space-y-2 shadow-sm ${
+                    style={{ backgroundColor: isDarkMode ? '#1E2433' : '#FFFFFF' }}
+                    className={`p-2.5 rounded-xl border transition-all hover:scale-[1.01] cursor-pointer space-y-1.5 shadow-sm ${
                       isEscalated
-                        ? 'border-red-500 ring-2 ring-red-500/50 animate-pulse'
+                        ? 'border-red-500 ring-2 ring-red-500/40 animate-pulse'
                         : isCrit
-                        ? 'border-red-500/40 hover:border-red-500'
-                        : 'border-amber-400/40 hover:border-amber-400'
+                        ? 'border-red-400/50 hover:border-red-500'
+                        : 'border-amber-400/50 hover:border-amber-500'
                     }`}
                   >
-                    {/* Header Card: Severitate + Status separat */}
+                    {/* Header Card */}
                     <div className="flex items-center justify-between gap-1">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        {/* Badge Severitate: doar CRITICAL sau WARNING */}
+                        {/* Severitate: CRITICAL (Roșu) sau WARNING (Galben) */}
                         <span
-                          style={{
-                            backgroundColor: STATUS_TOKENS[ev.severity].bg,
-                            color: STATUS_TOKENS[ev.severity].text,
-                            borderColor: STATUS_TOKENS[ev.severity].border
-                          }}
-                          className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded border"
+                          className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded border ${
+                            isCrit
+                              ? 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-800'
+                              : 'bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800'
+                          }`}
                         >
                           {ev.severity}
                         </span>
 
-                        {/* Badge Status separat */}
+                        {/* Status Human-in-the-loop */}
                         <span
-                          style={{
-                            backgroundColor: STATUS_TOKENS[ev.status]?.bg || '#EEEEEE',
-                            color: STATUS_TOKENS[ev.status]?.text || '#222222',
-                            borderColor: STATUS_TOKENS[ev.status]?.border || '#DDDDDD'
-                          }}
                           className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${
-                            isEscalated ? 'animate-bounce' : ''
+                            isAcked
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800'
+                              : isEscalated
+                              ? 'bg-red-100 text-red-800 border-red-300 dark:bg-red-900/50 dark:text-red-300 font-black animate-bounce'
+                              : 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300'
                           }`}
                         >
                           {STATUS_TOKENS[ev.status]?.label || ev.status}
                         </span>
                       </div>
 
-                      <span className="font-mono text-[10px] opacity-70">
+                      <span className="font-mono text-[10px] text-slate-400">
                         {ev.event_id.slice(-6)}
                       </span>
                     </div>
 
-                    {/* Titlu & Locație */}
+                    {/* Descriere Incident */}
                     <div>
-                      <p className="font-bold text-xs leading-tight">{ev.report?.what}</p>
-                      <p style={{ color: themeStyles.textMuted }} className="text-[10px] font-mono mt-0.5">
+                      <p className="font-bold text-xs leading-tight text-slate-900 dark:text-slate-100">
+                        {ev.report?.what}
+                      </p>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 font-mono mt-0.5">
                         {ev.camera_id} • {ev.report?.where}
                       </p>
                     </div>
 
-                    {/* Confidence: strict 0.91 · 14/15 cadre */}
-                    <div className="flex items-center justify-between text-[11px]">
+                    {/* Confidence Score cu format strict: 0.91 · 14/15 cadre */}
+                    <div className="flex items-center justify-between text-[11px] pt-0.5">
                       <ConfidenceBadge confidence={ev.confidence} />
-                      <span className="font-mono text-[10px] opacity-70">
+                      <span className="font-mono text-[10px] text-slate-400">
                         {new Date(ev.detected_at).toLocaleTimeString('ro-RO')}
                       </span>
                     </div>
 
-                    {/* Buton Acknowledge din Feed */}
-                    <div className="pt-1 flex items-center justify-between border-t border-white/10">
-                      <span className="text-[10px] text-indigo-400 font-semibold hover:underline flex items-center gap-1">
+                    {/* Buton Acțiune Acknowledge (Verde pentru confirmare sigură) */}
+                    <div className="pt-1 flex items-center justify-between border-t border-slate-500/10">
+                      <span className="text-[10px] text-blue-600 dark:text-blue-400 font-semibold hover:underline flex items-center gap-1">
                         <Eye size={12} /> Detalii Incident
                       </span>
 
                       {!isAcked && (
                         <button
                           onClick={(e) => acknowledgeEvent(ev.event_id, e)}
-                          style={{ backgroundColor: themeStyles.accentColor }}
-                          className="px-2.5 py-1 rounded text-[11px] font-bold text-white flex items-center gap-1 shadow hover:opacity-90"
+                          className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 flex items-center gap-1 shadow-sm transition-colors"
+                          title="Confirmă incidentul și anulează timerul de escaladare"
                         >
-                          <Check size={12} /> Ack
+                          <Check size={12} /> Confirmă (Ack)
                         </button>
                       )}
                     </div>

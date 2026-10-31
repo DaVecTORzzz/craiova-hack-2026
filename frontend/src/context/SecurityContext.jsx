@@ -4,7 +4,8 @@ import {
   INITIAL_EVENTS,
   INITIAL_ZONES,
   INITIAL_KPIS,
-  INITIAL_SHIFT_REPORT
+  INITIAL_SHIFT_REPORT,
+  AVAILABLE_OPERATORS
 } from '../constants/mockData';
 import { safeSightApi, USE_MOCK } from '../services/api';
 import { playCriticalAlertSound } from '../utils/sound';
@@ -15,10 +16,9 @@ const OPERATOR_STORAGE_KEY = 'safesight.operator';
 
 function loadOperatorName() {
   try {
-    const stored = localStorage.getItem(OPERATOR_STORAGE_KEY);
-    return stored?.trim() || 'Operator';
+    return localStorage.getItem(OPERATOR_STORAGE_KEY)?.trim() || '';
   } catch {
-    return 'Operator';
+    return '';
   }
 }
 
@@ -51,16 +51,32 @@ export function SecurityProvider({ children }) {
   const [currentView, setCurrentView] = useState('live');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
-  // 2. Operator & Autentificare Simplă (Decizie N08: câmp operator în demo)
-  const [operatorName, setOperatorNameState] = useState(loadOperatorName);
+  // 2. Operator & autentificare simplă: selector de rol + nume afișat editabil.
+  const [operatorId, setOperatorId] = useState('ariana');
+  const activeOperator = useMemo(
+    () => AVAILABLE_OPERATORS.find((operator) => operator.id === operatorId) || AVAILABLE_OPERATORS[0],
+    [operatorId]
+  );
+  const [customOperatorName, setCustomOperatorName] = useState(loadOperatorName);
+  const operatorName = customOperatorName || activeOperator.name;
+
   const setOperatorName = (name) => {
     const trimmed = name.trim();
-    if (!trimmed) return;
-    setOperatorNameState(trimmed);
+    setCustomOperatorName(trimmed);
     try {
-      localStorage.setItem(OPERATOR_STORAGE_KEY, trimmed);
+      if (trimmed) localStorage.setItem(OPERATOR_STORAGE_KEY, trimmed);
+      else localStorage.removeItem(OPERATOR_STORAGE_KEY);
     } catch {
       // Fără storage, numele rămâne doar pentru sesiunea curentă.
+    }
+  };
+
+  const switchOperator = (id) => {
+    setOperatorId(id);
+    setOperatorName('');
+    const selected = AVAILABLE_OPERATORS.find((operator) => operator.id === id);
+    if (selected) {
+      showToast(`Sesiune activă comutată pe: ${selected.name} (${selected.role})`);
     }
   };
 
@@ -157,12 +173,12 @@ export function SecurityProvider({ children }) {
 
   // Camera activă curentă
   const activeCamera = useMemo(() => {
-    return cameras.find((c) => c.id === selectedCameraId) || cameras[0];
+    return cameras.find((c) => c.id === selectedCameraId) || cameras[0] || (USE_MOCK ? INITIAL_CAMERAS[0] : null);
   }, [cameras, selectedCameraId]);
 
   // Evenimentul selectat pentru detaliu
   const selectedEvent = useMemo(() => {
-    return events.find((e) => e.event_id === selectedEventId) || events[0];
+    return events.find((e) => e.event_id === selectedEventId) || events[0] || (USE_MOCK ? INITIAL_EVENTS[0] : null);
   }, [events, selectedEventId]);
 
   // Filtrarea evenimentelor pentru Feed-ul din Live (Deschise, Doar critice, Toate azi)
@@ -171,11 +187,11 @@ export function SecurityProvider({ children }) {
       const q = searchQuery.toLowerCase().trim();
       const matchesSearch =
         !q ||
-        ev.event_id.toLowerCase().includes(q) ||
-        ev.type.toLowerCase().includes(q) ||
+        ev.event_id?.toLowerCase().includes(q) ||
+        ev.type?.toLowerCase().includes(q) ||
         ev.report?.what?.toLowerCase().includes(q) ||
         ev.report?.where?.toLowerCase().includes(q) ||
-        ev.camera_id.toLowerCase().includes(q);
+        ev.camera_id?.toLowerCase().includes(q);
 
       let matchesFilter = true;
       if (filterMode === 'open') {
@@ -193,7 +209,7 @@ export function SecurityProvider({ children }) {
   // Recalculare KPI doar în mock; în producție cifrele vin din `/kpi`.
   useEffect(() => {
     if (!USE_MOCK) return;
-    const openCount = events.filter((e) => e.status === 'open').length;
+    const openCount = events.filter((e) => e.status === 'open' || e.status === 'escalated').length;
     const escalatedCount = events.filter((e) => e.status === 'escalated').length;
     setKpis((prev) => ({
       ...prev,
@@ -497,6 +513,10 @@ export function SecurityProvider({ children }) {
         setIsSidebarCollapsed,
         operatorName,
         setOperatorName,
+        operatorId,
+        activeOperator,
+        switchOperator,
+        availableOperators: AVAILABLE_OPERATORS,
         cameras,
         selectedCameraId,
         setSelectedCameraId,
