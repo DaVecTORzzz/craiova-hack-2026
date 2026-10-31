@@ -141,6 +141,7 @@ def app_env(
     frontend_port: int,
     demo_clip: str | None = None,
     demo_camera: str | None = None,
+    webcam_camera: str | None = None,
 ) -> dict[str, str]:
     env = base_env()
     env["USE_MOCK"] = "true" if mock else "false"
@@ -152,6 +153,9 @@ def app_env(
         env["VITE_DEMO_CLIP"] = demo_clip
     if demo_camera:
         env["VITE_DEMO_CAMERA"] = demo_camera
+    if webcam_camera:
+        # Display only: the UI labels this camera "WEBCAM"; its id stays the seeded one.
+        env["VITE_WEBCAM_CAMERA"] = webcam_camera
     if frontend_port != 5173:
         origins = f"http://localhost:{frontend_port},http://127.0.0.1:{frontend_port}"
         existing = env.get("CORS_ORIGINS") or dotenv_value("CORS_ORIGINS")
@@ -543,6 +547,7 @@ def run_demo(args: argparse.Namespace) -> int:
         frontend_port=args.frontend_port,
         demo_clip=",".join(f"{feed.camera_id}={feed.clip.name}" for feed in runnable) if not stream else None,
         demo_camera=",".join(feed.camera_id for feed in runnable) or None,
+        webcam_camera=WEBCAM_CAMERA if webcam else None,
     )
     env["EDGE_TOKEN"] = token
     backend = popen(backend_command(args), cwd=BACKEND, env=env)
