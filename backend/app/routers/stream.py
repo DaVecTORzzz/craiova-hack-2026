@@ -12,6 +12,7 @@ from app.models import Camera
 router = APIRouter(tags=["stream"])
 
 FRAME_INTERVAL_S = 0.5
+POLL_INTERVAL_S = 0.05
 
 
 def current_frame(camera_id: str) -> bytes:
@@ -22,11 +23,30 @@ def current_frame(camera_id: str) -> bytes:
     return path.read_bytes()
 
 
+def _live_version(camera_id: str) -> int | None:
+    """mtime of the live frame; the edge replaces the file atomically on every write."""
+    try:
+        return (Path(get_settings().snapshot_dir) / "live" / f"{camera_id}.jpg").stat().st_mtime_ns
+    except OSError:
+        return None
+
+
 async def mjpeg_frames(camera_id: str) -> AsyncIterator[bytes]:
+    # The file is checked every POLL_INTERVAL_S and a frame is sent only when it changed,
+    # so the browser gets the edge's own rate (up to ~15 fps) instead of a fixed 2 fps.
+    # The current frame is resent every FRAME_INTERVAL_S anyway: a placeholder or a
+    # stalled edge still shows a picture, and the connection stays alive.
+    loop = asyncio.get_running_loop()
+    last_version: int | None = None
+    last_sent: float | None = None
     while True:
-        frame = current_frame(camera_id)
-        yield b"--frame\r\nContent-Type: image/jpeg\r\nContent-Length: " + str(len(frame)).encode() + b"\r\n\r\n" + frame + b"\r\n"
-        await asyncio.sleep(FRAME_INTERVAL_S)
+        version = _live_version(camera_id)
+        now = loop.time()
+        if last_sent is None or version != last_version or now - last_sent >= FRAME_INTERVAL_S:
+            frame = current_frame(camera_id)
+            last_version, last_sent = version, now
+            yield b"--frame\r\nContent-Type: image/jpeg\r\nContent-Length: " + str(len(frame)).encode() + b"\r\n\r\n" + frame + b"\r\n"
+        await asyncio.sleep(POLL_INTERVAL_S)
 
 
 @router.get("/stream/{camera_id}.mjpg")

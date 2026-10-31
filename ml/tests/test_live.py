@@ -168,3 +168,51 @@ def test_hivis_ratio_separates_vest_from_dark_jacket():
     assert tracker.score(1) == 0.5
     tracker.update(1, None)
     assert tracker.score(1) == 0.5
+
+
+def test_async_live_writer_blurs_a_frame_with_faces_found_after_it(tmp_path):
+    import threading
+    import time
+
+    from safesight_ml.live import AsyncLiveWriter
+
+    gate = threading.Event()
+
+    class SlowFaces:
+        """A face appears in frame 2; YuNet only sees it there, after frame 1 was submitted."""
+
+        def detect_faces(self, frame):
+            gate.wait(2)
+            return [(40, 40, 20, 20)] if frame[0, 0, 0] == 2 else []
+
+    rendered = []
+
+    def render_for(frame):
+        def render(blurrer):
+            out = blurrer.blur(frame, [])
+            rendered.append((int(frame[0, 0, 0]), out))
+            return out
+
+        return render
+
+    writer = AsyncLiveWriter(LiveFrameWriter(tmp_path, "stand12"), faces=SlowFaces(), max_fps=1000)
+    frames = []
+    for value in (1, 2):
+        frame = np.zeros((120, 160, 3), dtype=np.uint8)
+        frame[0, 0] = value
+        frame[40:60, 40:60] = 255  # the "face" square, sharp edges
+        frames.append(frame)
+        writer.submit(frame, render_for(frame))
+    time.sleep(0.2)
+    assert rendered == []  # held until a YuNet pass after it has finished
+    gate.set()
+    deadline = time.time() + 3
+    while len(rendered) < 1 and time.time() < deadline:
+        time.sleep(0.02)
+    writer.close()
+
+    assert rendered, "no live frame written"
+    value, out = rendered[0]
+    # Frame 1 had no face of its own pass; it is blurred with the face found in frame 2.
+    assert value == 1
+    assert out[40:60, 40:60].mean() < 128 < frames[0][40:60, 40:60].mean()

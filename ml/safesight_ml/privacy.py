@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 from pathlib import Path
 from typing import Protocol
 
@@ -29,6 +30,9 @@ class FaceBlurrer:
             raise PrivacyError(
                 f"face model not found at {path}; run ml/scripts/fetch_face_model.sh"
             )
+        # The live view blurs on its own thread while event snapshots blur on the main one;
+        # one YuNet instance must not run both at once.
+        self._lock = threading.Lock()
         self._detector = cv2.FaceDetectorYN.create(
             str(path),
             "",
@@ -39,18 +43,29 @@ class FaceBlurrer:
     def detect_faces(self, frame: np.ndarray) -> list[tuple[int, int, int, int]]:
         """Face boxes ``(x, y, width, height)`` in the source frame."""
         height, width = frame.shape[:2]
-        self._detector.setInputSize((width, height))
-        _, detections = self._detector.detect(frame)
+        with self._lock:
+            self._detector.setInputSize((width, height))
+            _, detections = self._detector.detect(frame)
         if detections is None:
             return []
         return [(int(x), int(y), int(w), int(h)) for x, y, w, h in detections[:, :4]]
 
     def blur(self, frame: np.ndarray, boxes: list[tuple[float, float, float, float]] = ()) -> np.ndarray:
+        return self.blur_with_faces(frame, self.detect_faces(frame), boxes)
+
+    @classmethod
+    def blur_with_faces(
+        cls,
+        frame: np.ndarray,
+        faces: list[tuple[int, int, int, int]],
+        boxes: list[tuple[float, float, float, float]] = (),
+    ) -> np.ndarray:
+        """Blur the given face boxes (px) and the top of every person box (normalized)."""
         height, width = frame.shape[:2]
 
         output = frame.copy()
-        for x, y, w, h in self.detect_faces(frame):
-            self._blur_box(output, x, y, x + w, y + h, width, height)
+        for x, y, w, h in faces:
+            cls._blur_box(output, x, y, x + w, y + h, width, height)
 
         # Safety net for small/distant faces: blur the top of every person box.
         for x1, y1, x2, y2 in boxes:
@@ -59,7 +74,7 @@ class FaceBlurrer:
             px2 = int(x2 * width)
             py2 = int(y2 * height)
             head_height = max(1, int((py2 - py1) * 0.35))
-            self._blur_box(output, px1, py1, px2, py1 + head_height, width, height)
+            cls._blur_box(output, px1, py1, px2, py1 + head_height, width, height)
 
         return output
 
@@ -81,6 +96,23 @@ class FaceBlurrer:
         roi = frame[top:bottom, left:right]
         if roi.size:
             frame[top:bottom, left:right] = cv2.GaussianBlur(roi, (0, 0), sigmaX=25)
+
+
+class FixedFacesBlurrer:
+    """Blurs a frame with face boxes found by an earlier YuNet pass (normalized), grown by
+    ``margin`` of their size, plus the top of every person box of the current frame."""
+
+    def __init__(self, faces: list[tuple[float, float, float, float]], margin: float = 0.5) -> None:
+        self.faces = faces
+        self.margin = margin
+
+    def blur(self, frame: np.ndarray, boxes: list[tuple[float, float, float, float]] = ()) -> np.ndarray:
+        height, width = frame.shape[:2]
+        grown = []
+        for x, y, w, h in self.faces:
+            dx, dy = w * self.margin, h * self.margin
+            grown.append((int((x - dx) * width), int((y - dy) * height), int((w + 2 * dx) * width), int((h + 2 * dy) * height)))
+        return FaceBlurrer.blur_with_faces(frame, grown, boxes)
 
 
 class NoopBlurrer:

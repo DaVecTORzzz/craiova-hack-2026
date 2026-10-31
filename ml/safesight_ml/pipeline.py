@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 import time
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
@@ -12,7 +13,7 @@ import numpy as np
 from .align import ZoneAligner
 from .detector import Detector
 from .events import Confidence, EdgeEvent, EventContext, TemporalConfidence
-from .live import AnnotatedVideoWriter, LiveFrameWriter
+from .live import AnnotatedVideoWriter, AsyncLiveWriter, LiveFrameWriter
 from .overlay import draw_alert, draw_overlay, zone_active
 from .ppe import VestTracker, vest_sample
 from .privacy import Blurrer
@@ -56,6 +57,7 @@ class StageTimer:
     def __init__(self) -> None:
         self.total_s: dict[str, float] = {}
         self.calls: dict[str, int] = {}
+        self._lock = threading.Lock()
 
     @contextmanager
     def stage(self, name: str) -> Iterator[None]:
@@ -66,8 +68,9 @@ class StageTimer:
             self.add(name, time.perf_counter() - started)
 
     def add(self, name: str, seconds: float) -> None:
-        self.total_s[name] = self.total_s.get(name, 0.0) + seconds
-        self.calls[name] = self.calls.get(name, 0) + 1
+        with self._lock:  # the live writer thread times its blur too
+            self.total_s[name] = self.total_s.get(name, 0.0) + seconds
+            self.calls[name] = self.calls.get(name, 0) + 1
 
     def summary(self) -> dict[str, dict[str, float]]:
         return {
@@ -93,7 +96,7 @@ class Pipeline:
         start_epoch: float | None = None,
         rules: RuleEngine | None = None,
         clock: Callable[[], float] | None = None,
-        live_writer: LiveFrameWriter | None = None,
+        live_writer: LiveFrameWriter | AsyncLiveWriter | None = None,
         video_writer: AnnotatedVideoWriter | None = None,
         aligner: ZoneAligner | None = None,
         membership: ZoneMembership | None = None,
@@ -171,16 +174,23 @@ class Pipeline:
         }
         live_frame: np.ndarray | None = None
 
-        def annotated() -> np.ndarray:
+        engine_on = self.engine_on
+
+        def annotated(blurrer: Blurrer | None = None) -> np.ndarray:
             # Blur first: the overlay must never hide or replace the privacy step.
             # Faces are searched on the full frame: downscaling first loses small faces
             # (cam01: 15 -> 7 YuNet hits at 1280 px), so it is not a free speed-up.
             with self.timer.stage("blur"):
-                blurred = self.blurrer.blur(frame, boxes)
+                blurred = (blurrer or self.blurrer).blur(frame, boxes)
             with self.timer.stage("overlay"):
-                return draw_overlay(blurred, zones, detections, inside, self.engine_on, vest, zones_known)
+                return draw_overlay(blurred, zones, detections, inside, engine_on, vest, zones_known)
 
-        if self.live_writer is not None and self.live_writer.due():
+        if isinstance(self.live_writer, AsyncLiveWriter):
+            # Rendered on the writer's thread; detection does not wait for the blur.
+            # The writer blurs with YuNet passes around this frame; snapshots and the MP4
+            # always use a fresh full pass of ``self.blurrer``.
+            self.live_writer.submit(frame, annotated)
+        elif self.live_writer is not None and self.live_writer.due():
             live_frame = annotated()
             with self.timer.stage("live_write"):
                 self.live_writer.write(live_frame)
