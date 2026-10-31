@@ -28,7 +28,7 @@ const SHIFT_LABELS = {
   night: 'Tura 3 (Noapte: 22:00 - 06:00)',
 };
 
-const TYPE_LABELS = {
+export const TYPE_LABELS = {
   RESTRICTED_ZONE: 'Zonă restricționată',
   NO_PPE: 'Echipament lipsă',
   PPE_VIOLATION: 'Echipament lipsă',

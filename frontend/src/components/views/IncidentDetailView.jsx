@@ -11,7 +11,8 @@ import {
   Info,
   MapPin,
   Calendar,
-  AlertTriangle
+  AlertTriangle,
+  Video
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useSecurity } from '../../context/SecurityContext';
@@ -23,6 +24,7 @@ export default function IncidentDetailView() {
   const {
     selectedEvent,
     setCurrentView,
+    setSelectedCameraId,
     acknowledgeEvent,
     markFalsePositive,
     reopenEvent,
@@ -37,12 +39,12 @@ export default function IncidentDetailView() {
   if (!selectedEvent) {
     return (
       <div className="p-8 text-center">
-        <p className="font-bold text-lg">Selectează un incident din ecranul Live.</p>
+        <p className="font-bold text-lg">Niciun incident selectat.</p>
         <button
-          onClick={() => setCurrentView('live')}
+          onClick={() => setCurrentView('incidents')}
           className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-bold"
         >
-          Înapoi la Live
+          Vezi lista de incidente
         </button>
       </div>
     );
@@ -78,11 +80,11 @@ export default function IncidentDetailView() {
       <div className="flex items-center justify-between border-b border-white/10 pb-3">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => setCurrentView('live')}
+            onClick={() => setCurrentView('incidents')}
             style={{ backgroundColor: themeStyles.cardBg }}
             className="p-2 rounded-lg border hover:bg-white/10 flex items-center gap-1.5 text-xs font-bold"
           >
-            <ArrowLeft size={16} /> Înapoi la Live
+            <ArrowLeft size={16} /> Incidente
           </button>
           <div>
             <div className="flex items-center gap-2">
@@ -118,8 +120,20 @@ export default function IncidentDetailView() {
           </div>
         </div>
 
-        {/* Confidence Badge formatat 0.91 · 14/15 cadre */}
-        <ConfidenceBadge confidence={selectedEvent.confidence} />
+        <div className="flex items-center gap-2">
+          {/* The snapshot is the moment of the incident; this shows the same camera now. */}
+          <button
+            onClick={() => {
+              setSelectedCameraId(selectedEvent.camera_id);
+              setCurrentView('live');
+            }}
+            className="px-3 py-2 rounded-lg bg-[#7EDEED] hover:bg-[#5ccedc] text-[#1F1F1F] text-xs font-bold flex items-center gap-1.5"
+          >
+            <Video size={15} /> Vezi camera acum
+          </button>
+          {/* Confidence Badge formatat 0.91 · 14/15 cadre */}
+          <ConfidenceBadge confidence={selectedEvent.confidence} />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
