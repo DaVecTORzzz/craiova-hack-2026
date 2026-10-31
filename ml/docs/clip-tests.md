@@ -2,7 +2,7 @@
 
 Testare pe toate cele 6 clipuri din `data/videos/`, cu modelul real și poligonul calibrat pentru `stand12`. Rezultatele sunt măsurători de laborator, nu promisiuni de producție.
 
-Soak-ul RTSP de 5 minute este în [`soak.md`](soak.md); inventarul celor 5 evenimente reale este în [`false-alarms.md`](false-alarms.md).
+Soak-ul RTSP de 5 minute este în [`soak.md`](soak.md); inventarul celor 4 evenimente reale este în [`false-alarms.md`](false-alarms.md).
 
 ## Metodă
 
@@ -10,7 +10,7 @@ Soak-ul RTSP de 5 minute este în [`soak.md`](soak.md); inventarul celor 5 eveni
 - Model: `yolo26n.pt` + ByteTrack; blur: YuNet.
 - Zone: `ml/fixtures/zones.stand12.json`; `engine_on=true`; `--dry-run`, fără backend.
 - Fiecare clip a fost rulat integral; FPS-ul este end-to-end, inclusiv prima inferență, fără timpul de încărcare a modelului.
-- Pentru B-roll, poligonul `stand12` nu este calibrat pe imaginea lor. Evenimentele de acolo sunt un *smoke de zonă*, nu o rată de falsuri alarme.
+- Pentru B-roll, poligonul `stand12` nu este calibrat pe imaginea lor; rezultatele B-roll sunt dinainte de poligonul #41 și rămân doar smoke. Evenimentele de acolo sunt un *smoke de zonă*, nu o rată de falsuri alarme.
 
 ## Rezultate
 
@@ -20,14 +20,14 @@ Soak-ul RTSP de 5 minute este în [`soak.md`](soak.md); inventarul celor 5 eveni
 | `broll_cam02_avion-la-poarta-bagaje` | 3840×2160 | 318 | 5 | 23,4 | 0,35–0,80 | poligon stand12 aplicat pe B-roll; nu e caz de demo |
 | `broll_cam03_lucratori-cu-veste-apron` | 2160×3840 | 886 | 12 | 27,0 | 0,35–0,55 | poligon stand12 aplicat pe B-roll; nu e caz de demo |
 | `broll_cam04_tractor-bagaje-apron` | 1920×1080 | 928 | 1 | 36,5 | 0,38 | poligon stand12 aplicat pe B-roll; nu e caz de demo |
-| `restricted-zone_cam01_persoana-langa-motor` | 1920×1080 | 263 | 2 | 29,3 | 0,40–0,55 | cazul validat pentru demo |
-| `restricted-zone_cam02_lucratori-pushback-motor` | 3840×2160 | 200 | 3 | 20,7 | 0,44–0,75 | al doilea caz real; poligonul nu e calibrat pe cam02 |
+| `restricted-zone_cam01_persoana-langa-motor` | 1920×1080 | 263 | 1 | 28,9 | 0,55 | poligonul #41; cazul validat pentru demo |
+| `restricted-zone_cam02_lucratori-pushback-motor` | 3840×2160 | 200 | 3 | 20,0 | 0,44–0,75 | al doilea caz real; poligonul nu e calibrat pe cam02 |
 
-Pentru comparație, eșantionul de 120 cadre din `cam01` din [`benchmark.md`](benchmark.md) are median **~17,5 FPS wall** (6,86 s, cu pornirea Python și modelul) și **~21,3 FPS processing**. Diferența față de rularea integrală vine din pornire, din prima inferență și din încălzirea modelului.
+Pentru comparație, eșantionul de 120 cadre din `cam01` din [`benchmark.md`](benchmark.md) are median **~17,5 FPS wall** (6,86 s, cu pornirea Python și modelul) și **~21,0 FPS processing**. Diferența față de rularea integrală vine din pornire, din prima inferență și din încălzirea modelului.
 
 ## Ce arată rezultatele
 
-- Ambele clipuri `restricted-zone` produc evenimente: **2** pe `cam01`, **3** pe `cam02`.
+- Ambele clipuri `restricted-zone` produc evenimente: **1** pe `cam01`, **3** pe `cam02`.
 - `cam01` este cazul validat cap-coadă: eveniment, snapshot blurat, ingestie backend, live frame.
 - `cam02` confirmă că pipeline-ul generalizează pe al doilea unghi, dar poligonul trebuie recalibrat înainte de a fi folosit ca demo.
 - B-roll-ul cu poligonul `stand12` produce alarme; asta nu este o rată de falsuri, ci dovada că o zonă greșită mută problema. Pentru rata reală de falsuri trebuie poligon calibrat pe fiecare cameră și etichetare manuală.
@@ -51,7 +51,7 @@ Auditul YuNet pe snapshot-urile generate:
 | `broll_cam02` | 5 | 0 | 0 |
 | `broll_cam03` | 12 | 2 (0,67) | 0 |
 | `broll_cam04` | 1 | 0 | 0 |
-| `restricted-zone_cam01` | 2 | 0 | 0 |
+| `restricted-zone_cam01` | 1 | 0 | 0 |
 | `restricted-zone_cam02` | 3 | 0 | 0 |
 | `restricted-zone_cam02` live frame (full stack) | 1 | 1 (0,61) | 0 |
 
@@ -64,7 +64,7 @@ Auditul default (0,6) este intenționat conservator: poate semnala texturi din z
 Folosește cifre conservative și spune pe ce hardware au fost măsurate:
 
 - **2 clipuri reale** `restricted-zone`, cu **2–3 evenimente** fiecare.
-- **17–29 FPS** pe laptopul de demo: ~17,3 FPS pe eșantionul `cam01` de 120 cadre, cu pornire inclusă, și 20,7–29,3 FPS pe clipurile `restricted-zone` rulate integral.
+- **17,5 FPS wall / 21,0 processing** pe `cam01` (120 cadre), **20,0–28,9 FPS** pe clipurile `restricted-zone` rulate integral.
 - **120 cadre RTSP în 9,34 s**, cu `--remote-config`.
 - **200 cadre `cam02` prin backend în 15,62 s**, cu live frame real.
 - **0 fețe neblurate** în snapshot-urile verificate; 2 semnalări slabe pe blur, clarificate manual.
@@ -75,7 +75,7 @@ Nu folosi numărul de evenimente din B-roll ca „rată de falsuri” și nu pro
 ## Limite
 
 - un singur poligon calibrat (`stand12`); `cam02` și B-roll nu au poligoane proprii;
-- fără eșantion de 50–100 evenimente, deci fără rată de falsuri; cele 5 evenimente sunt în [`false-alarms.md`](false-alarms.md);
+- fără eșantion de 50–100 evenimente, deci fără rată de falsuri; cele 4 evenimente sunt în [`false-alarms.md`](false-alarms.md);
 - soak-ul RTSP de 5 minute e făcut, dar doar edge-only și fără reconectare;
 - fără PPE/FOD: nu există nici clipuri, nici cod de detecție;
 - FPS-ul depinde de hardware-ul final; de remăsurat pe mașina de demo.
