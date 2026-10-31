@@ -25,7 +25,7 @@ from .align import ZoneAligner, load_reference
 from .capture import LatestFrameReader, is_live_source
 from .detector import SyntheticDetector, YoloDetector
 from .events import EdgeEvent
-from .live import AnnotatedVideoWriter, LiveFrameWriter
+from .live import AnnotatedVideoWriter, AsyncLiveWriter, LiveFrameWriter
 from .pipeline import Pipeline
 from .privacy import FaceBlurrer, NoopBlurrer
 from .remote import fetch_edge_config
@@ -128,6 +128,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--remote-config", action="store_true", help="load zones and engine_on from GET /edge/zones")
     parser.add_argument("--config-refresh-s", type=float, default=30.0, help="remote config poll interval")
     parser.add_argument("--live-dir", default=os.getenv("LIVE_DIR", ""), help="write live/{camera}.jpg for backend MJPEG")
+    parser.add_argument("--live-fps", type=float, default=15.0, help="cap for live frames per second (the blur may allow fewer)")
     parser.add_argument("--annotated-video", type=Path, help="write every frame, blurred and annotated, to this MP4")
     parser.add_argument(
         "--align-reference",
@@ -173,6 +174,8 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("--loop-cooldown-s must be >= 0")
     if args.zone_margin < 0:
         parser.error("--zone-margin must be >= 0")
+    if args.live_fps <= 0:
+        parser.error("--live-fps must be > 0")
     if args.max_size < 0:
         parser.error("--max-size must be >= 0")
     if args.align_every < 1:
@@ -211,7 +214,15 @@ def main(argv: list[str] | None = None) -> int:
 
     sink = HttpSink(args.api_url, args.edge_token) if args.post else JsonlSink(args.out)
 
-    live_writer = LiveFrameWriter(args.live_dir, args.camera_id) if args.live_dir else None
+    live_writer = (
+        AsyncLiveWriter(
+            LiveFrameWriter(args.live_dir, args.camera_id),
+            faces=blurrer if isinstance(blurrer, FaceBlurrer) else None,
+            max_fps=args.live_fps,
+        )
+        if args.live_dir
+        else None
+    )
     aligner = None
     if args.align_reference:
         try:
@@ -340,6 +351,8 @@ def main(argv: list[str] | None = None) -> int:
         sink.close()
     if pipeline.video_writer is not None:
         pipeline.video_writer.close()
+    if live_writer is not None:
+        live_writer.close()
 
     elapsed_s = max(time.perf_counter() - run_started, 0.001)
     event_types: dict[str, int] = {}
@@ -355,6 +368,7 @@ def main(argv: list[str] | None = None) -> int:
         "elapsed_s": round(elapsed_s, 3),
         "fps": round(total / elapsed_s, 2),
         "dropped_frames": dropped_frames,
+        "live_frames": live_writer.written if live_writer is not None else 0,
         "zone_transitions": pipeline.membership.transitions,
         "align_lost_updates": aligner.lost_updates if aligner is not None else None,
         "stages": pipeline.timer.summary(),
