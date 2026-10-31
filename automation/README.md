@@ -30,8 +30,9 @@ def slack_text(event: dict, escalated: bool) -> str:  # opțional
 ## Verificare
 
 ```bash
+python -m automation.smoke
 python -m automation.report
 cd backend && PYTHONPATH=.. uv run pytest -q
 ```
 
-Prima comandă generează un raport, un text Slack și un rezumat dintr-un fixture. Testele backend verifică și contractul real al modulului, nu doar fallback-ul.
+`smoke` verifică exact contractul backend-ului (chei, `source`, link, escaladare, rezumat), `report` arată un exemplu complet, iar testele backend rulează și modulul real, nu doar fallback-ul.
