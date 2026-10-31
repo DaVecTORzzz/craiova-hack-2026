@@ -369,6 +369,7 @@ class ShiftReport(BaseModel):
     shift: Literal["morning", "afternoon", "night"]
     date: str
     kpi: Kpi
+    avg_ack_s: int | None
     summary: str
     by_type: list[dict]
     by_zone: list[dict]
@@ -596,8 +597,9 @@ Backend side:
   - `avg_detection_to_alert_s`: mean of `notified_at - detected_at` in seconds over events in the window with `notified_at`, rounded to 1 decimal; `null` if none.
   - `ppe_compliance`: `1 - valid_no_ppe / ppe_observations_per_shift`, clamped to [0, 1], rounded to 2 decimals, where `valid_no_ppe` = `NO_PPE` events in the window whose status is not `false_positive`. See OPEN QUESTION Q3.
 - `GET /reports?shift=&date=` (both required) → `ShiftReport` with the KPI above and:
+  - `avg_ack_s`: mean of `acked_at - detected_at` over every event in the window that has `acked_at`, in whole seconds; `null` if none. It is the global value used by the UI, not an average of the per-zone means.
   - `by_type`: one item per type present: `{"type", "critical", "warning"}` counts.
-  - `by_zone`: one item per zone present: `{"zone_id", "critical", "warning", "avg_ack_s"}`; `avg_ack_s` = mean of `acked_at - detected_at` in whole seconds, `null` if none acked.
+  - `by_zone`: one item per zone present: `{"zone_id", "critical", "warning", "avg_ack_s"}`; `avg_ack_s` uses the same helper as the global value.
   - `by_hour`: `{"hour": "HH", "count"}` by local hour, only hours with events, sorted.
   - `summary`: `automation.report.summarize(report_dict_without_summary)` in `try` with a 3 s timeout; fallback: `Tura {shift} din {date}: {n} evenimente, {open_incidents} deschise, {escalated} escaladate.`
 
