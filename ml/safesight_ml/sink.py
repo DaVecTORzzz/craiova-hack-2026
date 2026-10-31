@@ -84,5 +84,19 @@ class HttpSink:
         )
         response.raise_for_status()
 
+    def upload_reference(self, zone_id: str, frame: np.ndarray) -> str:
+        """POST /zones/reference-frame: the image the zone editor draws on. ``frame`` must be blurred."""
+        ok, encoded = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
+        if not ok:
+            raise OSError("could not encode reference frame as JPEG")
+        response = self._client.post(
+            f"{self.api_url}/zones/reference-frame",
+            headers=self.headers,
+            data={"zone_id": zone_id},
+            files={"file": (f"{zone_id}.jpg", encoded.tobytes(), "image/jpeg")},
+        )
+        response.raise_for_status()
+        return str(response.json().get("reference_frame") or "")
+
     def close(self) -> None:
         self._client.close()

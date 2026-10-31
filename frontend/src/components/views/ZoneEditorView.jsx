@@ -36,6 +36,8 @@ export default function ZoneEditorView() {
   const [notifyChannel, setNotifyChannel] = useState('slack');
   const [escalateAfterS, setEscalateAfterS] = useState(30);
 
+  // Width / height of the reference frame, so the canvas has the camera's proportions.
+  const [referenceAspect, setReferenceAspect] = useState(null);
   const canvasContainerRef = useRef(null);
   const referenceFileRef = useRef(null);
   const previousCameraRef = useRef(selectedCameraId);
@@ -242,12 +244,32 @@ export default function ZoneEditorView() {
             ref={canvasContainerRef}
             onClick={handleCanvasClick}
             onDoubleClick={handleDoubleClick}
-            className={`relative rounded-xl overflow-hidden bg-black border-2 border-indigo-500/40 min-h-[380px] shadow-2xl flex items-center justify-center cursor-${
+            style={activeZone?.reference_frame_url && referenceAspect ? { aspectRatio: referenceAspect } : undefined}
+            className={`relative rounded-xl overflow-hidden bg-black border-2 border-indigo-500/40 shadow-2xl flex items-center justify-center cursor-${
               isPolygonClosed ? 'default' : 'crosshair'
-            }`}
+            } ${activeZone?.reference_frame_url && referenceAspect ? 'w-full max-h-[70vh] mx-auto' : 'min-h-[380px]'}`}
           >
-            {/* Fundal Video */}
-            <div className={`w-full h-full absolute inset-0 bg-gradient-to-br ${activeCamera.previewBg} opacity-50`} />
+            {/* Fundal: cadrul de referință al camerei (blurat la edge); zona se desenează pe el și urmărește camera din el */}
+            {activeZone?.reference_frame_url ? (
+              <img
+                src={activeZone.reference_frame_url}
+                alt={`Cadru de referință ${activeCamera?.code || activeCamera?.id}`}
+                className="absolute inset-0 w-full h-full object-fill select-none"
+                draggable={false}
+                onLoad={(event) => {
+                  const { naturalWidth, naturalHeight } = event.currentTarget;
+                  if (naturalWidth && naturalHeight) setReferenceAspect(naturalWidth / naturalHeight);
+                }}
+                onError={() => setReferenceAspect(null)}
+              />
+            ) : (
+              <>
+                <div className={`w-full h-full absolute inset-0 bg-gradient-to-br ${activeCamera.previewBg} opacity-50`} />
+                <p className="absolute bottom-3 left-3 right-3 text-center text-[11px] text-slate-300 pointer-events-none">
+                  Fără cadru de referință: pornește edge-ul (python scripts/dev.py demo) ca să apară imaginea camerei.
+                </p>
+              </>
+            )}
 
             {/* SVG Poligon */}
             <svg

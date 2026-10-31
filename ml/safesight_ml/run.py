@@ -65,6 +65,25 @@ def limit_size(frame: np.ndarray, max_size: int) -> np.ndarray:
     return cv2.resize(frame, (round(width * scale), round(height * scale)), interpolation=cv2.INTER_AREA)
 
 
+REFERENCE_MAX_SIZE = 1280
+
+
+def upload_reference_frames(sink: HttpSink, reference: np.ndarray, zones: list[Zone], camera_id: str, blurrer, detector) -> None:
+    """Give the zone editor the frame the zones are drawn on (and aligned to), blurred first.
+
+    Blur runs on the full frame, then the image is shrunk: shrinking first loses faces.
+    """
+    people = detector.people(reference) if hasattr(detector, "people") else []
+    image = limit_size(blurrer.blur(reference, people), REFERENCE_MAX_SIZE)
+    for zone in zones:
+        if zone.camera_id != camera_id:
+            continue
+        try:
+            print(f"reference frame for {zone.id}: {sink.upload_reference(zone.id, image)}")
+        except (httpx.HTTPError, OSError, ValueError) as exc:
+            print(f"warn: reference frame upload for {zone.id} failed: {exc}", file=sys.stderr)
+
+
 def load_zones(path: str | Path) -> list[Zone]:
     payload = json.loads(Path(path).read_text(encoding="utf-8"))
     if not isinstance(payload, list):
@@ -196,10 +215,13 @@ def main(argv: list[str] | None = None) -> int:
     aligner = None
     if args.align_reference:
         try:
-            aligner = ZoneAligner(load_reference(args.align_reference), every_n=args.align_every)
+            reference = load_reference(args.align_reference)
         except OSError as exc:
             print(str(exc), file=sys.stderr)
             return 2
+        aligner = ZoneAligner(reference, every_n=args.align_every)
+        if isinstance(sink, HttpSink):
+            upload_reference_frames(sink, reference, zones, args.camera_id, blurrer, detector)
     pipeline = Pipeline(
         camera_id=args.camera_id,
         zones=zones,
@@ -260,6 +282,7 @@ def main(argv: list[str] | None = None) -> int:
             pipeline.video_writer = AnnotatedVideoWriter(args.annotated_video, fps)
         frame_index = 0
         last_refresh = time.monotonic()
+        last_config_version: int | None = None
         # A live stream must not queue frames behind a slow pipeline: keep the newest one.
         reader = LatestFrameReader(capture) if is_live_source(args.source) else None
         try:
@@ -293,11 +316,14 @@ def main(argv: list[str] | None = None) -> int:
                     break
 
                 if args.remote_config and time.monotonic() - last_refresh >= args.config_refresh_s:
+                    # Also after a failure: a backend that is down must not be retried on every frame.
+                    last_refresh = time.monotonic()
                     try:
                         config = fetch_edge_config(args.api_url, args.edge_token, args.camera_id)
                         pipeline.set_config(config.zones, config.engine_on)
-                        print(f"remote config v{config.config_version}: engine_on={config.engine_on}")
-                        last_refresh = time.monotonic()
+                        if config.config_version != last_config_version:
+                            print(f"remote config v{config.config_version}: engine_on={config.engine_on}")
+                            last_config_version = config.config_version
                     except (httpx.HTTPError, ValueError, OSError) as exc:
                         print(f"warn: remote config refresh failed ({exc})", file=sys.stderr)
 
