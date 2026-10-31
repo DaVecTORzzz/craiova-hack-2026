@@ -6,7 +6,7 @@ import numpy as np
 
 from safesight_ml.detector import Detection, FakeDetector
 from safesight_ml.pipeline import Pipeline
-from safesight_ml.run import _resolve_fps
+from safesight_ml.run import _metrics_source, _resolve_fps
 from safesight_ml.run import main as run_main
 from safesight_ml.sink import JsonlSink
 from safesight_ml.zones import Zone
@@ -175,3 +175,40 @@ def test_fake_cli_runs_end_to_end(tmp_path):
     lines = (tmp_path / "events.jsonl").read_text(encoding="utf-8").strip().splitlines()
     assert len(lines) == 1
     assert json.loads(lines[0])["type"] == "RESTRICTED_ZONE"
+
+
+def test_cli_writes_run_metrics(tmp_path):
+    metrics_path = tmp_path / "reports" / "run.json"
+
+    code = run_main(
+        [
+            "--fake",
+            "--engine-on",
+            "--dry-run",
+            "--out",
+            str(tmp_path / "out"),
+            "--max-frames",
+            "30",
+            "--metrics-json",
+            str(metrics_path),
+        ]
+    )
+
+    assert code == 0
+    metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
+    assert metrics["source"] == "fake"
+    assert metrics["frames"] == 30
+    assert metrics["events"] == 1
+    assert metrics["event_types"] == {"RESTRICTED_ZONE": 1}
+    assert metrics["event_details"][0]["track_id"] == 1
+    assert metrics["event_details"][0]["zone_id"] == "engine-left"
+    assert metrics["fps"] > 0
+    assert metrics["model"] == "synthetic-person-v1"
+    assert metrics["max_frames"] == 30
+    assert metrics["duration_s"] == 0
+
+
+def test_metrics_source_redacts_rtsp_credentials():
+    assert _metrics_source("rtsp://user:secret@cam.local:8554/stand12?token=abc") == "rtsp://cam.local:8554/stand12"
+    assert _metrics_source("clip.mp4") == "clip.mp4"
+    assert _metrics_source(None) == "fake"

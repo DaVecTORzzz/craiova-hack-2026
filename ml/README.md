@@ -82,6 +82,12 @@ uv run python -m safesight_ml.run \
   --edge-token "$EDGE_TOKEN"
 ```
 
+Pentru un soak de 5 minute, adaugă:
+
+```bash
+  --duration-s 300 --metrics-json out/soak.json
+```
+
 `--live-dir` trebuie să fie exact `SNAPSHOT_DIR/live` al backend-ului: implicit local `../backend/snapshots/live`, iar cu Docker `../backend/data/snapshots/live`. Dacă folosești alt `SNAPSHOT_DIR`, schimbă și aici, altfel `/stream` servește placeholder-ul.
 
 Oprește serverul după demo:
@@ -91,6 +97,18 @@ podman rm -f safesight-rtsp 2>/dev/null || true
 ```
 
 Verificat local pe 31 octombrie 2026: 120 de cadre citite din `rtsp://127.0.0.1:8554/stand12` în 9,34 s end-to-end, 2 evenimente `RESTRICTED_ZONE`, `--remote-config` activ, iar `/stream/stand12.mjpg` a servit exact cadrul scris de edge. Dacă backend-ul nu răspunde, edge-ul folosește `fixtures/zones.stand12.json` și `--engine-on`.
+
+## Soak și metrics
+
+`--duration-s` oprește run-ul după timpul real, iar `--metrics-json` scrie un rezumat pentru benchmark și pentru triajul de falsuri:
+
+```bash
+uv run python -m safesight_ml.run --source rtsp://127.0.0.1:8554/stand12 \
+  --camera-id stand12 --remote-config --post --duration-s 300 \
+  --metrics-json out/soak.json --api-url http://localhost:8000 --edge-token "$EDGE_TOKEN"
+```
+
+Rezumatul conține `frames`, `events`, `event_types`, `event_details` (id, tip, zonă, track, confidence, timp), `elapsed_s` și `fps` end-to-end. `event_details` este lista pe care o poți eticheta manual pentru rata de falsuri.
 
 ## Verificare privacy pe snapshot-uri
 
@@ -152,4 +170,4 @@ fixtures/
 - rata de falsuri alarme, măsurată pe 50–100 evenimente;
 - reconectare automată la căderea fluxului RTSP (acum procesul se oprește la primul `read()` eșuat).
 
-Verificare: `uv run pytest` (36 teste) și `uv run python -m safesight_ml.run --fake --engine-on --dry-run`. Cifrele reale sunt în [`docs/benchmark.md`](docs/benchmark.md).
+Verificare: `uv run pytest` (38 teste) și `uv run python -m safesight_ml.run --fake --engine-on --dry-run`. Cifrele reale sunt în [`docs/benchmark.md`](docs/benchmark.md).
