@@ -23,7 +23,7 @@ Perechea e bună pentru `absdiff`: fundalul și obiectul sunt din același punct
 
 ## Adnotări
 
-Etichetele YOLO preliminare pentru aceste cadre sunt în `data/annotations/` (4 `.txt`). Trebuie confirmate de A înainte de antrenare.
+Etichetele YOLO pentru aceste cadre sunt în `data/annotations/` (4 `.txt`) și au fost validate vizual de Andrei pe 31 octombrie 2026. Setul este mic; nu înlocuiește un dataset de antrenare.
 
 ## Lipsește
 
