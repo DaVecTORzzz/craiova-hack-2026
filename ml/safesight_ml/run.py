@@ -17,6 +17,12 @@ import time
 from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
 
+# libgomp spins its idle workers between parallel regions by default. During YOLO that
+# turned 5 of the 7 pool threads into busy loops at ~1 core each: 7.4 cores for a job
+# that needs 2.4. Parking them costs nothing measurable and frees the machine for the
+# other cameras. Must be set before numpy/torch load a libgomp-backed loop.
+os.environ.setdefault("OMP_WAIT_POLICY", "PASSIVE")
+
 import cv2
 import httpx
 import numpy as np
@@ -27,6 +33,8 @@ from .detector import SyntheticDetector, YoloDetector
 from .events import EdgeEvent
 from .live import AnnotatedVideoWriter, AsyncLiveWriter, LiveFrameWriter
 from .pipeline import Pipeline
+from .threads import limit as limit_threads
+from .threads import per_camera
 from .privacy import FaceBlurrer, NoopBlurrer
 from .remote import fetch_edge_config
 from .sink import HttpSink, JsonlSink
@@ -101,6 +109,20 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--model", default="yolo26n.pt")
     parser.add_argument("--conf", type=float, default=0.35)
     parser.add_argument("--face-model", default=os.getenv("FACE_MODEL_PATH", DEFAULT_FACE_MODEL))
+    parser.add_argument(
+        "--threads",
+        type=int,
+        default=0,
+        metavar="N",
+        help="cap compute threads for this edge (torch, OpenCV, face pass); 0 = split by --share-cpu",
+    )
+    parser.add_argument(
+        "--share-cpu",
+        type=int,
+        default=1,
+        metavar="N",
+        help="this edge is one of N on the machine; the cores are split between them",
+    )
     parser.add_argument("--out", default="out")
     parser.add_argument("--max-frames", type=int, default=0, help="0 = all frames")
     parser.add_argument("--loop", action="store_true", help="restart a file source at EOF")
@@ -216,6 +238,8 @@ def main(argv: list[str] | None = None) -> int:
     start_epoch = time.time()
     run_started = time.perf_counter()
 
+    threads = args.threads or per_camera(max(1, args.share_cpu))
+    limit_threads(threads)
     if args.fake:
         detector = SyntheticDetector(total_frames=args.max_frames or 60)
         blurrer = NoopBlurrer()
@@ -224,7 +248,9 @@ def main(argv: list[str] | None = None) -> int:
             print("--source is required unless --fake is used", file=sys.stderr)
             return 2
         detector = YoloDetector(args.model, confidence=args.conf)
-        blurrer = FaceBlurrer(args.face_model)
+        # Detection runs on every frame; the face pass runs on the live view and on
+        # snapshots. Half the budget for the faces keeps the detector the bigger share.
+        blurrer = FaceBlurrer(args.face_model, threads=max(1, threads // 2))
 
     sink = HttpSink(args.api_url, args.edge_token) if args.post else JsonlSink(args.out)
 

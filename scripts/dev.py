@@ -615,6 +615,12 @@ def run_demo(args: argparse.Namespace) -> int:
                         # Live frames (and the live face pass) only for the camera someone
                         # is viewing; detection and alerts run on every camera.
                         "--live-when-watched",
+                        # Every edge believes it owns the machine: torch and OpenCV each
+                        # start a pool sized from the core count. With three cameras that
+                        # is three pools fighting for 16 cores.
+                        "--share-cpu",
+                        str(len(runnable)) if not args.threads else "1",
+                        *(["--threads", str(args.threads)] if args.threads else []),
                         # The clip camera pans; the zone follows the ground from its first frame.
                         # Not for RTSP: the published clip may differ and the zone would stay unknown.
                         *([] if stream else ["--align-reference", str(feed.clip)]),
@@ -695,6 +701,13 @@ def build_parser() -> argparse.ArgumentParser:
         "--cameras",
         default=",".join(feed.camera_id for feed in DEMO_FEEDS),
         help="fără --clip/--rtsp: camerele pornite, separate prin virgulă",
+    )
+    p_demo.add_argument(
+        "--threads",
+        type=int,
+        default=0,
+        metavar="N",
+        help="fire de calcul per edge; implicit nucleele se impart intre camerele pornite",
     )
     p_demo.add_argument("--no-ml", action="store_true", help="nu porni edge-ul")
     p_demo.add_argument("--edge-token", default=None, help="token edge; implicit EDGE_TOKEN din mediu sau .env")

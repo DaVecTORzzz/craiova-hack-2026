@@ -214,6 +214,8 @@ Rezumatul conține `frames`, `events`, `event_types`, `event_details` (id, tip, 
 
 Pe o sursă RTSP/HTTP, un thread citește continuu fluxul și pipeline-ul ia mereu **cel mai nou cadru**; cadrele sărite apar în `dropped_frames`. Astfel alerta nu rămâne în urma fluxului când pipeline-ul e mai lent decât camera. Timpul din reguli (`now_s`) folosește numărul de cadre al sursei, nu pe cele procesate, deci debounce-ul rămâne în secunde reale. Pe fișiere nu se sare nimic: fiecare cadru e procesat, ca înainte.
 
+**Fire pe mașină.** Fiecare edge crede că are toate nucleele: torch și OpenCV își pornesc câte un pool dimensionat după mașină, deci trei camere pun trei pool-uri pe aceleași nuclee. `--share-cpu N` (pus de `dev.py` când pornește mai multe camere) împarte nucleele **fizice** între ele, lăsând unul liber pentru API, JPEG și OS; `--threads N` forțează o valoare. Al doilea efect, mai mare decât împărțirea: libgomp își ține firele în așteptare activă între regiunile paralele, câte un nucleu fiecare. `run.py` setează `OMP_WAIT_POLICY=PASSIVE` înainte de orice import numeric, iar un edge la o cameră scade de la 7,4 la 0,9 nuclee cu aceeași muncă. Măsurat pe laptop, 1 nov 2026: 3 camere, camera urmărită 0,9 → 14,6 cadre/s, CPU total al edge-urilor 1407% → 775% din 1600%; cu o cameră, 21,5 → 21,4 (neschimbat). Peste 8 fire per edge (`--threads 15`) coboară la 16,8 cadre/s: mai multe fire decât nuclee fizice încetinesc, nu ajută.
+
 ## Verificare privacy pe snapshot-uri
 
 După o sesiune reală, verifică snapshot-urile salvate cu același YuNet folosit la blur:

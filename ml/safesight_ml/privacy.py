@@ -37,9 +37,16 @@ class _Yunet:
     ``cv2.FaceDetectorYN`` (anchor-free, ``sqrt(cls * obj)``, greedy NMS), 1.6x faster on
     the demo clips at 1920x1080 (42 ms -> 26 ms) and with identical detections."""
 
-    def __init__(self, model: Path, *, score_threshold: float, nms_threshold: float = 0.3) -> None:
+    def __init__(
+        self,
+        model: Path,
+        *,
+        score_threshold: float,
+        nms_threshold: float = 0.3,
+        threads: int | None = None,
+    ) -> None:
         options = ort.SessionOptions()
-        options.intra_op_num_threads = FACE_THREADS
+        options.intra_op_num_threads = threads or FACE_THREADS
         options.inter_op_num_threads = 1
         options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
         # The exported graph still declares the 640x640 output grids, so every run logs a
@@ -160,7 +167,13 @@ class FaceBlurrer:
     Fails closed: if the model is missing or cannot be loaded, no image is written.
     """
 
-    def __init__(self, model_path: str | Path, *, score_threshold: float = 0.6) -> None:
+    def __init__(
+        self,
+        model_path: str | Path,
+        *,
+        score_threshold: float = 0.6,
+        threads: int | None = None,
+    ) -> None:
         path = Path(model_path)
         if not path.is_file():
             raise PrivacyError(
@@ -169,7 +182,7 @@ class FaceBlurrer:
         # The live view blurs on its own thread while event snapshots blur on the main one;
         # one YuNet instance must not run both at once.
         self._lock = threading.Lock()
-        self._detector = _Yunet(path, score_threshold=score_threshold)
+        self._detector = _Yunet(path, score_threshold=score_threshold, threads=threads)
 
     def detect_faces(self, frame: np.ndarray) -> list[tuple[int, int, int, int]]:
         """Face boxes ``(x, y, width, height)`` in the source frame."""
