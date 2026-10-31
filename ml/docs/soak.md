@@ -51,4 +51,4 @@ uv run python -m safesight_ml.run \
 - Nu testează backend-ul, HTTP-ul sau Slack-ul; pentru full stack există run-ul de 200 cadre pe `cam02`.
 - Nu testează reconectarea: fluxul nu a căzut, deci nu știm cum se comportă la o întrerupere scurtă.
 - Rulat pe laptopul actual, nu pe hardware-ul final de demo.
-- Evenimentele sunt repetiții ale aceluiași clip; nu sunt probe independente.
+- Evenimentele sunt repetiții ale aceluiași clip; nu sunt probe independente. Soak-ul a fost rulat înainte de poligonul din #41 (atunci 2 evenimente/loop); după #41 se așteaptă 1/loop, de remăsurat.
