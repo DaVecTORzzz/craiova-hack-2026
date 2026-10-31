@@ -39,7 +39,13 @@ Pornește:
 
 - backend-ul pe `http://localhost:8000`;
 - frontend-ul pe `http://localhost:5173`;
-- edge-ul pe clipul implicit din `data/videos/`, scrie evenimente în backend și live frame pentru `/stream`.
+- câte un edge pentru fiecare cameră demo, fiecare pe clipul lui din `data/videos/`, cu zona lui și aliniere; scriu evenimente în backend și live frame pentru `/stream`:
+
+| Cameră | Clip | Zonă |
+|---|---|---|
+| `stand12` (CAM-01) | `restricted-zone_cam01_persoana-langa-motor` | `ml/fixtures/zones.stand12.json` |
+| `taxiway-b` (CAM-02) | `broll_cam01_marshaller-conuri-apron` | `ml/fixtures/zones/broll-cam01.json` |
+| `baggage-area` (CAM-03) | `broll_cam02_avion-la-poarta-bagaje` | `ml/fixtures/zones/broll-cam02.json` |
 
 Ctrl-C oprește tot. Dacă backend-ul nu e gata, scriptul așteaptă `/health` înainte de edge.
 
@@ -48,11 +54,12 @@ Variante:
 ```bash
 python scripts/dev.py demo --no-ml          # doar backend + frontend
 python scripts/dev.py demo --mock           # backend mock, fără model
+python scripts/dev.py demo --cameras stand12,taxiway-b   # doar o parte din camere
 python scripts/dev.py demo --clip data/videos/<clip>.mp4
 python scripts/dev.py demo --rtsp rtsp://127.0.0.1:8554/stand12
 ```
 
-`--clip` și `--rtsp` se exclud. Clipul rulează în buclă până la Ctrl-C și dă cel mult o alertă pe minut (`--loop-cooldown-s` în `ml`); fluxul RTSP rulează continuu până la Ctrl-C. Pentru un RTSP local din clip, vezi `ml/README.md` (mediamtx + `ml/scripts/rtsp-loop.sh`). Credențialele din URL-ul RTSP nu apar în terminal (`rtsp://***@host/...`).
+`--clip` și `--rtsp` se exclud și pornesc un singur edge, pe `--camera-id` (implicit `stand12`), cu `zones.stand12.json`. Trei edge-uri pe CPU înseamnă FPS mai mic pe fiecare; dacă laptopul nu ține, folosește `--cameras`. Un clip lipsă e sărit cu un mesaj, celelalte camere pornesc. Clipul rulează în buclă până la Ctrl-C și dă cel mult o alertă pe minut (`--loop-cooldown-s` în `ml`); fluxul RTSP rulează continuu până la Ctrl-C. Pentru un RTSP local din clip, vezi `ml/README.md` (mediamtx + `ml/scripts/rtsp-loop.sh`). Credențialele din URL-ul RTSP nu apar în terminal (`rtsp://***@host/...`).
 
 ## Fallback demo
 
@@ -69,9 +76,9 @@ python scripts/dev.py fallback --snapshot /path/to/already-blurred.jpg
 
 ## Ce vezi după fiecare comandă
 
-- `python scripts/dev.py demo` — UI + API + edge pe clipul implicit, în buclă; ar trebui să vezi feed-ul MJPEG, sursa demo și evenimente în Live. Frontend-ul pornește doar după ce `/health` răspunde.
+- `python scripts/dev.py demo` — UI + API + câte un edge pe fiecare cameră, în buclă. În Live, meniul **Cameră** schimbă feed-ul MJPEG; fiecare cameră arată clipul ei („Sursă demo”) și evenimentele intră în lista de incidente. Frontend-ul pornește doar după ce `/health` răspunde.
 - Pe un clip, `demo` pornește edge-ul cu `--align-reference <clip>`: zona e desenată pe primul cadru și urmărește camera când clipul se rotește sau face zoom (detalii în `ml/README.md`, „Zone pe fiecare clip”). Pe `--rtsp` alinierea e oprită.
-- `demo` rulează **o singură cameră** (implicit `stand12`). Dacă schimbi pe CAM-02/CAM-03, UI-ul îți spune explicit că acea cameră nu are feed live în demo; nu îți arată un cadru gol fără explicație. Pentru altă cameră: `python scripts/dev.py demo --camera-id <id>`, cu un clip potrivit.
+- O cameră fără edge (de exemplu cu `--cameras` sau `--clip`) apare în meniu cu „fără feed în demo”, iar Live explică pe ce camere rulează edge-ul; nu arată un cadru gol fără explicație.
 - `python scripts/dev.py all` — doar UI + API. Vezi camerele și starea Edge, dar fără cadre live; banner-ul îți spune să pornești `demo` sau edge-ul.
 - `python scripts/dev.py backend` / `frontend` — doar procesul respectiv, pentru debug.
 
