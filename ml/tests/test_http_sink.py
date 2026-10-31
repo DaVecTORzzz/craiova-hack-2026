@@ -32,6 +32,9 @@ def test_http_sink_posts_snapshot_then_event_with_edge_token():
     def handler(request: httpx.Request) -> httpx.Response:
         calls.append((request.method, request.url.path, request.headers.get("X-Edge-Token")))
         if request.url.path == "/edge/snapshots":
+            body = request.read()
+            assert b"event_id" in body
+            assert b"evt_stand12_1793356933120_17" in body
             return httpx.Response(200, json={"snapshot_url": "/snapshots/x.jpg"})
         if request.url.path == "/edge/events":
             return httpx.Response(201, json={"ok": True})

@@ -66,6 +66,7 @@ class HttpSink:
         response = self._client.post(
             f"{self.api_url}/edge/snapshots",
             headers=self.headers,
+            data={"event_id": event_id},
             files={"file": (f"{event_id}.jpg", encoded.tobytes(), "image/jpeg")},
         )
         response.raise_for_status()

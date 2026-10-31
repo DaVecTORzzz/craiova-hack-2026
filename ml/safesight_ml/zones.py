@@ -24,7 +24,7 @@ class Zone(BaseModel):
     required_ppe: list[str] = Field(default_factory=list)
     severity: Literal["CRITICAL", "WARNING"]
     debounce_s: float = Field(default=1.0, ge=0.0)
-    escalate_after_s: int | None = Field(default=30, ge=0)
+    escalate_after_s: int | None = Field(default=30, ge=1)
     notify_channel: str = "slack"
     polygon: list[Point] = Field(min_length=3)
     reference_frame: str | None = None
@@ -67,6 +67,15 @@ class RuleDecision:
     seen: int
     window: int
     duration_s: float
+
+
+class EdgeConfig(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    camera_id: str
+    engine_on: bool
+    config_version: int
+    zones: list[Zone]
 
 
 class RuleEngine:
@@ -146,6 +155,12 @@ class RuleEngine:
 
         state.emitted = True
         return RuleDecision(seen=seen, window=window, duration_s=duration)
+
+    def prune(self, now: float) -> None:
+        """Drop states that have not been seen for longer than the cooldown."""
+        for key, state in list(self._states.items()):
+            if now - state.last_seen >= self.cooldown_s:
+                del self._states[key]
 
     def reset(self) -> None:
         self._states.clear()

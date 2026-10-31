@@ -14,7 +14,7 @@ class PrivacyError(RuntimeError):
 
 
 class Blurrer(Protocol):
-    def blur(self, frame: np.ndarray) -> np.ndarray: ...
+    def blur(self, frame: np.ndarray, boxes: list[tuple[float, float, float, float]] = ()) -> np.ndarray: ...
 
 
 class FaceBlurrer:
@@ -36,29 +36,50 @@ class FaceBlurrer:
             score_threshold=score_threshold,
         )
 
-    def blur(self, frame: np.ndarray) -> np.ndarray:
+    def blur(self, frame: np.ndarray, boxes: list[tuple[float, float, float, float]] = ()) -> np.ndarray:
         height, width = frame.shape[:2]
         self._detector.setInputSize((width, height))
         _, faces = self._detector.detect(frame)
-        if faces is None or len(faces) == 0:
-            return frame
 
         output = frame.copy()
-        for face in faces:
-            x, y, w, h = (int(v) for v in face[:4])
-            margin = int(0.2 * max(w, h))
-            x1 = max(0, x - margin)
-            y1 = max(0, y - margin)
-            x2 = min(width, x + w + margin)
-            y2 = min(height, y + h + margin)
-            roi = output[y1:y2, x1:x2]
-            if roi.size:
-                output[y1:y2, x1:x2] = cv2.GaussianBlur(roi, (0, 0), sigmaX=25)
+        if faces is not None:
+            for face in faces:
+                x, y, w, h = (int(v) for v in face[:4])
+                self._blur_box(output, x, y, x + w, y + h, width, height)
+
+        # Safety net for small/distant faces: blur the top of every person box.
+        for x1, y1, x2, y2 in boxes:
+            px1 = int(x1 * width)
+            py1 = int(y1 * height)
+            px2 = int(x2 * width)
+            py2 = int(y2 * height)
+            head_height = max(1, int((py2 - py1) * 0.35))
+            self._blur_box(output, px1, py1, px2, py1 + head_height, width, height)
+
         return output
+
+    @staticmethod
+    def _blur_box(
+        frame: np.ndarray,
+        x1: int,
+        y1: int,
+        x2: int,
+        y2: int,
+        width: int,
+        height: int,
+    ) -> None:
+        margin = max(1, int(0.2 * max(x2 - x1, y2 - y1)))
+        left = max(0, x1 - margin)
+        top = max(0, y1 - margin)
+        right = min(width, x2 + margin)
+        bottom = min(height, y2 + margin)
+        roi = frame[top:bottom, left:right]
+        if roi.size:
+            frame[top:bottom, left:right] = cv2.GaussianBlur(roi, (0, 0), sigmaX=25)
 
 
 class NoopBlurrer:
     """Only for synthetic frames and tests; never for airport footage."""
 
-    def blur(self, frame: np.ndarray) -> np.ndarray:
+    def blur(self, frame: np.ndarray, boxes: list[tuple[float, float, float, float]] = ()) -> np.ndarray:
         return frame

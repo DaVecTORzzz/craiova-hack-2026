@@ -17,11 +17,13 @@ import time
 from pathlib import Path
 
 import cv2
+import httpx
 import numpy as np
 
 from .detector import SyntheticDetector, YoloDetector
 from .pipeline import Pipeline
 from .privacy import FaceBlurrer, NoopBlurrer
+from .remote import fetch_edge_config
 from .sink import HttpSink, JsonlSink
 from .zones import Zone
 
@@ -61,6 +63,8 @@ def build_parser() -> argparse.ArgumentParser:
     transport.add_argument("--dry-run", dest="post", action="store_false", help="write JSONL locally (default)")
     parser.add_argument("--api-url", default=os.getenv("API_URL", "http://localhost:8000"))
     parser.add_argument("--edge-token", default=os.getenv("EDGE_TOKEN", "dev-edge-token"))
+    parser.add_argument("--remote-config", action="store_true", help="load zones and engine_on from GET /edge/zones")
+    parser.add_argument("--config-refresh-s", type=float, default=30.0, help="remote config poll interval")
     return parser
 
 
@@ -85,12 +89,25 @@ def _draw_fake_frame(frame_index: int, detector: SyntheticDetector, zones: list[
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    zones = load_zones(args.zones)
+    engine_on = args.fake if args.engine_on is None else args.engine_on
+    zones: list[Zone] = []
+
+    if args.remote_config:
+        try:
+            config = fetch_edge_config(args.api_url, args.edge_token, args.camera_id)
+            zones = config.zones
+            engine_on = config.engine_on
+            print(f"remote config v{config.config_version}: engine_on={engine_on}, zones={len(zones)}")
+        except (httpx.HTTPError, ValueError, OSError) as exc:
+            print(f"warn: remote config failed ({exc}); using local zones", file=sys.stderr)
+
+    if not zones:
+        zones = load_zones(args.zones)
+
     if not zones:
         print("no zones loaded", file=sys.stderr)
         return 2
 
-    engine_on = args.fake if args.engine_on is None else args.engine_on
     start_epoch = time.time()
 
     if args.fake:
@@ -113,6 +130,7 @@ def main(argv: list[str] | None = None) -> int:
         sink=sink,
         engine_on=engine_on,
         start_epoch=start_epoch,
+        clock=time.time,
     )
 
     total = 0
@@ -123,7 +141,10 @@ def main(argv: list[str] | None = None) -> int:
         limit = args.max_frames or 60
         for frame_index in range(limit):
             frame = _draw_fake_frame(frame_index, detector, pipeline.zones)
-            events += len(pipeline.process(frame, frame_index / fps))
+            try:
+                events += len(pipeline.process(frame, frame_index / fps))
+            except (httpx.HTTPError, OSError, ValueError) as exc:
+                print(f"warn: frame {frame_index} failed: {exc}", file=sys.stderr)
             total += 1
     else:
         capture = cv2.VideoCapture(args.source)
@@ -132,14 +153,28 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         fps = _resolve_fps(args.fps, capture.get(cv2.CAP_PROP_FPS))
         frame_index = 0
+        last_refresh = time.monotonic()
         try:
             while True:
                 ok, frame = capture.read()
                 if not ok:
                     break
-                events += len(pipeline.process(frame, frame_index / fps))
+                try:
+                    events += len(pipeline.process(frame, frame_index / fps))
+                except (httpx.HTTPError, OSError, ValueError) as exc:
+                    print(f"warn: frame {frame_index} failed: {exc}", file=sys.stderr)
                 total += 1
                 frame_index += 1
+
+                if args.remote_config and time.monotonic() - last_refresh >= args.config_refresh_s:
+                    try:
+                        config = fetch_edge_config(args.api_url, args.edge_token, args.camera_id)
+                        pipeline.set_config(config.zones, config.engine_on)
+                        print(f"remote config v{config.config_version}: engine_on={config.engine_on}")
+                        last_refresh = time.monotonic()
+                    except (httpx.HTTPError, ValueError, OSError) as exc:
+                        print(f"warn: remote config refresh failed ({exc})", file=sys.stderr)
+
                 if args.max_frames and total >= args.max_frames:
                     break
         finally:
@@ -148,7 +183,7 @@ def main(argv: list[str] | None = None) -> int:
     if isinstance(sink, HttpSink):
         sink.close()
 
-    print(f"frames={total} events={events} engine_on={engine_on} sink={'http' if args.post else 'jsonl'}")
+    print(f"frames={total} events={events} engine_on={pipeline.engine_on} sink={'http' if args.post else 'jsonl'}")
     if not args.post:
         print(f"events: {Path(args.out) / 'events.jsonl'}")
         print(f"snapshots: {Path(args.out) / 'snapshots'}")

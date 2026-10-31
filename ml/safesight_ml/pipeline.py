@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Callable
 from datetime import UTC, datetime
 
 import numpy as np
@@ -30,6 +31,7 @@ class Pipeline:
         engine_on: bool,
         start_epoch: float | None = None,
         rules: RuleEngine | None = None,
+        clock: Callable[[], float] | None = None,
     ) -> None:
         self.camera_id = camera_id
         self.zones = [zone for zone in zones if zone.camera_id == camera_id]
@@ -39,9 +41,15 @@ class Pipeline:
         self.engine_on = engine_on
         self.start_epoch = start_epoch if start_epoch is not None else time.time()
         self.rules = rules or RuleEngine()
+        self.clock = clock
         self.frame_index = 0
 
+    def set_config(self, zones: list[Zone], engine_on: bool) -> None:
+        self.zones = [zone for zone in zones if zone.camera_id == self.camera_id]
+        self.engine_on = engine_on
+
     def process(self, frame: np.ndarray, now_s: float) -> list[EdgeEvent]:
+        self.rules.prune(now_s)
         detections = self.detector.detect(frame, self.frame_index)
         emitted: list[EdgeEvent] = []
 
@@ -61,11 +69,11 @@ class Pipeline:
                 if decision is None:
                     continue
 
-                event_epoch = self.start_epoch + now_s
+                event_epoch = self.clock() if self.clock is not None else self.start_epoch + now_s
                 detected_at = datetime.fromtimestamp(event_epoch, tz=UTC)
                 event_id = f"evt_{self.camera_id}_{int(event_epoch * 1000)}_{detection.track_id}"
 
-                blurred = self.blurrer.blur(frame)
+                blurred = self.blurrer.blur(frame, [item.bbox for item in detections])
                 snapshot_url = self.sink.store_snapshot(event_id, blurred)
 
                 event = EdgeEvent(

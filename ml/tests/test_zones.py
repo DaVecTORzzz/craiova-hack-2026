@@ -42,6 +42,11 @@ def test_rule_engine_rejects_min_window_larger_than_window():
         RuleEngine(window_frames=5, min_window=6)
 
 
+def test_zone_escalation_must_be_positive_or_null():
+    with pytest.raises(ValueError):
+        make_zone(escalate_after_s=0)
+
+
 def test_engine_off_emits_nothing():
     engine = RuleEngine()
     zone = make_zone()

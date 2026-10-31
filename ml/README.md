@@ -38,11 +38,13 @@ Integrare cu backend-ul, după ce B are rutele de edge:
 ```bash
 uv run python -m safesight_ml.run \
   --source ../data/videos/restricted_zone/<clip>.mp4 \
-  --engine-on \
   --post \
+  --remote-config \
   --api-url http://localhost:8000 \
   --edge-token "$EDGE_TOKEN"
 ```
+
+`--remote-config` ia zonele și `engine_on` din `GET /edge/zones` și le reîmprospătează la 30 s. Dacă backend-ul nu răspunde, folosește `fixtures/zones.json` și flag-ul `--engine-on`.
 
 ## Ce produce
 
@@ -61,6 +63,7 @@ safesight_ml/
   privacy.py   # FaceBlurrer (YuNet) înainte de salvare/upload
   sink.py      # JsonlSink (dry-run) și HttpSink (/edge/snapshots, /edge/events)
   pipeline.py  # cadru -> detecții -> reguli -> eveniment
+  remote.py    # GET /edge/zones (zone + engine_on)
   run.py       # CLI
 fixtures/
   zones.json   # zona engine-left din contract
@@ -69,9 +72,12 @@ fixtures/
 ## Reguli
 
 - Punctul de intrare în zonă este **centrul de jos al bbox-ului** (picioarele), nu centrul cutiei.
-- `active_when=engine_on` nu emite nimic când motorul e oprit.
+- `active_when=engine_on` nu emite nimic când motorul e oprit; `--remote-config` ia starea din backend.
 - `debounce_s` și confidence temporal: minim 5 cadre observate și 80% confirmare.
-- `snapshot_url` e HTTP; niciodată `minio://`.
+- `detected_at` folosește ceasul real al procesării, nu timpul video; `now_s` rămâne pentru durata în zonă.
+- `snapshot_url` e HTTP; niciodată `minio://`. Snapshot-ul se urcă cu `event_id` ca form field.
+- `FaceBlurrer` blurează fețele YuNet **și** partea de sus a fiecărui bbox de persoană, ca plasă de siguranță pentru fețe mici.
+- Stările track-urilor dispărute se curăță după cooldown.
 - `status`, `report`, `received_at`, `notified_at`, `escalated_at`, `acked_at`, `acked_by` nu se trimit din edge.
 - Modelul de fețe lipsește → `FaceBlurrer` fail-closed; nu se salvează imagine neblurată.
 - `--fake` folosește `NoopBlurrer` doar pentru cadre sintetice, fără fețe.

@@ -19,18 +19,17 @@ EventType = Literal[
     "FOD",
     "SMOKING",
     "CAMERA_OFFLINE",
-    "CROWD",
 ]
 Severity = Literal["CRITICAL", "WARNING"]
 
-_EVENT_ID_RE = re.compile(r"^evt_[a-z0-9-]+_\d+_\d+$")
+_EVENT_ID_RE = re.compile(r"^evt_[a-z0-9-]+_\d{13}_\d+$")
 
 
 class TemporalConfidence(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     seen: int = Field(ge=0)
-    window: int = Field(ge=0)
+    window: int = Field(ge=1)
 
 
 class Confidence(BaseModel):

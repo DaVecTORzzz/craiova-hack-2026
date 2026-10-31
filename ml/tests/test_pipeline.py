@@ -27,9 +27,11 @@ ZONE = Zone(
 class RecordingBlurrer:
     def __init__(self) -> None:
         self.calls = 0
+        self.boxes: list[tuple[float, float, float, float]] = []
 
-    def blur(self, frame: np.ndarray) -> np.ndarray:
+    def blur(self, frame: np.ndarray, boxes=()) -> np.ndarray:
         self.calls += 1
+        self.boxes.extend(boxes)
         return frame
 
 
@@ -79,7 +81,30 @@ def test_pipeline_emits_one_contract_event_and_blurs_once():
     assert event.context.engine_on is True
     assert "status" not in event.model_dump()
     assert blurrer.calls == 1
+    assert blurrer.boxes == [(0.50, 0.20, 0.60, 0.60)]
     assert sink.snapshots == [event.event_id]
+
+
+def test_pipeline_uses_clock_for_detected_at():
+    frames = [
+        [Detection(track_id=1, bbox=(0.50, 0.20, 0.60, 0.60), confidence=0.91)]
+        for _ in range(20)
+    ]
+    sink = RecordingSink()
+    pipeline = Pipeline(
+        camera_id="stand12",
+        zones=[ZONE],
+        detector=FakeDetector(frames),
+        blurrer=RecordingBlurrer(),
+        sink=sink,
+        engine_on=True,
+        start_epoch=1_793_356_933.0,
+        clock=lambda: 1_793_356_999.0,
+    )
+    for step in range(20):
+        pipeline.process(np.zeros((360, 640, 3), dtype=np.uint8), now_s=step / 10)
+
+    assert sink.events[0].detected_at.timestamp() == 1_793_356_999.0
 
 
 def test_pipeline_respects_engine_off():

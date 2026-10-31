@@ -67,3 +67,18 @@ def test_detected_at_must_be_timezone_aware():
 def test_confidence_must_be_structured():
     with pytest.raises(ValidationError):
         make_event(confidence={"detector": 0.91, "temporal": "14/15 cadre"})
+
+
+def test_crowd_is_reserved_and_rejected():
+    with pytest.raises(ValidationError):
+        make_event(type="CROWD")
+
+
+def test_temporal_window_must_be_positive():
+    with pytest.raises(ValidationError):
+        make_event(confidence={"detector": 0.91, "temporal": {"seen": 0, "window": 0}})
+
+
+def test_event_id_requires_thirteen_digit_timestamp():
+    with pytest.raises(ValidationError):
+        make_event(event_id="evt_stand12_179335693312_17")
