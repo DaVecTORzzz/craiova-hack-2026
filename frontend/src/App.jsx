@@ -7,7 +7,6 @@ import LiveView from './components/views/LiveView';
 import IncidentDetailView from './components/views/IncidentDetailView';
 import ZoneEditorView from './components/views/ZoneEditorView';
 import ReportsView from './components/views/ReportsView';
-import MobileAlertsView from './components/views/MobileAlertsView';
 import SettingsView from './components/views/SettingsView';
 import Toast from './components/common/Toast';
 
@@ -23,8 +22,6 @@ function MainAppLayout() {
         return <ZoneEditorView />;
       case 'reports':
         return <ReportsView />;
-      case 'mobile':
-        return <MobileAlertsView />;
       case 'settings':
         return <SettingsView />;
       case 'live':
