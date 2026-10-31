@@ -77,7 +77,7 @@ export const STATUS_TOKENS = {
     dot: '#FFEB33',
     label: 'WARNING'
   },
-  // Stări Human-In-The-Loop
+  // Stările incidentului (decizia operatorului)
   open: {
     color: '#D73833',
     bg: '#FEF2F2',
@@ -94,7 +94,7 @@ export const STATUS_TOKENS = {
     text: '#1B5E20',
     textDark: '#81C784',
     border: '#A7F3D0',
-    label: 'Confirmat (Ack)'
+    label: 'Confirmat'
   },
   false_positive: {
     color: '#64748B',

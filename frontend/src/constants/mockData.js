@@ -330,7 +330,7 @@ export const INITIAL_SHIFT_REPORT = {
     avg_ack_time_s: 38,
     ppe_compliance_pct: 94.2
   },
-  summary: "Tura de dimineață a decurs conform normelor ICAO, cu un nivel de conformitate PPE de 94.2%. A fost neutralizat rapid un fragment FOD pe Pista 08R în mai puțin de 4 minute, prevenind întârzieri pe fluxul de decolare.",
+  summary: "Tura de dimineață a avut un nivel de conformitate PPE de 94.2%. A fost neutralizat rapid un fragment FOD pe Pista 08R în mai puțin de 4 minute, prevenind întârzieri pe fluxul de decolare.",
   by_type: [
     { type: "NO_PPE", count: 9, label: "Echipament Lipsă" },
     { type: "RESTRICTED_ZONE", count: 4, label: "Zonă Restricționată" },

@@ -32,14 +32,14 @@ export default function Sidebar() {
   const menuItems = [
     {
       id: 'live',
-      label: 'Live Ops & Feed-uri',
+      label: 'Live',
       subtitle: 'Monitorizare & Stream',
       icon: Video,
       badge: kpis?.open_incidents_count > 0 ? kpis.open_incidents_count : null
     },
     {
       id: 'incidents',
-      label: 'Incidente & XAI',
+      label: 'Incidente',
       subtitle: 'Istoric, dovadă & raport',
       // The detail page belongs to this entry.
       also: ['incident_detail'],
@@ -62,7 +62,7 @@ export default function Sidebar() {
     {
       id: 'settings',
       label: 'Edge & Audit',
-      subtitle: 'Stare Pipeline & Logs',
+      subtitle: 'Stare sistem & jurnal',
       icon: Settings
     }
   ];
@@ -144,7 +144,7 @@ export default function Sidebar() {
             <div className="flex items-center justify-between font-bold text-[#7EDEED]">
               <span className="flex items-center gap-1.5">
                 <ShieldCheck size={14} />
-                Edge AI Pipeline
+                Edge AI
               </span>
               <span className={`text-[10px] font-mono font-bold px-1.5 rounded ${edgeColor}`}>{edgeLabel}</span>
             </div>
@@ -152,7 +152,7 @@ export default function Sidebar() {
               {health?.db ? 'Backend online' : 'Backend offline'} · {edgeSeen == null ? 'edge fără date' : `edge acum ${Math.round(edgeSeen)}s`}
             </p>
             <p className="text-[10px] text-slate-400 leading-tight">
-              YOLO26 + ByteTrack • Auto-Snapshot
+              YOLO26 + ByteTrack • snapshot automat
             </p>
           </div>
         )}

@@ -164,7 +164,7 @@ export default function IncidentDetailView() {
               </div>
             )}
             <div className="absolute bottom-2 left-2 px-2 py-1 bg-black/80 text-white font-mono text-[10px] rounded border border-white/20">
-              Snapshot HTTP (GDPR Compliant • Fețe blurate la Edge)
+              Momentul incidentului • fețe blurate pe edge
             </div>
           </div>
 
@@ -260,7 +260,7 @@ export default function IncidentDetailView() {
             className="rounded-xl border p-4 shadow-lg space-y-3"
           >
             <h4 className="font-bold text-xs uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
-              <Check size={15} /> Bloc Decizional Human-In-The-Loop
+              <Check size={15} /> Decizia operatorului
             </h4>
 
             <div className="grid grid-cols-2 gap-2 text-xs">
@@ -275,7 +275,7 @@ export default function IncidentDetailView() {
                 }`}
               >
                 <Check size={16} />
-                <span>{isAcked ? 'Confirmat (Acked)' : 'Acknowledge (Confirmă)'}</span>
+                <span>{isAcked ? 'Confirmat' : 'Confirmă'}</span>
               </button>
 
               {/* Buton 2: Fals Pozitiv */}
@@ -298,7 +298,7 @@ export default function IncidentDetailView() {
                 className="py-2.5 px-3 rounded-lg font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 flex items-center justify-center gap-2"
               >
                 <RotateCcw size={15} />
-                <span>Redeschide (Reopen)</span>
+                <span>Redeschide</span>
               </button>
 
               {/* Buton 4: Export PDF Placeholder */}

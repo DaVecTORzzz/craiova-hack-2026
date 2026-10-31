@@ -516,7 +516,7 @@ export function SecurityProvider({ children }) {
     }
   };
 
-  // 8. SIMULATOR DEMO PITCH (Pentru Ariana & Dalina în fața juriului):
+  // 8. Simulator: evenimente de test, doar în modul mock.
   // C-01: Simulare sosire eveniment nou prin WebSocket
   const simulateIncomingWsEvent = (type = 'RESTRICTED_ZONE', severity = 'CRITICAL') => {
     const newId = `evt_stand12_${Date.now()}_${Math.floor(Math.random() * 80 + 10)}`;

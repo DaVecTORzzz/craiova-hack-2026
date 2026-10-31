@@ -127,7 +127,7 @@ export default function LiveView() {
               }`}
             >
               <Power size={13} />
-              ENGINE: {activeCamera?.engine_on ? 'ON' : 'OFF'}
+              MOTOR: {activeCamera?.engine_on ? 'PORNIT' : 'OPRIT'}
             </button>
 
             <button
@@ -135,7 +135,7 @@ export default function LiveView() {
               className="px-3.5 py-1.5 rounded-xl bg-white/20 hover:bg-white/30 text-white text-xs font-bold flex items-center gap-1.5 transition-all"
             >
               <Minimize2 size={14} />
-              <span>Ieșire Full-Screen</span>
+              <span>Ieșire ecran complet</span>
             </button>
           </div>
         </div>

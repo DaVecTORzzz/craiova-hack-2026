@@ -117,10 +117,10 @@ export default function Header() {
               setShowUserMenu(false);
             }}
             className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-xs font-bold flex items-center gap-1.5 transition-colors shadow-sm"
-            title="Triggers pentru prezentarea live în fața juriului"
+            title="Generează evenimente de test (doar în modul mock)"
           >
             <Zap size={14} className="text-[#FFEB33] fill-[#FFEB33]" />
-            <span className="hidden md:inline">Demo Pitch</span>
+            <span className="hidden md:inline">Simulare</span>
             <ChevronDown size={12} className="opacity-80" />
           </button>
 
@@ -134,7 +134,7 @@ export default function Header() {
               className="absolute right-0 mt-2 w-64 rounded-xl border p-2 shadow-2xl space-y-1 text-xs z-50 font-sans"
             >
               <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b pb-1 mb-1">
-                Simulare Scenarii Live (Juriu)
+                Evenimente de test (mod mock)
               </div>
               <button
                 onClick={() => {
@@ -199,7 +199,7 @@ export default function Header() {
             borderColor: isDarkMode ? 'rgba(255, 255, 255, 0.15)' : '#E5E7EB'
           }}
           className="p-2 rounded-xl border transition-all text-xs flex items-center justify-center shadow-sm"
-          title={isDarkMode ? 'Comută în modul Light (Pânză curată)' : 'Comută în modul Dark (Consolă Tactică)'}
+          title={isDarkMode ? 'Comută pe tema luminoasă' : 'Comută pe tema întunecată'}
           aria-label="Comută tema interfeței"
         >
           {isDarkMode ? (

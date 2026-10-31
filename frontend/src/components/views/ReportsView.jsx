@@ -22,10 +22,10 @@ export default function ReportsView() {
         <div>
           <h2 className="font-black text-lg uppercase tracking-tight flex items-center gap-2">
             <FileText size={20} className="text-indigo-400" />
-            Raport Operațional de Tură (Shift Report)
+            Raport de tură
           </h2>
           <p style={{ color: themeStyles.textMuted }} className="text-xs font-mono">
-            Conformitate ICAO Anexa 14 & Regulamentul UE 376/2014 (§5.4)
+            Incidente, timpi de reacție și conformitate PPE pe tură
           </p>
         </div>
 
@@ -81,7 +81,7 @@ export default function ReportsView() {
           style={{ backgroundColor: themeStyles.panelBg, borderColor: themeStyles.panelBorder }}
           className="p-3.5 rounded-xl border shadow-sm space-y-1"
         >
-          <p style={{ color: themeStyles.textMuted }} className="text-xs font-semibold">Timp Mediu Confirmare (Ack)</p>
+          <p style={{ color: themeStyles.textMuted }} className="text-xs font-semibold">Timp mediu de confirmare</p>
           <p className="text-2xl font-black font-mono text-indigo-400">
             {shiftReport.kpi.avg_ack_time_s === '—' ? '—' : `${shiftReport.kpi.avg_ack_time_s} sec`}
           </p>
@@ -187,7 +187,7 @@ export default function ReportsView() {
                 <th className="pb-1.5">Zonă / Sector</th>
                 <th className="pb-1.5 text-red-400">Critice</th>
                 <th className="pb-1.5 text-amber-400">Warning</th>
-                <th className="pb-1.5 text-right">Timp Mediu Confirmare (Ack)</th>
+                <th className="pb-1.5 text-right">Timp mediu de confirmare</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
