@@ -22,7 +22,7 @@ import httpx
 import numpy as np
 
 from .align import ZoneAligner, load_reference
-from .capture import LatestFrameReader, is_live_source
+from .capture import LatestFrameReader, is_live_source, webcam_index
 from .detector import SyntheticDetector, YoloDetector
 from .events import EdgeEvent
 from .live import AnnotatedVideoWriter, AsyncLiveWriter, LiveFrameWriter
@@ -93,7 +93,7 @@ def load_zones(path: str | Path) -> list[Zone]:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="SafeSight edge — restricted-zone slice")
-    parser.add_argument("--source", help="video file or RTSP URL; omit with --fake")
+    parser.add_argument("--source", help="video file, RTSP URL or webcam[:N] (local camera); omit with --fake")
     parser.add_argument("--zones", default="fixtures/zones.json")
     parser.add_argument("--camera-id", default="stand12")
     parser.add_argument("--model", default="yolo26n.pt")
@@ -297,7 +297,14 @@ def main(argv: list[str] | None = None) -> int:
             if args.duration_s and time.monotonic() - run_started >= args.duration_s:
                 break
     else:
-        capture = cv2.VideoCapture(args.source)
+        device = webcam_index(args.source)
+        if device is None:
+            capture = cv2.VideoCapture(args.source)
+        else:
+            capture = cv2.VideoCapture(device)
+            # Most laptop webcams default to 640x480; ask for 720p, keep whatever they give.
+            capture.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+            capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
         if not capture.isOpened():
             print(f"could not open source: {_metrics_source(args.source)}", file=sys.stderr)
             return 2

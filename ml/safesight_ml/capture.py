@@ -10,8 +10,22 @@ import numpy as np
 LIVE_SCHEMES = ("rtsp://", "http://", "https://")
 
 
+WEBCAM_PREFIX = "webcam"
+
+
+def webcam_index(source: str) -> int | None:
+    """``webcam`` or ``webcam:N`` -> the OpenCV device index; anything else -> None."""
+    text = str(source).strip().lower()
+    if text == WEBCAM_PREFIX:
+        return 0
+    prefix = WEBCAM_PREFIX + ":"
+    if text.startswith(prefix) and text[len(prefix):].isdigit():
+        return int(text[len(prefix):])
+    return None
+
+
 def is_live_source(source: str) -> bool:
-    return str(source).lower().startswith(LIVE_SCHEMES)
+    return str(source).lower().startswith(LIVE_SCHEMES) or webcam_index(source) is not None
 
 
 class Capture(Protocol):

@@ -154,7 +154,7 @@ def test_per_clip_fixtures_use_seeded_cameras_and_zone_ids():
     from safesight_ml.run import load_zones
 
     fixtures = sorted((Path(__file__).resolve().parents[1] / "fixtures" / "zones").glob("*.json"))
-    assert len(fixtures) == 6
+    assert len(fixtures) == 7  # 6 clips + webcam-ppe.json
     for path in fixtures:
         for zone in load_zones(path):
             assert zone.id in SEEDED_ZONE_IDS[zone.camera_id], path.name

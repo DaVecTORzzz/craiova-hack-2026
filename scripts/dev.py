@@ -7,6 +7,7 @@ Works on Linux, macOS and Windows with Python 3.12+.
     python scripts/dev.py demo           # backend + frontend + one real clip run
     python scripts/dev.py demo --clip ../data/videos/<clip>.mp4
     python scripts/dev.py demo --rtsp rtsp://127.0.0.1:8554/stand12
+    python scripts/dev.py demo --webcam    # laptop camera, live vest check (experimental)
     python scripts/dev.py all            # backend + frontend only
     python scripts/dev.py backend        # one process
     python scripts/dev.py frontend       # one process
@@ -225,10 +226,11 @@ def enable_demo_engine(base_url: str, camera_id: str = "stand12") -> None:
         print(f"warn: nu am putut porni motorul în backend: {exc}", file=sys.stderr)
 
 
-def sync_demo_zones(base_url: str, feed: "DemoFeed") -> None:
+def sync_demo_zones(base_url: str, feed: "DemoFeed", *, force: bool = False) -> None:
     """Put the clip's calibrated zone into the backend once, so the edge, the editor and the
     live view share it. A zone that already has a reference frame was set up by an earlier
-    demo run (and maybe edited in the UI) and is left alone.
+    demo run (and maybe edited in the UI) and is left alone, unless ``force``: the webcam
+    zone must replace the clip zone drawn earlier on the same camera.
     """
     fixture = json.loads((ML / feed.zones).read_text(encoding="utf-8"))
     query = urllib.parse.urlencode({"camera_id": feed.camera_id})
@@ -239,7 +241,9 @@ def sync_demo_zones(base_url: str, feed: "DemoFeed") -> None:
         print(f"warn: nu am putut citi zonele {feed.camera_id}: {exc}", file=sys.stderr)
         return
     for zone in fixture:
-        if zone["camera_id"] != feed.camera_id or current.get(zone["id"], {}).get("reference_frame"):
+        if zone["camera_id"] != feed.camera_id:
+            continue
+        if not force and current.get(zone["id"], {}).get("reference_frame"):
             continue
         request = urllib.request.Request(
             f"{base_url}/zones/{zone['id']}",
@@ -503,8 +507,14 @@ DEMO_FEEDS = (
 )
 
 
+WEBCAM_CAMERA = "baggage-area"
+
+
 def demo_feeds(args: argparse.Namespace) -> list[DemoFeed]:
-    """--clip/--rtsp keep the single-camera demo; otherwise every camera gets its clip."""
+    """--clip/--rtsp/--webcam keep the single-camera demo; otherwise every camera gets its clip."""
+    if args.webcam is not None:
+        # The PPE camera from the seed: no contract change, NO_PPE goes through as is.
+        return [DemoFeed(WEBCAM_CAMERA, Path(f"webcam:{args.webcam}"), "fixtures/zones/webcam-ppe.json")]
     if args.clip or args.rtsp:
         clip = Path(args.clip).expanduser().resolve() if args.clip else DEFAULT_CLIP
         return [DemoFeed(args.camera_id, clip, "fixtures/zones.stand12.json")]
@@ -521,15 +531,17 @@ def demo_feeds(args: argparse.Namespace) -> list[DemoFeed]:
 def run_demo(args: argparse.Namespace) -> int:
     ensure_ports(args, backend=True, frontend=True)
     feeds = demo_feeds(args)
+    webcam = f"webcam:{args.webcam}" if args.webcam is not None else None
+    stream = args.rtsp or webcam  # a live source: no clip file, no alignment, no pacing
     token = resolve_edge_token(args.edge_token)
     live_dir = resolve_snapshot_dir() / "live"
-    runnable = [feed for feed in feeds if args.rtsp or feed.clip.is_file()]
+    runnable = [feed for feed in feeds if stream or feed.clip.is_file()]
     env = app_env(
         mock=args.mock,
         api_url=api_url(args),
         frontend_url=web_url(args),
         frontend_port=args.frontend_port,
-        demo_clip=",".join(f"{feed.camera_id}={feed.clip.name}" for feed in runnable) if not args.rtsp else None,
+        demo_clip=",".join(f"{feed.camera_id}={feed.clip.name}" for feed in runnable) if not stream else None,
         demo_camera=",".join(feed.camera_id for feed in runnable) or None,
     )
     env["EDGE_TOKEN"] = token
@@ -544,7 +556,7 @@ def run_demo(args: argparse.Namespace) -> int:
         if not args.mock and not args.no_ml:
             for feed in runnable:
                 enable_demo_engine(api_url(args), feed.camera_id)
-                sync_demo_zones(api_url(args), feed)
+                sync_demo_zones(api_url(args), feed, force=webcam is not None)
         frontend = popen(frontend_command(args), cwd=FRONTEND, env=env)
     except BaseException:
         stop(backend)
@@ -563,10 +575,10 @@ def run_demo(args: argparse.Namespace) -> int:
             print("Modelul YuNet lipsește. Rulează: python scripts/dev.py setup", file=sys.stderr)
         else:
             for feed in feeds:
-                if not args.rtsp and not feed.clip.is_file():
+                if not stream and not feed.clip.is_file():
                     print(f"Clipul lipsește pentru {feed.camera_id}: {feed.clip}", file=sys.stderr)
                     continue
-                source = args.rtsp or str(feed.clip)
+                source = stream or str(feed.clip)
                 ml_command = command(
                     "uv",
                     [
@@ -600,15 +612,18 @@ def run_demo(args: argparse.Namespace) -> int:
                         "--live-when-watched",
                         # The clip camera pans; the zone follows the ground from its first frame.
                         # Not for RTSP: the published clip may differ and the zone would stay unknown.
-                        *([] if args.rtsp else ["--align-reference", str(feed.clip)]),
+                        *([] if stream else ["--align-reference", str(feed.clip)]),
                         # A clip plays at its own FPS, like a camera; RTSP is paced by the source.
-                        *([] if args.rtsp else ["--realtime"]),
+                        *([] if stream else ["--realtime"]),
+                        # Webcam: the zone is the whole frame and the feet sit near its bottom
+                        # edge, so the 10% margin would keep a standing person "outside".
+                        *(["--zone-margin", "0"] if webcam else []),
                         *(["--max-size", str(feed.max_size)] if feed.max_size else []),
                     ],
                 )
                 shown = [mask_url(part) if part == source else part for part in ml_command]
                 shown = ["***" if previous == "--edge-token" else part for previous, part in zip(["", *shown], shown)]
-                print(f"Edge:     {feed.camera_id} <- {mask_url(args.rtsp) if args.rtsp else feed.clip.name}")
+                print(f"Edge:     {feed.camera_id} <- {mask_url(args.rtsp) if args.rtsp else webcam or feed.clip.name}")
                 edges.append((f"edge {feed.camera_id}", popen(ml_command, cwd=ML, env=base_env(), shown=shown)))
             if not edges:
                 print("Niciun edge pornit. Folosește backend/scripts/demo_event.py pentru fallback.", file=sys.stderr)
@@ -661,6 +676,15 @@ def build_parser() -> argparse.ArgumentParser:
     source = p_demo.add_mutually_exclusive_group()
     source.add_argument("--clip", type=Path, help="clip local folosit de edge (implicit cam01)")
     source.add_argument("--rtsp", type=rtsp_url, help="flux RTSP, ex. rtsp://127.0.0.1:8554/stand12")
+    source.add_argument(
+        "--webcam",
+        type=int,
+        nargs="?",
+        const=0,
+        default=None,
+        metavar="INDEX",
+        help=f"camera laptopului (implicit 0), pe camera {WEBCAM_CAMERA}: verificare vestă live (experimental)",
+    )
     p_demo.add_argument("--camera-id", default="stand12", help="cu --clip/--rtsp: camera din backend pentru live frame")
     p_demo.add_argument(
         "--cameras",

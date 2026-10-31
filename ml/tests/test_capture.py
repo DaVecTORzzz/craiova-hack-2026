@@ -77,3 +77,15 @@ def test_live_sources_are_streams_not_files():
     assert is_live_source("rtsp://127.0.0.1:8554/stand12")
     assert is_live_source("HTTP://cam.local/stream")
     assert not is_live_source("../data/videos/clip.mp4")
+
+
+def test_webcam_sources_are_live_and_parse_the_device_index():
+    from safesight_ml.capture import webcam_index
+
+    assert webcam_index("webcam") == 0
+    assert webcam_index("webcam:2") == 2
+    assert webcam_index("WEBCAM:1") == 1
+    assert webcam_index("webcam:x") is None
+    assert webcam_index("clip.mp4") is None
+    assert is_live_source("webcam:0")
+    assert not is_live_source("webcam.mp4")
