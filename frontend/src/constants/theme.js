@@ -1,4 +1,4 @@
-// SafeTarmac AI - Tokeni Canonici Design System (Conform 03_C_frontend.pdf)
+// SafeSight AI - Tokeni Canonici Design System (Conform 03_C_frontend.pdf)
 
 export const THEME_CONFIG = {
   // Paleta Dark Mode (Command Center Deck)

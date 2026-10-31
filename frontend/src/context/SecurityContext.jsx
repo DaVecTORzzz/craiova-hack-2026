@@ -6,7 +6,7 @@ import {
   INITIAL_KPIS,
   INITIAL_SHIFT_REPORT
 } from '../constants/mockData';
-import { safeTarmacApi } from '../services/api';
+import { safeSightApi, USE_MOCK } from '../services/api';
 import { playCriticalAlertSound } from '../utils/sound';
 
 const SecurityContext = createContext();
@@ -49,6 +49,46 @@ export function SecurityProvider({ children }) {
     setTimeout(() => setToastMessage(null), 3800);
   };
 
+  // Încarcă datele reale din backend. Fără backend, UI-ul rămâne pe mock-ul local.
+  useEffect(() => {
+    if (USE_MOCK) return;
+    let cancelled = false;
+
+    const load = async () => {
+      try {
+        const [cams, evs, zs, kpi] = await Promise.all([
+          safeSightApi.getCameras(),
+          safeSightApi.getEvents(),
+          safeSightApi.getZones(),
+          safeSightApi.getKPIs()
+        ]);
+        if (cancelled) return;
+        setCameras(cams);
+        setEvents(evs);
+        setZones(zs);
+        setKpis(kpi);
+        setSelectedCameraId((current) => (cams.some((c) => c.id === current) ? current : cams[0]?.id));
+        setSelectedEventId((current) => (evs.some((e) => e.event_id === current) ? current : evs[0]?.event_id));
+      } catch (error) {
+        if (!cancelled) showToast(`Backend indisponibil: ${error.message}. Rulează API-ul pentru date reale.`);
+      }
+    };
+
+    load();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Raportul de tură se reîncarcă la schimbarea turei.
+  useEffect(() => {
+    if (USE_MOCK) return;
+    let cancelled = false;
+    safeSightApi
+      .getShiftReport(safeSightApi.shiftToApi(selectedShift))
+      .then((report) => { if (!cancelled) setShiftReport(report); })
+      .catch(() => { if (!cancelled) showToast('Raportul de tură nu a putut fi încărcat.'); });
+    return () => { cancelled = true; };
+  }, [selectedShift]);
+
   // Camera activă curentă
   const activeCamera = useMemo(() => {
     return cameras.find((c) => c.id === selectedCameraId) || cameras[0];
@@ -84,8 +124,9 @@ export function SecurityProvider({ children }) {
     });
   }, [events, filterMode, searchQuery]);
 
-  // Recalculare automată KPI din lista curentă de evenimente
+  // Recalculare KPI doar în mock; în producție cifrele vin din `/kpi`.
   useEffect(() => {
+    if (!USE_MOCK) return;
     const openCount = events.filter((e) => e.status === 'open').length;
     const escalatedCount = events.filter((e) => e.status === 'escalated').length;
     setKpis((prev) => ({
@@ -95,8 +136,9 @@ export function SecurityProvider({ children }) {
     }));
   }, [events]);
 
-  // Escaladare automată bazată pe timp (Decizie N22: escalate_after_s per zonă/eveniment)
+  // Escaladare simulată doar în mock; în producție backend-ul ține timerul.
   useEffect(() => {
+    if (!USE_MOCK) return;
     const escalationInterval = setInterval(() => {
       const now = Date.now();
       setEvents((prevEvents) =>
@@ -120,21 +162,60 @@ export function SecurityProvider({ children }) {
     return () => clearInterval(escalationInterval);
   }, []);
 
-  // Conectare WebSocket / Heartbeat (sau Polling dacă WS cade - C-10)
+  // WebSocket real; dacă pică, polling la 2 s (C-10).
   useEffect(() => {
-    const disconnect = safeTarmacApi.connectEventsSocket(
+    const disconnect = safeSightApi.connectEventsSocket(
       (msg) => {
         setIsWsConnected(true);
-        if (msg.kpi) {
-          setKpis((prev) => ({ ...prev, ...msg.kpi }));
+        if (msg.type === 'kpi.updated' && msg.data) {
+          setKpis((prev) => ({ ...prev, ...msg.data }));
+          return;
+        }
+        if (msg.type === 'event.created' || msg.type === 'event.updated') {
+          const incoming = msg.data;
+          setEvents((prev) => {
+            const index = prev.findIndex((event) => event.event_id === incoming.event_id);
+            if (index >= 0) {
+              const next = [...prev];
+              next[index] = incoming;
+              return next;
+            }
+            return [incoming, ...prev].slice(0, 200);
+          });
+          if (msg.type === 'event.created' && incoming.severity === 'CRITICAL') {
+            playCriticalAlertSound();
+          }
         }
       },
-      () => {
-        setIsWsConnected(false);
-      }
+      () => setIsWsConnected(false),
+      () => setIsWsConnected(true)
     );
     return () => disconnect();
   }, []);
+
+  // KPI se reîmprospătează periodic; evenimentele vin pe WebSocket.
+  useEffect(() => {
+    if (USE_MOCK) return;
+    const refresh = () => safeSightApi.getKPIs().then(setKpis).catch(() => {});
+    const interval = setInterval(refresh, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    if (USE_MOCK || isWsConnected) return;
+    const poll = async () => {
+      try {
+        const [evs, kpi] = await Promise.all([safeSightApi.getEvents(), safeSightApi.getKPIs()]);
+        setEvents(evs);
+        setKpis(kpi);
+      } catch {
+        // Banner-ul de conexiune rămâne vizibil; reîncercăm la următorul tick.
+      }
+    };
+    poll();
+    const interval = setInterval(poll, 2000);
+    return () => clearInterval(interval);
+  }, [isWsConnected]);
 
   // ACȚIUNI PRINCIPALE:
 
@@ -155,7 +236,12 @@ export function SecurityProvider({ children }) {
       )
     );
     showToast(`Evenimentul ${eventId.slice(-6)} confirmat de ${operatorName}. Escaladare anulată.`);
-    await safeTarmacApi.acknowledgeEvent(eventId, operatorName);
+    try {
+      const updated = await safeSightApi.acknowledgeEvent(eventId, operatorName);
+      setEvents((prev) => prev.map((ev) => (ev.event_id === eventId ? { ...ev, ...updated } : ev)));
+    } catch (error) {
+      showToast(`Ack eșuat: ${error.message}`);
+    }
   };
 
   // 2. Fals Pozitiv (C-03: Iese din Deschise, rămâne în Toate)
@@ -173,7 +259,12 @@ export function SecurityProvider({ children }) {
       )
     );
     showToast(`Marcat ca Fals Pozitiv. Feedback înregistrat pentru modelul AI.`);
-    await safeTarmacApi.markFalsePositive(eventId, operatorName, note);
+    try {
+      const updated = await safeSightApi.markFalsePositive(eventId, operatorName, note);
+      setEvents((prev) => prev.map((ev) => (ev.event_id === eventId ? { ...ev, ...updated } : ev)));
+    } catch (error) {
+      showToast(`Fals pozitiv eșuat: ${error.message}`);
+    }
   };
 
   // 3. Reopen (C-04: Revine în Deschise; timerul repornește)
@@ -193,20 +284,23 @@ export function SecurityProvider({ children }) {
       )
     );
     showToast(`Eveniment redeschis. Timerul de escaladare a repornit.`);
-    await safeTarmacApi.reopenEvent(eventId, operatorName);
+    try {
+      const updated = await safeSightApi.reopenEvent(eventId, operatorName);
+      setEvents((prev) => prev.map((ev) => (ev.event_id === eventId ? { ...ev, ...updated } : ev)));
+    } catch (error) {
+      showToast(`Reopen eșuat: ${error.message}`);
+    }
   };
 
   // 4. Regenerare Raport (LLM)
   const regenerateReport = async (eventId) => {
     showToast('Regenerare raport LLM în curs...');
-    const result = await safeTarmacApi.regenerateReport(eventId);
-    if (result?.report) {
-      setEvents((prev) =>
-        prev.map((ev) =>
-          ev.event_id === eventId ? { ...ev, report: result.report } : ev
-        )
-      );
-      showToast('Raportul de incident a fost actualizat prin LLM.');
+    try {
+      const updated = await safeSightApi.regenerateReport(eventId);
+      setEvents((prev) => prev.map((ev) => (ev.event_id === eventId ? { ...ev, ...updated } : ev)));
+      showToast('Raportul de incident a fost actualizat.');
+    } catch (error) {
+      showToast(`Regenerarea raportului a eșuat: ${error.message}`);
     }
   };
 
@@ -218,14 +312,25 @@ export function SecurityProvider({ children }) {
       prev.map((c) => (c.id === cameraId ? { ...c, engine_on: newState } : c))
     );
     showToast(`Stare motor pentru ${cameraId}: ${newState ? 'PORNIT (ON)' : 'OPRIT (OFF)'}`);
-    await safeTarmacApi.setEngineState(cameraId, newState);
+    try {
+      const updated = await safeSightApi.setEngineState(cameraId, newState);
+      setCameras((prev) => prev.map((cam) => (
+        cam.id === cameraId ? { ...cam, ...updated, id: cam.id, name: cam.name } : cam
+      )));
+    } catch (error) {
+      showToast(`Comutarea motorului a eșuat: ${error.message}`);
+    }
   };
 
-  // 6. Cadru de referință FOD (Capture empty frame)
-  const captureReferenceFrame = async (cameraId) => {
-    showToast(`Salvare cadru de referință FOD pentru ${cameraId}...`);
-    await safeTarmacApi.captureReferenceFrame(cameraId);
-    showToast(`Cadru de referință curat salvat cu succes.`);
+  // 6. Cadru de referință FOD (upload JPEG deja blurat)
+  const captureReferenceFrame = async (zoneId, file) => {
+    showToast(`Salvare cadru de referință pentru zona ${zoneId}...`);
+    try {
+      await safeSightApi.captureReferenceFrame(zoneId, file);
+      showToast('Cadru de referință curat salvat cu succes.');
+    } catch (error) {
+      showToast(`Cadrul de referință a eșuat: ${error.message}`);
+    }
   };
 
   // 7. Salvare Zonă Poligon
@@ -240,7 +345,20 @@ export function SecurityProvider({ children }) {
       return [...prev, zoneData];
     });
     showToast(`Zona ${zoneId} salvată. Rețeaua AI o aplică fără restart.`);
-    await safeTarmacApi.saveZone(zoneId, zoneData);
+    try {
+      const updated = await safeSightApi.saveZone(zoneId, zoneData);
+      setZones((prev) => {
+        const index = prev.findIndex((zone) => zone.zone_id === zoneId);
+        if (index >= 0) {
+          const next = [...prev];
+          next[index] = { ...next[index], ...updated, zone_id: zoneId };
+          return next;
+        }
+        return [...prev, { ...updated, zone_id: zoneId }];
+      });
+    } catch (error) {
+      showToast(`Salvarea zonei a eșuat: ${error.message}`);
+    }
   };
 
   // 8. SIMULATOR DEMO PITCH (Pentru Ariana & Dalina în fața juriului):
@@ -287,8 +405,12 @@ export function SecurityProvider({ children }) {
     showToast(`Eveniment nou detectat prin WebSocket: ${newEvent.report.what}`);
   };
 
-  // C-10: Simulare cădere / reconectare WebSocket
+  // C-10: simulare doar în mock; în real WS-ul se reconectează singur.
   const toggleWsSimulation = () => {
+    if (!USE_MOCK) {
+      showToast('WebSocket-ul se reconectează automat; polling-ul rămâne activ până revine.');
+      return;
+    }
     if (isWsConnected) {
       setIsWsConnected(false);
       showToast('Simulare WS Căzut: Polling activat la 2s conform C-10.');

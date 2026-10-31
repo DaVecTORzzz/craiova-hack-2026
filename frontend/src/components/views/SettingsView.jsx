@@ -48,7 +48,7 @@ export default function SettingsView() {
             </div>
             <div className="flex justify-between py-1 border-b border-white/5">
               <span className="opacity-70">Model Computer Vision:</span>
-              <span className="font-bold text-indigo-400">YOLOv8x-Tarmac + ByteTrack</span>
+              <span className="font-bold text-indigo-400">YOLO26-Tarmac + ByteTrack</span>
             </div>
             <div className="flex justify-between py-1">
               <span className="opacity-70">Latență Procesare Cadru:</span>

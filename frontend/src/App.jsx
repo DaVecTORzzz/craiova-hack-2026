@@ -42,7 +42,7 @@ function MainAppLayout() {
       }}
       className="h-screen w-screen flex flex-col overflow-hidden antialiased selection:bg-indigo-500 selection:text-white"
     >
-      {/* 1. Header (Bara de Sus cu Brand SafeTarmac AI) */}
+      {/* 1. Header (Bara de Sus cu Brand SafeSight AI) */}
       <Header />
 
       {/* 2. Corp Principal (Sidebar Stânga + Conținut Activ din cele 6 Ecrane) */}

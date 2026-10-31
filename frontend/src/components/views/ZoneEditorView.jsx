@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { PenTool, Save, Trash2, Camera, Info, Shield, Layers, Code } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useSecurity } from '../../context/SecurityContext';
@@ -28,15 +28,33 @@ export default function ZoneEditorView() {
   const [jsonInput, setJsonInput] = useState(JSON.stringify(points, null, 2));
 
   // Parametri zonă conform Schemei din B (Decizie N13)
-  const [zoneId, setZoneId] = useState('zone_stand12_engine');
-  const [ruleType, setRuleType] = useState('RESTRICTED_ZONE');
+  const [zoneId, setZoneId] = useState('engine-left');
+  const [ruleType, setRuleType] = useState('RESTRICTED');
   const [activeWhen, setActiveWhen] = useState('engine_on');
   const [severity, setSeverity] = useState('CRITICAL');
   const [debounceSeconds, setDebounceSeconds] = useState(1.4);
-  const [notifyChannel, setNotifyChannel] = useState('slack_safety_ops');
+  const [notifyChannel, setNotifyChannel] = useState('slack');
   const [escalateAfterS, setEscalateAfterS] = useState(30);
 
   const canvasContainerRef = useRef(null);
+  const referenceFileRef = useRef(null);
+
+  const activeZone = zones.find((zone) => zone.zone_id === zoneId);
+
+  useEffect(() => {
+    const cameraZones = zones.filter((zone) => zone.camera_id === selectedCameraId);
+    const zone = cameraZones.find((item) => item.zone_id === 'engine-left') || cameraZones[0];
+    if (!zone) return;
+    setZoneId(zone.zone_id);
+    setPoints(zone.polygon || []);
+    setJsonInput(JSON.stringify(zone.polygon || [], null, 2));
+    setRuleType(zone.rule_type || 'RESTRICTED');
+    setActiveWhen(zone.active_when || 'always');
+    setSeverity(zone.severity || 'CRITICAL');
+    setDebounceSeconds(zone.debounce_s ?? 1);
+    setNotifyChannel(zone.notify_channel || 'slack');
+    setEscalateAfterS(zone.escalate_after_s ?? null);
+  }, [selectedCameraId, zones]);
 
   // Click pe canvas pentru adăugare punct
   const handleCanvasClick = (e) => {
@@ -88,13 +106,16 @@ export default function ZoneEditorView() {
     const zonePayload = {
       zone_id: zoneId,
       camera_id: activeCamera.id,
+      name: activeZone?.name || zoneId,
       rule_type: ruleType,
       active_when: activeWhen,
+      required_ppe: activeZone?.required_ppe || [],
       severity,
       debounce_s: Number(debounceSeconds),
-      notify_channel: notifyChannel,
-      escalate_after_s: escalateAfterS ? Number(escalateAfterS) : null,
-      polygon: points
+      notify_channel: 'slack',
+      escalate_after_s: escalateAfterS === null ? null : Number(escalateAfterS),
+      polygon: points,
+      reference_frame: activeZone?.reference_frame || null
     };
     saveZone(zoneId, zonePayload);
   };
@@ -123,12 +144,23 @@ export default function ZoneEditorView() {
             <Code size={14} /> Plan B (JSON)
           </button>
 
+          <input
+            ref={referenceFileRef}
+            type="file"
+            accept="image/jpeg"
+            className="hidden"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) captureReferenceFrame(zoneId, file);
+              event.target.value = '';
+            }}
+          />
           <button
-            onClick={() => captureReferenceFrame(activeCamera.id)}
+            onClick={() => referenceFileRef.current?.click()}
             className="px-3 py-1.5 rounded-lg bg-indigo-700 hover:bg-indigo-600 text-white font-mono text-xs font-bold flex items-center gap-1.5 shadow"
-            title="Salvează cadrul de referință curat pentru detecția FOD (Foreign Object Debris)"
+            title="Încarcă un JPEG deja blurat ca referință FOD"
           >
-            <Camera size={14} /> Capture Empty Frame (FOD)
+            <Camera size={14} /> Încarcă referință FOD
           </button>
         </div>
       </div>
@@ -167,13 +199,18 @@ export default function ZoneEditorView() {
             <div className={`w-full h-full absolute inset-0 bg-gradient-to-br ${activeCamera.previewBg} opacity-50`} />
 
             {/* SVG Poligon */}
-            <svg className="absolute inset-0 w-full h-full pointer-events-none">
+            <svg
+              viewBox="0 0 1000 1000"
+              preserveAspectRatio="none"
+              className="absolute inset-0 w-full h-full pointer-events-none"
+            >
               {points.length > 1 && (
                 <polygon
-                  points={points.map((p) => `${p.x * 100}%,${p.y * 100}%`).join(' ')}
+                  points={points.map((p) => `${p.x * 1000},${p.y * 1000}`).join(' ')}
                   fill="rgba(239, 68, 68, 0.25)"
                   stroke="#EF4444"
                   strokeWidth="2.5"
+                  vectorEffect="non-scaling-stroke"
                   strokeDasharray={isPolygonClosed ? 'none' : '6,4'}
                 />
               )}
@@ -256,10 +293,10 @@ export default function ZoneEditorView() {
               onChange={(e) => setRuleType(e.target.value)}
               className="w-full p-2 rounded bg-black/30 border border-white/20 text-xs text-white"
             >
-              <option value="RESTRICTED_ZONE">RESTRICTED_ZONE (Zonă Interzisă)</option>
-              <option value="PPE_VIOLATION">PPE_VIOLATION (Lipsă Antifoane / Vestă)</option>
-              <option value="FOD_DETECTED">FOD_DETECTED (Foreign Object Debris)</option>
-              <option value="UNATTENDED_BAGGAGE">UNATTENDED_BAGGAGE (Bagaj Abandonat)</option>
+              <option value="RESTRICTED">RESTRICTED (Zonă Interzisă)</option>
+              <option value="PPE_REQUIRED">PPE_REQUIRED (Echipament Obligatoriu)</option>
+              <option value="FOD_WATCH">FOD_WATCH (Foreign Object Debris)</option>
+              <option value="NO_SMOKING">NO_SMOKING (Fumat Interzis)</option>
             </select>
           </div>
 
@@ -272,7 +309,6 @@ export default function ZoneEditorView() {
             >
               <option value="engine_on">engine_on (Doar când motorul e pornit)</option>
               <option value="always">always (Permanent activă)</option>
-              <option value="night_only">night_only (Doar în tura de noapte)</option>
             </select>
           </div>
 
@@ -316,12 +352,13 @@ export default function ZoneEditorView() {
 
           <div>
             <label className="font-bold block mb-1">Canal Notificare:</label>
-            <input
-              type="text"
+            <select
               value={notifyChannel}
               onChange={(e) => setNotifyChannel(e.target.value)}
-              className="w-full p-2 rounded bg-black/30 border border-white/20 text-xs font-mono"
-            />
+              className="w-full p-2 rounded bg-black/30 border border-white/20 text-xs text-white font-mono"
+            >
+              <option value="slack">slack</option>
+            </select>
           </div>
 
           <div className="pt-2">

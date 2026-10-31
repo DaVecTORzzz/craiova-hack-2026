@@ -1,216 +1,314 @@
-import { INITIAL_CAMERAS, INITIAL_EVENTS, INITIAL_ZONES, INITIAL_KPIS, INITIAL_SHIFT_REPORT } from '../constants/mockData';
+import {
+  INITIAL_CAMERAS,
+  INITIAL_EVENTS,
+  INITIAL_ZONES,
+  INITIAL_KPIS,
+  INITIAL_SHIFT_REPORT,
+} from '../constants/mockData';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-const USE_MOCK = true; // Setează pe false când backend-ul FastAPI este activ
+const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/+$/, '');
+export const USE_MOCK = String(import.meta.env.VITE_USE_MOCK ?? 'false').toLowerCase() === 'true';
 
-export const safeTarmacApi = {
-  // 1. Camere
+const PALETTES = [
+  'from-blue-950 via-slate-900 to-indigo-950',
+  'from-zinc-900 to-neutral-800',
+  'from-slate-900 to-indigo-950',
+  'from-slate-900 to-purple-950',
+];
+
+const SHIFT_TO_API = {
+  shift_1: 'morning',
+  shift_2: 'afternoon',
+  shift_3: 'night',
+};
+
+const SHIFT_LABELS = {
+  morning: 'Tura 1 (Dimineață: 06:00 - 14:00)',
+  afternoon: 'Tura 2 (Prânz: 14:00 - 22:00)',
+  night: 'Tura 3 (Noapte: 22:00 - 06:00)',
+};
+
+const TYPE_LABELS = {
+  RESTRICTED_ZONE: 'Zonă restricționată',
+  NO_PPE: 'Echipament lipsă',
+  FOD: 'FOD',
+  SMOKING: 'Fumat',
+  CAMERA_OFFLINE: 'Cameră offline',
+};
+
+function apiPath(path) {
+  return `${API_BASE_URL}${path}`;
+}
+
+function queryString(params = {}) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      query.set(key, value);
+    }
+  });
+  const serialized = query.toString();
+  return serialized ? `?${serialized}` : '';
+}
+
+function resolveAsset(url) {
+  if (!url) return '';
+  if (/^https?:\/\//i.test(url) || url.startsWith('data:')) return url;
+  return `${API_BASE_URL}${url.startsWith('/') ? '' : '/'}${url}`;
+}
+
+async function http(path, options = {}) {
+  const headers = { ...(options.body ? (options.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }) : {}), ...(options.headers || {}) };
+  const response = await fetch(apiPath(path), { ...options, headers });
+  if (!response.ok) {
+    let detail = '';
+    try {
+      const payload = await response.json();
+      detail = payload.detail || JSON.stringify(payload);
+    } catch {
+      detail = await response.text();
+    }
+    throw new Error(`${response.status} ${detail || response.statusText}`);
+  }
+  return response.json();
+}
+
+function mapCamera(camera, index = 0) {
+  return {
+    ...camera,
+    status: camera.online ? 'online' : 'offline',
+    engine_on: Boolean(camera.engine_on),
+    zone: '',
+    fps: camera.online ? 30 : 0,
+    resolution: camera.online ? 'LIVE MJPEG' : 'SEMNAL PIERDUT',
+    previewBg: PALETTES[index % PALETTES.length],
+    boxes: [],
+    stream_url: `${API_BASE_URL}/stream/${encodeURIComponent(camera.id)}.mjpg`,
+  };
+}
+
+function mapEvent(event) {
+  return { ...event, snapshot_url: resolveAsset(event.snapshot_url) };
+}
+
+function mapZone(zone) {
+  return {
+    ...zone,
+    zone_id: zone.id,
+    polygon: (zone.polygon || []).map(([x, y]) => ({ x, y })),
+  };
+}
+
+function toZonePayload(zoneId, zoneData) {
+  return {
+    id: zoneId,
+    camera_id: zoneData.camera_id,
+    name: zoneData.name || zoneData.zone_id || zoneId,
+    rule_type: zoneData.rule_type,
+    active_when: zoneData.active_when,
+    required_ppe: zoneData.required_ppe || [],
+    severity: zoneData.severity,
+    debounce_s: Number(zoneData.debounce_s),
+    escalate_after_s: zoneData.escalate_after_s == null ? null : Number(zoneData.escalate_after_s),
+    notify_channel: 'slack',
+    polygon: (zoneData.polygon || []).map((point) => [Number(point.x), Number(point.y)]),
+    reference_frame: zoneData.reference_frame || null,
+  };
+}
+
+function mapKpi(kpi) {
+  return {
+    ppe_compliance_pct: kpi.ppe_compliance == null ? '—' : Math.round(kpi.ppe_compliance * 1000) / 10,
+    open_incidents_count: kpi.open_incidents,
+    detection_to_alert_latency_s: kpi.avg_detection_to_alert_s == null ? '—' : kpi.avg_detection_to_alert_s,
+    escalated_incidents_count: kpi.escalated,
+  };
+}
+
+function mapShiftReport(report) {
+  const byType = (report.by_type || []).map((row) => ({
+    type: row.type,
+    label: TYPE_LABELS[row.type] || row.type,
+    count: (row.critical || 0) + (row.warning || 0),
+  }));
+  const total = byType.reduce((sum, row) => sum + row.count, 0);
+  const critical = (report.by_type || []).reduce((sum, row) => sum + (row.critical || 0), 0);
+  const warning = (report.by_type || []).reduce((sum, row) => sum + (row.warning || 0), 0);
+  const ackValues = (report.by_zone || []).map((zone) => zone.avg_ack_s).filter((value) => value != null);
+  const avgAck = ackValues.length
+    ? Math.round(ackValues.reduce((sum, value) => sum + value, 0) / ackValues.length)
+    : null;
+
+  return {
+    shift: SHIFT_LABELS[report.shift] || report.shift,
+    date: report.date,
+    kpi: {
+      total_events: total,
+      critical_events: critical,
+      warning_events: warning,
+      avg_ack_time_s: avgAck == null ? '—' : avgAck,
+      ppe_compliance_pct: report.kpi?.ppe_compliance == null
+        ? '—'
+        : Math.round(report.kpi.ppe_compliance * 1000) / 10,
+    },
+    summary: report.summary,
+    by_type: byType,
+    by_zone: (report.by_zone || []).map((zone) => ({
+      zone: zone.zone_id,
+      critical: zone.critical,
+      warning: zone.warning,
+      avg_ack_s: zone.avg_ack_s == null ? '—' : zone.avg_ack_s,
+    })),
+    by_hour: (report.by_hour || []).map((row) => ({
+      hour: `${row.hour}:00`,
+      events: row.count,
+    })),
+  };
+}
+
+export const safeSightApi = {
   async getCameras() {
-    if (USE_MOCK) return Promise.resolve([...INITIAL_CAMERAS]);
-    const res = await fetch(`${API_BASE_URL}/cameras`);
-    return res.json();
+    if (USE_MOCK) return INITIAL_CAMERAS;
+    const cameras = await http('/cameras');
+    return cameras.map(mapCamera);
   },
 
   async setEngineState(cameraId, on) {
-    if (USE_MOCK) {
-      return Promise.resolve({ camera_id: cameraId, engine_on: on });
-    }
-    const res = await fetch(`${API_BASE_URL}/cameras/${cameraId}/engine`, {
+    if (USE_MOCK) return { camera_id: cameraId, engine_on: on };
+    const camera = await http(`/cameras/${encodeURIComponent(cameraId)}/engine`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ on })
+      body: JSON.stringify({ on }),
     });
-    return res.json();
+    return mapCamera(camera);
   },
 
-  // 2. Zone & Editor Poligoane
   async getZones(cameraId) {
     if (USE_MOCK) {
-      const filtered = cameraId
-        ? INITIAL_ZONES.filter((z) => z.camera_id === cameraId)
+      return cameraId
+        ? INITIAL_ZONES.filter((zone) => zone.camera_id === cameraId)
         : INITIAL_ZONES;
-      return Promise.resolve(filtered);
     }
-    const res = await fetch(`${API_BASE_URL}/zones?camera_id=${cameraId || ''}`);
-    return res.json();
+    const zones = await http(`/zones${queryString({ camera_id: cameraId })}`);
+    return zones.map(mapZone);
   },
 
   async saveZone(zoneId, zoneData) {
-    if (USE_MOCK) {
-      return Promise.resolve({ zone_id: zoneId, ...zoneData, saved: true });
-    }
-    const res = await fetch(`${API_BASE_URL}/zones/${zoneId}`, {
+    if (USE_MOCK) return { ...zoneData, zone_id: zoneId, saved: true };
+    const zone = await http(`/zones/${encodeURIComponent(zoneId)}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(zoneData)
+      body: JSON.stringify(toZonePayload(zoneId, zoneData)),
     });
-    return res.json();
+    return mapZone(zone);
   },
 
-  async captureReferenceFrame(cameraId) {
-    if (USE_MOCK) {
-      return Promise.resolve({
-        camera_id: cameraId,
-        captured_at: new Date().toISOString(),
-        reference_frame_url: `/reference_frames/${cameraId}_clean.jpg`
-      });
-    }
-    const res = await fetch(`${API_BASE_URL}/zones/reference-frame`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ camera_id: cameraId })
-    });
-    return res.json();
+  async captureReferenceFrame(zoneId, file) {
+    if (USE_MOCK) return { zone_id: zoneId, captured_at: new Date().toISOString() };
+    const form = new FormData();
+    form.append('zone_id', zoneId);
+    form.append('file', file);
+    const zone = await http('/zones/reference-frame', { method: 'POST', body: form });
+    return mapZone(zone);
   },
 
-  // 3. Evenimente & Incidente
   async getEvents({ status = '', severity = '', camera_id = '' } = {}) {
     if (USE_MOCK) {
       let filtered = [...INITIAL_EVENTS];
-      if (status && status !== 'all') {
-        filtered = filtered.filter((e) => e.status === status);
-      }
-      if (severity && severity !== 'all') {
-        filtered = filtered.filter((e) => e.severity === severity);
-      }
-      if (camera_id && camera_id !== 'all') {
-        filtered = filtered.filter((e) => e.camera_id === camera_id);
-      }
-      return Promise.resolve(filtered);
+      if (status && status !== 'all') filtered = filtered.filter((event) => event.status === status);
+      if (severity && severity !== 'all') filtered = filtered.filter((event) => event.severity === severity);
+      if (camera_id && camera_id !== 'all') filtered = filtered.filter((event) => event.camera_id === camera_id);
+      return filtered;
     }
-    const query = new URLSearchParams({ status, severity, camera_id }).toString();
-    const res = await fetch(`${API_BASE_URL}/events?${query}`);
-    return res.json();
+    const events = await http(`/events${queryString({ status, severity, camera_id, limit: 200 })}`);
+    return events.map(mapEvent);
   },
 
   async getEventById(eventId) {
-    if (USE_MOCK) {
-      const evt = INITIAL_EVENTS.find((e) => e.event_id === eventId);
-      return Promise.resolve(evt || null);
-    }
-    const res = await fetch(`${API_BASE_URL}/events/${eventId}`);
-    return res.json();
+    if (USE_MOCK) return INITIAL_EVENTS.find((event) => event.event_id === eventId) || null;
+    return mapEvent(await http(`/events/${encodeURIComponent(eventId)}`));
   },
 
   async acknowledgeEvent(eventId, operator = 'Ariana') {
-    if (USE_MOCK) {
-      return Promise.resolve({
-        event_id: eventId,
-        status: 'acknowledged',
-        acked_at: new Date().toISOString(),
-        acked_by: operator
-      });
-    }
-    const res = await fetch(`${API_BASE_URL}/events/${eventId}/ack`, {
+    if (USE_MOCK) return { event_id: eventId, status: 'acknowledged', acked_by: operator };
+    return mapEvent(await http(`/events/${encodeURIComponent(eventId)}/ack`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ operator })
-    });
-    return res.json();
+      body: JSON.stringify({ operator }),
+    }));
   },
 
   async markFalsePositive(eventId, operator = 'Ariana', note = '') {
-    if (USE_MOCK) {
-      return Promise.resolve({
-        event_id: eventId,
-        status: 'false_positive',
-        operator,
-        note
-      });
-    }
-    const res = await fetch(`${API_BASE_URL}/events/${eventId}/false-positive`, {
+    if (USE_MOCK) return { event_id: eventId, status: 'false_positive', note };
+    return mapEvent(await http(`/events/${encodeURIComponent(eventId)}/false-positive`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ operator, note })
-    });
-    return res.json();
+      body: JSON.stringify({ operator, note }),
+    }));
   },
 
   async reopenEvent(eventId, operator = 'Ariana') {
-    if (USE_MOCK) {
-      return Promise.resolve({
-        event_id: eventId,
-        status: 'open',
-        reopened_by: operator,
-        reopened_at: new Date().toISOString()
-      });
-    }
-    const res = await fetch(`${API_BASE_URL}/events/${eventId}/reopen`, {
+    if (USE_MOCK) return { event_id: eventId, status: 'open' };
+    return mapEvent(await http(`/events/${encodeURIComponent(eventId)}/reopen`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ operator })
-    });
-    return res.json();
+      body: JSON.stringify({ operator }),
+    }));
   },
 
   async regenerateReport(eventId) {
-    if (USE_MOCK) {
-      return Promise.resolve({
-        event_id: eventId,
-        regenerated: true,
-        report: {
-          what: "Raport actualizat: Risc confirmat la sol.",
-          where: "Stand 12.",
-          when: new Date().toLocaleTimeString('ro-RO'),
-          severity_reason: "Motor în funcțiune; procedură de siguranță activată.",
-          recommended_action: "Menține distanța de siguranță de 15m.",
-          source: "llm"
-        }
-      });
-    }
-    const res = await fetch(`${API_BASE_URL}/events/${eventId}/regenerate-report`, {
-      method: 'POST'
-    });
-    return res.json();
+    if (USE_MOCK) return { report: { source: 'llm' } };
+    return mapEvent(await http(`/events/${encodeURIComponent(eventId)}/regenerate-report`, { method: 'POST' }));
   },
 
-  // 4. KPI & Rapoarte
   async getKPIs(date = '', shift = '') {
-    if (USE_MOCK) return Promise.resolve({ ...INITIAL_KPIS });
-    const res = await fetch(`${API_BASE_URL}/kpi?date=${date}&shift=${shift}`);
-    return res.json();
+    if (USE_MOCK) return { ...INITIAL_KPIS };
+    return mapKpi(await http(`/kpi${queryString({ date, shift })}`));
   },
 
-  async getShiftReport(shift = '', date = '') {
-    if (USE_MOCK) return Promise.resolve({ ...INITIAL_SHIFT_REPORT });
-    const res = await fetch(`${API_BASE_URL}/reports?shift=${shift}&date=${date}`);
-    return res.json();
+  async getShiftReport(shift = 'morning', date = new Date().toISOString().slice(0, 10)) {
+    if (USE_MOCK) return { ...INITIAL_SHIFT_REPORT };
+    return mapShiftReport(await http(`/reports${queryString({ shift, date })}`));
   },
 
-  // 5. WebSocket & Polling Fallback
-  connectEventsSocket(onMessage, onError) {
+  connectEventsSocket(onMessage, onError, onOpen) {
     if (USE_MOCK) {
-      // Simulare WebSocket heartbeat
       const interval = setInterval(() => {
-        onMessage({
-          action: 'TELEMETRY_TICK',
-          kpi: {
-            ...INITIAL_KPIS,
-            detection_to_alert_latency_s: +(1.6 + Math.random() * 0.4).toFixed(1)
-          }
-        });
+        onMessage({ type: 'kpi.updated', data: { ...INITIAL_KPIS } });
       }, 4000);
       return () => clearInterval(interval);
     }
 
-    const wsUrl = `${API_BASE_URL.replace('http', 'ws')}/ws/events`;
-    let ws = new WebSocket(wsUrl);
+    const wsUrl = `${API_BASE_URL.replace(/^http/, 'ws')}/ws/events`;
+    let socket;
+    let stopped = false;
+    let retryTimer;
 
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        onMessage(data);
-      } catch (err) {
-        console.error('WS Parse Error', err);
-      }
+    const connect = () => {
+      socket = new WebSocket(wsUrl);
+      socket.onopen = () => onOpen?.();
+      socket.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          if (message?.data && (message.type === 'event.created' || message.type === 'event.updated')) {
+            message.data = mapEvent(message.data);
+          }
+          onMessage(message);
+        } catch (error) {
+          console.error('WS parse error', error);
+        }
+      };
+      socket.onerror = () => onError?.();
+      socket.onclose = () => {
+        onError?.();
+        if (!stopped) retryTimer = setTimeout(connect, 2000);
+      };
     };
 
-    ws.onerror = (err) => {
-      if (onError) onError(err);
-    };
-
+    connect();
     return () => {
-      if (ws.readyState === WebSocket.OPEN) ws.close();
+      stopped = true;
+      clearTimeout(retryTimer);
+      socket?.close();
     };
-  }
+  },
+
+  shiftToApi(shiftId) {
+    return SHIFT_TO_API[shiftId] || 'morning';
+  },
 };

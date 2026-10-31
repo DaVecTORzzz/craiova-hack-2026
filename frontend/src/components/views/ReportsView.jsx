@@ -31,7 +31,7 @@ export default function ReportsView() {
 
         {/* Buton Export PDF Placeholder [marcat DEMO conform PDF 5.2] */}
         <button
-          onClick={() => showToast('Export PDF generat: Raport_Tura_1_SafeTarmac.pdf [Placeholder Demo].')}
+          onClick={() => showToast('Export PDF generat: Raport_Tura_1_SafeSight.pdf [Placeholder Demo].')}
           className="px-3.5 py-2 rounded-lg bg-indigo-700 hover:bg-indigo-600 text-white font-bold text-xs flex items-center gap-2 shadow"
         >
           <FileDown size={15} /> Export PDF [Demo]
@@ -82,14 +82,18 @@ export default function ReportsView() {
           className="p-3.5 rounded-xl border shadow-sm space-y-1"
         >
           <p style={{ color: themeStyles.textMuted }} className="text-xs font-semibold">Timp Mediu Confirmare (Ack)</p>
-          <p className="text-2xl font-black font-mono text-indigo-400">{shiftReport.kpi.avg_ack_time_s} sec</p>
+          <p className="text-2xl font-black font-mono text-indigo-400">
+            {shiftReport.kpi.avg_ack_time_s === '—' ? '—' : `${shiftReport.kpi.avg_ack_time_s} sec`}
+          </p>
         </div>
         <div
           style={{ backgroundColor: themeStyles.panelBg, borderColor: themeStyles.panelBorder }}
           className="p-3.5 rounded-xl border shadow-sm space-y-1"
         >
           <p style={{ color: themeStyles.textMuted }} className="text-xs font-semibold">Conformitate PPE Tură</p>
-          <p className="text-2xl font-black font-mono text-emerald-400">{shiftReport.kpi.ppe_compliance_pct}%</p>
+          <p className="text-2xl font-black font-mono text-emerald-400">
+            {shiftReport.kpi.ppe_compliance_pct === '—' ? '—' : `${shiftReport.kpi.ppe_compliance_pct}%`}
+          </p>
         </div>
       </div>
 
@@ -127,7 +131,7 @@ export default function ReportsView() {
                 </div>
                 <div className="w-full h-2 rounded-full bg-black/30 overflow-hidden">
                   <div
-                    style={{ width: `${(t.count / shiftReport.kpi.total_events) * 100}%` }}
+                    style={{ width: `${(t.count / Math.max(shiftReport.kpi.total_events, 1)) * 100}%` }}
                     className="bg-indigo-500 h-full rounded-full"
                   />
                 </div>

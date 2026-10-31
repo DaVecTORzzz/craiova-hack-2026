@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     app_base_url: str = "http://localhost:5173"  # used to build the incident link in Slack
     use_mock: bool = False
     mock_interval_s: float = 5.0
-    cors_origins: str = "http://localhost:5173,http://localhost:3000"
+    cors_origins: str = "http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173,http://localhost:4173,http://127.0.0.1:4173"
     ppe_observations_per_shift: int = 200   # see OPEN QUESTION Q3
     seed_demo_events: bool = False          # true = insert past events so the shift report is not empty
 
