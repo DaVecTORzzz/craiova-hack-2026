@@ -50,10 +50,20 @@ export default function LiveView() {
   }, [activeCamera?.id]);
 
   const isOffline = activeCamera?.status === 'offline';
-  const demoClip = import.meta.env.VITE_DEMO_CLIP;
-  const demoCamera = import.meta.env.VITE_DEMO_CAMERA;
-  const demoCameraLabel = cameras.find((camera) => camera.id === demoCamera)?.code || demoCamera;
-  const noLiveForCamera = Boolean(demoCamera && activeCamera?.id && activeCamera.id !== demoCamera);
+  // dev.py demo: VITE_DEMO_CAMERA = "stand12,taxiway-b", VITE_DEMO_CLIP = "stand12=clip.mp4,taxiway-b=..."
+  // (a single plain value from older launchers still works).
+  const demoCameras = (import.meta.env.VITE_DEMO_CAMERA || '').split(',').map((id) => id.trim()).filter(Boolean);
+  const demoClipEntries = (import.meta.env.VITE_DEMO_CLIP || '').split(',').map((item) => item.trim()).filter(Boolean);
+  const demoClipFor = (cameraId) => {
+    const match = demoClipEntries.find((item) => item.startsWith(`${cameraId}=`));
+    if (match) return match.slice(cameraId.length + 1);
+    return demoClipEntries.length === 1 && !demoClipEntries[0].includes('=') ? demoClipEntries[0] : null;
+  };
+  const demoClip = activeCamera?.id ? demoClipFor(activeCamera.id) : null;
+  const demoCameraLabel = demoCameras
+    .map((id) => cameras.find((camera) => camera.id === id)?.code || id)
+    .join(', ');
+  const noLiveForCamera = Boolean(demoCameras.length && activeCamera?.id && !demoCameras.includes(activeCamera.id));
   const showStream = Boolean(activeCamera?.stream_url && !streamFailed && !isOffline && !noLiveForCamera);
   const edgeSeen = health?.edge_last_seen_s;
   const edgeActive = Boolean(health?.db && edgeSeen != null && edgeSeen < 60);
@@ -248,34 +258,39 @@ export default function LiveView() {
             style={{ backgroundColor: themeStyles.panelBg, borderColor: themeStyles.panelBorder }}
             className="p-2 rounded-xl border shadow-sm flex items-center justify-between gap-2 shrink-0 flex-wrap"
           >
-            {/* Butoane Camere */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
-              {(cameras || []).map((c) => {
-                const isSelected = c.id === selectedCameraId;
-                return (
-                  <button
-                    key={c.id}
-                    onClick={() => setSelectedCameraId(c.id)}
-                    style={{
-                      backgroundColor: isSelected ? '#7EDEED' : 'transparent',
-                      color: isSelected ? '#1F1F1F' : (isDarkMode ? '#F5F5F5' : '#1F1F1F')
-                    }}
-                    className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all shrink-0 flex items-center gap-1.5 ${
-                      isSelected
-                        ? 'border-[#7EDEED] shadow-sm font-bold'
-                        : 'border-white/10 hover:bg-white/5'
-                    } ${c.status === 'offline' ? 'opacity-65' : ''}`}
-                  >
-                    <span
-                      className={`w-2 h-2 rounded-full ${
-                        c.status === 'offline' ? 'bg-[#D73833]' : 'bg-emerald-500'
-                      }`}
-                    />
-                    <span>{c.code || c.id}</span>
-                  </button>
-                );
-              })}
-            </div>
+            {/* Selector cameră */}
+            <label className="flex items-center gap-2 min-w-0">
+              <span
+                className={`w-2 h-2 rounded-full shrink-0 ${
+                  activeCamera?.status === 'offline' ? 'bg-[#D73833]' : 'bg-emerald-500'
+                }`}
+              />
+              <span style={{ color: themeStyles.textMuted }} className="text-[11px] font-semibold shrink-0">
+                Cameră
+              </span>
+              <select
+                value={selectedCameraId || ''}
+                onChange={(event) => setSelectedCameraId(event.target.value)}
+                style={{
+                  backgroundColor: themeStyles.panelBg,
+                  borderColor: themeStyles.panelBorder,
+                  color: isDarkMode ? '#F5F5F5' : '#1F1F1F'
+                }}
+                className="min-w-0 max-w-[16rem] px-2 py-1.5 rounded-lg text-xs font-semibold border focus:outline-none focus:ring-2 focus:ring-[#7EDEED]"
+                aria-label="Alege camera"
+              >
+                {(cameras || []).map((c) => {
+                  const offline = c.status === 'offline';
+                  const live = !demoCameras.length || demoCameras.includes(c.id);
+                  const suffix = offline ? ' • offline' : live ? '' : ' • fără feed în demo';
+                  return (
+                    <option key={c.id} value={c.id}>
+                      {(c.code || c.id) + (c.name && c.name !== (c.code || c.id) ? ` — ${c.name}` : '') + suffix}
+                    </option>
+                  );
+                })}
+              </select>
+            </label>
 
             {/* Butoane Mod Vizualizare */}
             <div className="flex items-center gap-1.5">
@@ -348,7 +363,7 @@ export default function LiveView() {
                       {activeCamera?.code || activeCamera?.id} nu are feed live în demo
                     </p>
                     <p className="text-slate-300 text-xs mt-1">
-                      Edge-ul rulează pe {demoCameraLabel}. Alege camera respectivă sau pornește un al doilea edge.
+                      Edge-ul rulează pe {demoCameraLabel}. Alege una dintre ele din meniul Cameră.
                     </p>
                   </div>
                 ) : showStream ? (

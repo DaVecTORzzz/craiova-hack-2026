@@ -28,6 +28,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
 
@@ -430,19 +431,49 @@ def run_all(args: argparse.Namespace) -> int:
     return run_servers([("backend", backend), ("frontend", frontend)])
 
 
+@dataclass(frozen=True)
+class DemoFeed:
+    camera_id: str
+    clip: Path
+    zones: str  # relative to ml/
+
+
+VIDEOS = ROOT / "data" / "videos"
+# One clip per seeded camera. The clips are handheld, so each zone is drawn on the clip's
+# first frame and follows the ground with --align-reference.
+DEMO_FEEDS = (
+    DemoFeed("stand12", DEFAULT_CLIP, "fixtures/zones.stand12.json"),
+    DemoFeed("taxiway-b", VIDEOS / "2026-10-30_broll_cam01_marshaller-conuri-apron.mp4", "fixtures/zones/broll-cam01.json"),
+    DemoFeed("baggage-area", VIDEOS / "2026-10-30_broll_cam02_avion-la-poarta-bagaje.mp4", "fixtures/zones/broll-cam02.json"),
+)
+
+
+def demo_feeds(args: argparse.Namespace) -> list[DemoFeed]:
+    """--clip/--rtsp keep the single-camera demo; otherwise every camera gets its clip."""
+    if args.clip or args.rtsp:
+        clip = Path(args.clip).expanduser().resolve() if args.clip else DEFAULT_CLIP
+        return [DemoFeed(args.camera_id, clip, "fixtures/zones.stand12.json")]
+    wanted = [item.strip() for item in args.cameras.split(",") if item.strip()]
+    known = {feed.camera_id: feed for feed in DEMO_FEEDS}
+    unknown = [camera for camera in wanted if camera not in known]
+    if unknown:
+        fail(f"camere necunoscute în --cameras: {', '.join(unknown)} (există: {', '.join(known)})")
+    return [known[camera] for camera in wanted]
+
+
 def run_demo(args: argparse.Namespace) -> int:
     ensure_ports(args, backend=True, frontend=True)
-    clip = Path(args.clip).expanduser().resolve() if args.clip else DEFAULT_CLIP
-    source = args.rtsp or str(clip)
+    feeds = demo_feeds(args)
     token = resolve_edge_token(args.edge_token)
     live_dir = resolve_snapshot_dir() / "live"
+    runnable = [feed for feed in feeds if args.rtsp or feed.clip.is_file()]
     env = app_env(
         mock=args.mock,
         api_url=api_url(args),
         frontend_url=web_url(args),
         frontend_port=args.frontend_port,
-        demo_clip=clip.name if not args.rtsp and clip.is_file() else None,
-        demo_camera=args.camera_id,
+        demo_clip=",".join(f"{feed.camera_id}={feed.clip.name}" for feed in runnable) if not args.rtsp else None,
+        demo_camera=",".join(feed.camera_id for feed in runnable) or None,
     )
     env["EDGE_TOKEN"] = token
     backend = popen(backend_command(args), cwd=BACKEND, env=env)
@@ -454,70 +485,72 @@ def run_demo(args: argparse.Namespace) -> int:
             stop(backend)
             return 1
         if not args.mock and not args.no_ml:
-            enable_demo_engine(api_url(args), args.camera_id)
+            for feed in runnable:
+                enable_demo_engine(api_url(args), feed.camera_id)
         frontend = popen(frontend_command(args), cwd=FRONTEND, env=env)
     except BaseException:
         stop(backend)
         raise
-    ml_process: subprocess.Popen | None = None
+    edges: list[subprocess.Popen] = []
     processes: list[tuple[str, subprocess.Popen]] = [("backend", backend), ("frontend", frontend)]
     try:
         print(f"Frontend: {web_url(args)}")
-        if args.rtsp:
-            print(f"Edge:     {mask_url(args.rtsp)}")
-        else:
-            print(f"Clip:     {clip}")
-            if not args.mock and not args.no_ml and clip.is_file():
-                print(f"Edge:     {clip.name}")
+        for feed in feeds:
+            source = mask_url(args.rtsp) if args.rtsp else feed.clip.name
+            print(f"Edge:     {feed.camera_id} <- {source}")
         print()
 
         if args.mock:
             print("Mod mock: backend-ul emite evenimente false; edge-ul nu pornește.")
         elif args.no_ml:
             print("Edge-ul nu pornește (--no-ml).")
-        elif not args.rtsp and not clip.is_file():
-            print(f"Clipul lipsește: {clip}", file=sys.stderr)
-            print("UI-ul rămâne pornit. Folosește backend/scripts/demo_event.py pentru fallback.", file=sys.stderr)
         elif not FACE_MODEL.is_file():
             print("Modelul YuNet lipsește. Rulează: python scripts/dev.py setup", file=sys.stderr)
         else:
-            ml_command = command(
-                "uv",
-                [
-                    "run",
-                    "python",
-                    "-m",
-                    "safesight_ml.run",
-                    "--source",
-                    source,
-                    "--zones",
-                    "fixtures/zones.stand12.json",
-                    "--camera-id",
-                    args.camera_id,
-                    "--engine-on",
-                    "--loop",
-                    "--post",
-                    "--api-url",
-                    api_url(args),
-                    "--edge-token",
-                    token,
-                    "--live-dir",
-                    str(live_dir),
-                    # The clip camera pans; the zone follows the ground from its first frame.
-                    # Not for RTSP: the published clip may differ and the zone would stay unknown.
-                    *([] if args.rtsp else ["--align-reference", str(clip)]),
-                ],
-            )
-            # Clipul rulează în buclă; RTSP rulează continuu. Serverele rămân pornite.
-            print(f"Sursă edge: {mask_url(args.rtsp) if args.rtsp else clip}")
-            shown = [mask_url(part) if part == source else part for part in ml_command]
-            ml_process = popen(ml_command, cwd=ML, env=base_env(), shown=shown)
+            for feed in feeds:
+                if not args.rtsp and not feed.clip.is_file():
+                    print(f"Clipul lipsește pentru {feed.camera_id}: {feed.clip}", file=sys.stderr)
+                    continue
+                source = args.rtsp or str(feed.clip)
+                ml_command = command(
+                    "uv",
+                    [
+                        "run",
+                        "python",
+                        "-m",
+                        "safesight_ml.run",
+                        "--source",
+                        source,
+                        "--zones",
+                        feed.zones,
+                        "--camera-id",
+                        feed.camera_id,
+                        "--engine-on",
+                        "--loop",
+                        "--post",
+                        "--api-url",
+                        api_url(args),
+                        "--edge-token",
+                        token,
+                        "--live-dir",
+                        str(live_dir),
+                        # The clip camera pans; the zone follows the ground from its first frame.
+                        # Not for RTSP: the published clip may differ and the zone would stay unknown.
+                        *([] if args.rtsp else ["--align-reference", str(feed.clip)]),
+                    ],
+                )
+                shown = [mask_url(part) if part == source else part for part in ml_command]
+                shown = ["***" if previous == "--edge-token" else part for previous, part in zip(["", *shown], shown)]
+                edges.append(popen(ml_command, cwd=ML, env=base_env(), shown=shown))
+            if not edges:
+                print("Niciun edge pornit. Folosește backend/scripts/demo_event.py pentru fallback.", file=sys.stderr)
 
+        # Clipurile rulează în buclă; RTSP rulează continuu. Serverele rămân pornite.
         print("Ctrl-C pentru oprire.\n")
         return run_servers(processes)
     finally:
-        if ml_process is not None:
-            stop(ml_process)
+        for edge in edges:
+            stop(edge)
         stop(backend)
         if frontend is not None:
             stop(frontend)
@@ -555,12 +588,17 @@ def build_parser() -> argparse.ArgumentParser:
     add_common(p_all)
     p_all.set_defaults(func=run_all)
 
-    p_demo = sub.add_parser("demo", help="backend + frontend + un run real pe clip")
+    p_demo = sub.add_parser("demo", help="backend + frontend + câte un edge pe fiecare cameră demo")
     add_common(p_demo)
     source = p_demo.add_mutually_exclusive_group()
     source.add_argument("--clip", type=Path, help="clip local folosit de edge (implicit cam01)")
     source.add_argument("--rtsp", type=rtsp_url, help="flux RTSP, ex. rtsp://127.0.0.1:8554/stand12")
-    p_demo.add_argument("--camera-id", default="stand12", help="camera din backend pentru live frame")
+    p_demo.add_argument("--camera-id", default="stand12", help="cu --clip/--rtsp: camera din backend pentru live frame")
+    p_demo.add_argument(
+        "--cameras",
+        default=",".join(feed.camera_id for feed in DEMO_FEEDS),
+        help="fără --clip/--rtsp: camerele pornite, separate prin virgulă",
+    )
     p_demo.add_argument("--no-ml", action="store_true", help="nu porni edge-ul")
     p_demo.add_argument("--edge-token", default=None, help="token edge; implicit EDGE_TOKEN din mediu sau .env")
     p_demo.set_defaults(func=run_demo)
