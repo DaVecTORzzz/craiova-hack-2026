@@ -22,16 +22,37 @@ function loadOperatorName() {
   }
 }
 
-// The Slack alert links to {APP_BASE_URL}/incidents/{event_id}; open that incident.
-function incidentIdFromUrl() {
-  try {
-    const match = window.location.pathname.match(/^\/incidents\/([^/]+)\/?$/);
-    return match ? decodeURIComponent(match[1]) : null;
-  } catch {
-    return null;
-  }
+// Every screen has an address, so a refresh, Back/Forward and shared links keep the place.
+// The Slack alert links to {APP_BASE_URL}/incidents/{event_id}.
+const VIEW_PATHS = {
+  live: '/',
+  incidents: '/incidents',
+  zones: '/zones',
+  reports: '/reports',
+  settings: '/settings',
+};
+
+function routeFromPath(pathname) {
+  const path = pathname.replace(/\/+$/, '') || '/';
+  const incident = path.match(/^\/incidents\/([^/]+)$/);
+  if (incident) return { view: 'incident_detail', eventId: decodeURIComponent(incident[1]) };
+  const view = Object.keys(VIEW_PATHS).find((key) => VIEW_PATHS[key] === path);
+  return { view: view || 'live', eventId: null };
 }
-const LINKED_INCIDENT_ID = incidentIdFromUrl();
+
+function pathFor(view, eventId) {
+  if (view === 'incident_detail') return eventId ? `/incidents/${encodeURIComponent(eventId)}` : VIEW_PATHS.incidents;
+  return VIEW_PATHS[view] || '/';
+}
+
+const INITIAL_ROUTE = (() => {
+  try {
+    return routeFromPath(window.location.pathname);
+  } catch {
+    return { view: 'live', eventId: null };
+  }
+})();
+const LINKED_INCIDENT_ID = INITIAL_ROUTE.eventId;
 
 const EMPTY_KPIS = {
   ppe_compliance_pct: '—',
@@ -59,7 +80,7 @@ const EMPTY_SHIFT_REPORT = {
 export function SecurityProvider({ children }) {
   // 1. Navigare Ecrane (Conform 03_C_frontend.pdf):
   // 'live' | 'incident_detail' | 'zones' | 'reports' | 'settings'
-  const [currentView, setCurrentView] = useState(LINKED_INCIDENT_ID ? 'incident_detail' : 'live');
+  const [currentView, setCurrentView] = useState(INITIAL_ROUTE.view);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   // 2. Operator & autentificare simplă: selector de rol + nume afișat editabil.
@@ -98,6 +119,22 @@ export function SecurityProvider({ children }) {
   // 4. Evenimente & Incidente
   const [events, setEvents] = useState(USE_MOCK ? INITIAL_EVENTS : []);
   const [selectedEventId, setSelectedEventId] = useState(LINKED_INCIDENT_ID || (USE_MOCK ? 'evt_stand12_1730284933120_17' : null));
+  // Screen -> address (a new history entry per screen or incident) and Back/Forward -> screen.
+  useEffect(() => {
+    const path = pathFor(currentView, selectedEventId);
+    if (window.location.pathname !== path) window.history.pushState(null, '', path);
+  }, [currentView, selectedEventId]);
+
+  useEffect(() => {
+    const onPopState = () => {
+      const route = routeFromPath(window.location.pathname);
+      if (route.eventId) setSelectedEventId(route.eventId);
+      setCurrentView(route.view);
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
+
   const [filterMode, setFilterMode] = useState('open'); // 'open' | 'critical' | 'all'
   const [searchQuery, setSearchQuery] = useState('');
 
