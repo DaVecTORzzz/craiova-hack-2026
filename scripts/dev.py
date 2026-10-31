@@ -112,7 +112,13 @@ def resolve_snapshot_dir() -> Path:
 
 
 def app_env(
-    *, mock: bool, api_url: str, frontend_url: str, frontend_port: int, demo_clip: str | None = None
+    *,
+    mock: bool,
+    api_url: str,
+    frontend_url: str,
+    frontend_port: int,
+    demo_clip: str | None = None,
+    demo_camera: str | None = None,
 ) -> dict[str, str]:
     env = base_env()
     env["USE_MOCK"] = "true" if mock else "false"
@@ -122,6 +128,8 @@ def app_env(
     env["VITE_USE_MOCK"] = "false"
     if demo_clip:
         env["VITE_DEMO_CLIP"] = demo_clip
+    if demo_camera:
+        env["VITE_DEMO_CAMERA"] = demo_camera
     if frontend_port != 5173:
         origins = f"http://localhost:{frontend_port},http://127.0.0.1:{frontend_port}"
         existing = env.get("CORS_ORIGINS") or dotenv_value("CORS_ORIGINS")
@@ -381,6 +389,7 @@ def run_demo(args: argparse.Namespace) -> int:
         frontend_url=web_url(args),
         frontend_port=args.frontend_port,
         demo_clip=clip.name if clip.is_file() else None,
+        demo_camera=args.camera_id,
     )
     env["EDGE_TOKEN"] = token
     backend = popen(backend_command(args), cwd=BACKEND, env=env)
@@ -428,8 +437,9 @@ def run_demo(args: argparse.Namespace) -> int:
                     "--zones",
                     "fixtures/zones.stand12.json",
                     "--camera-id",
-                    "stand12",
+                    args.camera_id,
                     "--engine-on",
+                    "--loop",
                     "--post",
                     "--api-url",
                     api_url(args),
@@ -481,6 +491,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_demo = sub.add_parser("demo", help="backend + frontend + un run real pe clip")
     add_common(p_demo)
     p_demo.add_argument("--clip", type=Path, help="clipul folosit de edge")
+    p_demo.add_argument("--camera-id", default="stand12", help="camera din backend pentru live frame")
     p_demo.add_argument("--no-ml", action="store_true", help="nu porni edge-ul")
     p_demo.add_argument("--edge-token", default=None, help="token edge; implicit EDGE_TOKEN din mediu sau .env")
     p_demo.set_defaults(func=run_demo)
