@@ -66,3 +66,17 @@ def test_main_returns_error_for_missing_or_empty_directories(tmp_path, capsys):
     empty.mkdir()
     assert privacy_audit.main(["--dir", str(empty)]) == 2
     assert "no images found" in capsys.readouterr().out
+
+def test_main_returns_error_for_unreadable_image(tmp_path, monkeypatch, capsys):
+    class FakeBlurrer:
+        def __init__(self, *_args, **_kwargs):
+            pass
+
+        def detect_faces(self, _image):
+            return []
+
+    monkeypatch.setattr(privacy_audit, "FaceBlurrer", FakeBlurrer)
+    (tmp_path / "broken.jpg").write_bytes(b"not a jpeg")
+
+    assert privacy_audit.main(["--dir", str(tmp_path)]) == 2
+    assert "unreadable image" in capsys.readouterr().out

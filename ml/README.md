@@ -152,4 +152,4 @@ fixtures/
 - rata de falsuri alarme, măsurată pe 50–100 evenimente;
 - reconectare automată la căderea fluxului RTSP (acum procesul se oprește la primul `read()` eșuat).
 
-Verificare: `uv run pytest` (35 teste) și `uv run python -m safesight_ml.run --fake --engine-on --dry-run`. Cifrele reale sunt în [`docs/benchmark.md`](docs/benchmark.md).
+Verificare: `uv run pytest` (36 teste) și `uv run python -m safesight_ml.run --fake --engine-on --dry-run`. Cifrele reale sunt în [`docs/benchmark.md`](docs/benchmark.md).
