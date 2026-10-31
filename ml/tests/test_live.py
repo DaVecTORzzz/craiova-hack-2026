@@ -216,3 +216,39 @@ def test_async_live_writer_blurs_a_frame_with_faces_found_after_it(tmp_path):
     # Frame 1 had no face of its own pass; it is blurred with the face found in frame 2.
     assert value == 1
     assert out[40:60, 40:60].mean() < 128 < frames[0][40:60, 40:60].mean()
+
+
+def test_live_writer_renders_only_while_the_camera_is_watched(tmp_path):
+    import os
+    import time
+
+    from safesight_ml.live import AsyncLiveWriter
+
+    watch = tmp_path / "stand12.watch"
+    writer = AsyncLiveWriter(LiveFrameWriter(tmp_path, "stand12"), faces=None, watch_path=watch, watch_ttl_s=1.0)
+    frame = np.zeros((90, 160, 3), dtype=np.uint8)
+    rendered = []
+
+    def render(blurrer):
+        rendered.append(1)
+        return frame
+
+    writer.submit(frame, render)  # nobody watches: ignored
+    time.sleep(0.1)
+    assert rendered == []
+
+    watch.touch()
+    writer._watch_checked = 0.0  # skip the twice-a-second check interval in the test
+    writer.submit(frame, render)
+    deadline = time.time() + 2
+    while not rendered and time.time() < deadline:
+        time.sleep(0.02)
+    assert rendered == [1]
+
+    old = time.time() - 10
+    os.utime(watch, (old, old))  # the viewer left
+    writer._watch_checked = 0.0
+    writer.submit(frame, render)
+    time.sleep(0.1)
+    writer.close()
+    assert rendered == [1]
