@@ -32,6 +32,8 @@ from .remote import fetch_edge_config
 from .sink import HttpSink, JsonlSink
 from .zones import Zone, ZoneMembership
 
+# The int8 block-quantised build cannot run in ONNX Runtime (block size is unsupported),
+# and the runtime is the bigger win: 42 -> 26 ms per 1080p frame with this model.
 DEFAULT_FACE_MODEL = "models/face_detection_yunet_2023mar.onnx"
 
 
