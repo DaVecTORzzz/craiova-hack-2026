@@ -22,6 +22,17 @@ function loadOperatorName() {
   }
 }
 
+// The Slack alert links to {APP_BASE_URL}/incidents/{event_id}; open that incident.
+function incidentIdFromUrl() {
+  try {
+    const match = window.location.pathname.match(/^\/incidents\/([^/]+)\/?$/);
+    return match ? decodeURIComponent(match[1]) : null;
+  } catch {
+    return null;
+  }
+}
+const LINKED_INCIDENT_ID = incidentIdFromUrl();
+
 const EMPTY_KPIS = {
   ppe_compliance_pct: '—',
   open_incidents_count: 0,
@@ -48,7 +59,7 @@ const EMPTY_SHIFT_REPORT = {
 export function SecurityProvider({ children }) {
   // 1. Navigare Ecrane (Conform 03_C_frontend.pdf):
   // 'live' | 'incident_detail' | 'zones' | 'reports' | 'settings'
-  const [currentView, setCurrentView] = useState('live');
+  const [currentView, setCurrentView] = useState(LINKED_INCIDENT_ID ? 'incident_detail' : 'live');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   // 2. Operator & autentificare simplă: selector de rol + nume afișat editabil.
@@ -86,7 +97,7 @@ export function SecurityProvider({ children }) {
 
   // 4. Evenimente & Incidente
   const [events, setEvents] = useState(USE_MOCK ? INITIAL_EVENTS : []);
-  const [selectedEventId, setSelectedEventId] = useState(USE_MOCK ? 'evt_stand12_1730284933120_17' : null);
+  const [selectedEventId, setSelectedEventId] = useState(LINKED_INCIDENT_ID || (USE_MOCK ? 'evt_stand12_1730284933120_17' : null));
   const [filterMode, setFilterMode] = useState('open'); // 'open' | 'critical' | 'all'
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -220,8 +231,24 @@ export function SecurityProvider({ children }) {
 
   // Evenimentul selectat pentru detaliu
   const selectedEvent = useMemo(() => {
-    return events.find((e) => e.event_id === selectedEventId) || events[0] || (USE_MOCK ? INITIAL_EVENTS[0] : null);
+    // A requested id that is not loaded yet shows nothing rather than another incident.
+    if (selectedEventId) return events.find((e) => e.event_id === selectedEventId) || null;
+    return events[0] || (USE_MOCK ? INITIAL_EVENTS[0] : null);
   }, [events, selectedEventId]);
+
+  // A Slack link can point to an incident older than the loaded list: fetch it by id.
+  useEffect(() => {
+    if (USE_MOCK || !LINKED_INCIDENT_ID || !events.length) return;
+    if (events.some((e) => e.event_id === LINKED_INCIDENT_ID)) return;
+    let cancelled = false;
+    safeSightApi
+      .getEventById(LINKED_INCIDENT_ID)
+      .then((event) => {
+        if (!cancelled && event) setEvents((prev) => (prev.some((e) => e.event_id === event.event_id) ? prev : [event, ...prev]));
+      })
+      .catch(() => { if (!cancelled) showToast('Incidentul din link nu a fost găsit.'); });
+    return () => { cancelled = true; };
+  }, [events.length > 0]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Filtrarea evenimentelor pentru Feed-ul din Live (Deschise, Doar critice, Toate azi)
   const filteredEvents = useMemo(() => {

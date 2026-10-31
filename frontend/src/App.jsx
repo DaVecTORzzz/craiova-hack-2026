@@ -5,6 +5,7 @@ import Header from './components/layout/Header';
 import Sidebar from './components/layout/Sidebar';
 import LiveView from './components/views/LiveView';
 import IncidentDetailView from './components/views/IncidentDetailView';
+import IncidentsListView from './components/views/IncidentsListView';
 import ZoneEditorView from './components/views/ZoneEditorView';
 import ReportsView from './components/views/ReportsView';
 import SettingsView from './components/views/SettingsView';
@@ -16,6 +17,8 @@ function MainAppLayout() {
 
   const renderActiveView = () => {
     switch (currentView) {
+      case 'incidents':
+        return <IncidentsListView />;
       case 'incident_detail':
         return <IncidentDetailView />;
       case 'zones':

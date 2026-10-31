@@ -38,9 +38,11 @@ export default function Sidebar() {
       badge: kpis?.open_incidents_count > 0 ? kpis.open_incidents_count : null
     },
     {
-      id: 'incident_detail',
+      id: 'incidents',
       label: 'Incidente & XAI',
-      subtitle: 'Dovadă & Cronologie',
+      subtitle: 'Istoric, dovadă & raport',
+      // The detail page belongs to this entry.
+      also: ['incident_detail'],
       icon: AlertOctagon,
       badge: kpis?.escalated_incidents_count > 0 ? 'ESC' : null,
       badgeCritical: true
@@ -86,7 +88,7 @@ export default function Sidebar() {
 
           {menuItems.map((item) => {
             const Icon = item.icon;
-            const isActive = currentView === item.id;
+            const isActive = currentView === item.id || Boolean(item.also?.includes(currentView));
 
             return (
               <button
