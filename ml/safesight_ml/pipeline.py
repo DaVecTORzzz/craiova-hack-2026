@@ -52,6 +52,9 @@ class Pipeline:
         self.video_writer = video_writer
         self.frame_index = 0
         self._alert: tuple[str, float] | None = None
+        # False while a looped clip replays a pass too soon after the last alert: the
+        # live view keeps updating, but no new event is raised.
+        self.emit_events = True
         self.vests = VestTracker()
 
     def set_config(self, zones: list[Zone], engine_on: bool) -> None:
@@ -85,7 +88,7 @@ class Pipeline:
 
         emitted: list[EdgeEvent] = []
 
-        for detection in detections:
+        for detection in detections if self.emit_events else ():
             foot = detection.foot_point
             for zone in self.zones:
                 if zone.rule_type not in EVENT_TYPE_BY_RULE:

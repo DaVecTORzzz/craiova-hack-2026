@@ -71,6 +71,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--out", default="out")
     parser.add_argument("--max-frames", type=int, default=0, help="0 = all frames")
     parser.add_argument("--loop", action="store_true", help="restart a file source at EOF")
+    parser.add_argument(
+        "--loop-cooldown-s",
+        type=float,
+        default=60.0,
+        help="with --loop, a replayed pass raises events only if the last event is at least this old",
+    )
     parser.add_argument("--duration-s", type=float, default=0.0, help="stop after wall-clock seconds; 0 = no limit")
     parser.add_argument("--fps", type=float, default=0.0, help="override source FPS")
     parser.add_argument("--engine-on", dest="engine_on", action="store_true", default=None)
@@ -163,7 +169,12 @@ def main(argv: list[str] | None = None) -> int:
     total = 0
     event_rows: list[dict] = []
 
+    last_event_at: float | None = None
+
     def record_events(emitted: list[EdgeEvent]) -> None:
+        nonlocal last_event_at
+        if emitted:
+            last_event_at = time.monotonic()
         for event in emitted:
             event_rows.append(
                 {
@@ -206,6 +217,11 @@ def main(argv: list[str] | None = None) -> int:
                 if not ok:
                     if args.loop and not str(args.source).lower().startswith(("rtsp://", "http://", "https://")):
                         capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                        # Each pass replays the same scene; without this the demo raises
+                        # (and notifies) the same incident every few seconds.
+                        pipeline.emit_events = (
+                            last_event_at is None or time.monotonic() - last_event_at >= args.loop_cooldown_s
+                        )
                         continue
                     break
                 try:
