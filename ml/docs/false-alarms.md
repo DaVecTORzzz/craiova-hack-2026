@@ -8,6 +8,7 @@ Data: 31 octombrie 2026. Nu este o rată de falsuri; este inventarul complet al 
 - `fixtures/zones.stand12.json`, `engine_on=true`, dry-run;
 - evenimentele au fost extrase din `metrics.json` (`event_details`);
 - fiecare snapshot blurat a fost verificat vizual: persoana este în zona configurată.
+- TP = persoană prezentă în zona configurată; `cam02` nu are poligon calibrat propriu, deci eticheta nu validează geometria pe acea cameră.
 
 ## Rezultat
 
@@ -29,6 +30,6 @@ Data: 31 octombrie 2026. Nu este o rată de falsuri; este inventarul complet al 
 
 ## Interpretare
 
-- Pe eșantionul de 5 evenimente nu au apărut false pozitive.
+- Pe eșantionul de 5 evenimente nu au apărut false pozitive; toate cele 5 au persoană în zona configurată.
 - Eșantionul este prea mic pentru o rată de falsuri credibilă; pentru 50–100 evenimente sunt necesare clipuri independente.
 - Nu raporta „0% falsuri” în pitch. Spune: „5/5 evenimente reale confirmate pe cele două clipuri; rata de falsuri rămâne de măsurat.”

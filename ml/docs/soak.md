@@ -25,7 +25,7 @@ Rulat pe 31 octombrie 2026, pe laptopul de demo (AMD Ryzen 7 7840HS, 16 threads,
 
 ## Cum se citește
 
-Clipul se reia la nesfârșit, iar pipeline-ul produce aceleași 2 evenimente la fiecare buclă. **64 nu înseamnă 64 de evenimente independente**; sunt aproximativ 32 de bucle × 2 evenimente. Pentru un soak de stabilitate e ok, pentru rata de falsuri nu.
+Clipul se reia la nesfârșit, iar pipeline-ul produce aceleași evenimente la fiecare reluare. **64 nu înseamnă 64 de evenimente independente**; sunt peste 30 de reluări ale aceluiași clip, cu 2 evenimente pe reluare. Pentru un soak de stabilitate e ok, pentru rata de falsuri nu.
 
 ## Comanda
 
