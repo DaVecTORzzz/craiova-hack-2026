@@ -70,6 +70,7 @@ python scripts/dev.py fallback --snapshot /path/to/already-blurred.jpg
 ## Ce vezi după fiecare comandă
 
 - `python scripts/dev.py demo` — UI + API + edge pe clipul implicit, în buclă; ar trebui să vezi feed-ul MJPEG, sursa demo și evenimente în Live. Frontend-ul pornește doar după ce `/health` răspunde.
+- Pe un clip, `demo` pornește edge-ul cu `--align-reference <clip>`: zona e desenată pe primul cadru și urmărește camera când clipul se rotește sau face zoom (detalii în `ml/README.md`, „Zone pe fiecare clip”). Pe `--rtsp` alinierea e oprită.
 - `demo` rulează **o singură cameră** (implicit `stand12`). Dacă schimbi pe CAM-02/CAM-03, UI-ul îți spune explicit că acea cameră nu are feed live în demo; nu îți arată un cadru gol fără explicație. Pentru altă cameră: `python scripts/dev.py demo --camera-id <id>`, cu un clip potrivit.
 - `python scripts/dev.py all` — doar UI + API. Vezi camerele și starea Edge, dar fără cadre live; banner-ul îți spune să pornești `demo` sau edge-ul.
 - `python scripts/dev.py backend` / `frontend` — doar procesul respectiv, pentru debug.

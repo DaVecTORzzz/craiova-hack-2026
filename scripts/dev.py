@@ -503,6 +503,9 @@ def run_demo(args: argparse.Namespace) -> int:
                     token,
                     "--live-dir",
                     str(live_dir),
+                    # The clip camera pans; the zone follows the ground from its first frame.
+                    # Not for RTSP: the published clip may differ and the zone would stay unknown.
+                    *([] if args.rtsp else ["--align-reference", str(clip)]),
                 ],
             )
             # Clipul rulează în buclă; RTSP rulează continuu. Serverele rămân pornite.

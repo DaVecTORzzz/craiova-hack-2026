@@ -67,6 +67,41 @@ Cu `--loop`, clipul se reia la final, iar cadrul live se actualizează continuu.
 
 `--remote-config` ia zonele și `engine_on` din `GET /edge/zones` și le reîmprospătează la 30 s. Dacă backend-ul nu răspunde, folosește `fixtures/zones.stand12.json` și flag-ul `--engine-on`. Pentru `--remote-config`, zona din backend trebuie să aibă poligonul calibrat; altfel folosește `--zones`.
 
+## Zone pe fiecare clip, cu camera în mișcare
+
+Clipurile din `data/videos/` sunt filmate cu telefonul: camera se rotește, se înclină și face zoom (pe `cam01` ~19% din lățime, pe `broll_cam02` ~40% din înălțime). Un poligon fix ajunge pe alt asfalt după câteva secunde. Cu `--align-reference`, zona se desenează o dată pe primul cadru al clipului și apoi urmărește solul: la fiecare `--align-every` cadre (implicit 5), cadrul curent se potrivește cu cel de referință (ORB + RANSAC, doar OpenCV) și poligonul se mută odată cu imaginea. Dacă potrivirea eșuează, zona e „necunoscută”: nu se emite nimic, iar bara de stare arată `ZONA NEALINIATA`.
+
+Fiecare clip are zona lui în `fixtures/zones/`, pe una dintre camerele din seed (contractul nu se schimbă). `id`-ul zonei este cel din seed pentru camera respectivă (`engine-left`, `taxiway-b`, `baggage-area`), pentru că `POST /edge/events` respinge cu 404 un `zone_id` necunoscut; diferă doar poligonul și `name`:
+
+| Clip | Fișier | `camera_id` | Zona desenată |
+|---|---|---|---|
+| `restricted-zone_cam01` | `restricted-cam01.json` | `stand12` | motorul stâng până la roata din față (același poligon ca `zones.stand12.json`) |
+| `restricted-zone_cam02` | `restricted-cam02.json` | `stand12` | bara de tractare și trenul din față |
+| `broll_cam01` | `broll-cam01.json` | `taxiway-b` | sub vârful aripii |
+| `broll_cam02` | `broll-cam02.json` | `baggage-area` | în fața prizei motorului drept |
+| `broll_cam03` | `broll-cam03.json` | `stand12` | sub aripa stângă, lângă motor |
+| `broll_cam04` | `broll-cam04.json` | `taxiway-b` | banda de rulare |
+
+```bash
+CLIP=../data/videos/2026-10-30_restricted-zone_cam02_lucratori-pushback-motor..mp4
+uv run python -m safesight_ml.run --source "$CLIP" --align-reference "$CLIP" \
+  --zones fixtures/zones/restricted-cam02.json --camera-id stand12 --engine-on --dry-run
+```
+
+Pentru RTSP, `--source` e fluxul, iar `--align-reference` rămâne clipul publicat (sau o imagine cu primul cadru).
+
+Desenare și verificare zonă:
+
+```bash
+# click pe colțuri pe primul cadru, Enter afișează poligonul JSON (are nevoie de ecran)
+uv run python -m safesight_ml.calibrate draw --source "$CLIP"
+# zona aliniată pe 6 cadre din tot clipul, blurat, într-o singură imagine
+uv run python -m safesight_ml.calibrate preview --source "$CLIP" \
+  --zones fixtures/zones/restricted-cam02.json --out out/calib/cam02.jpg
+```
+
+Rezultat pe 31 octombrie 2026 (toate clipurile întregi, dry-run, `--engine-on`): alinierea nu s-a pierdut pe niciun clip și costă 5–17 ms la fiecare al 5-lea cadru. Pe `broll_cam02`, poligonul fix ajungea după zoom peste banda de bagaje și alerta pe șoferul ei (fals); cu aliniere, zona rămâne în fața motorului și alerta e pe persoana care intră acolo. Pe `restricted-cam02`, alinierea prinde în plus lucrătorul aplecat la bara de tractare. Pe celelalte clipuri evenimentele sunt aceleași. Poligoanele de B-roll sunt propuse de noi și trebuie validate de echipă pe preview.
+
 ## RTSP real, pentru demo
 
 Pornește un server RTSP local (o singură dată; imaginea se descarcă prima dată):
@@ -162,10 +197,14 @@ safesight_ml/
   ppe.py       # scor de vestă reflectorizantă după culoare (doar afișare)
   pipeline.py  # cadru -> detecții -> reguli -> eveniment
   remote.py    # GET /edge/zones (zone + engine_on)
+  align.py     # zona urmărește camera care se mișcă (ORB + omografie față de cadrul de referință)
+  calibrate.py # desenare poligon și preview cu zona aliniată
+  capture.py   # pe RTSP/HTTP, mereu cel mai nou cadru
   run.py       # CLI
 fixtures/
   zones.json          # zona engine-left din contract
   zones.stand12.json  # poligon calibrat pe clipul real
+  zones/              # o zonă per clip, desenată pe primul cadru
 ```
 
 ## Reguli
