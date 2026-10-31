@@ -22,6 +22,7 @@ import argparse
 import os
 import shutil
 import signal
+import socket
 import subprocess
 import sys
 import time
@@ -267,8 +268,28 @@ def backend_command(args: argparse.Namespace) -> list[str]:
 def frontend_command(args: argparse.Namespace) -> list[str]:
     return command(
         "npm",
-        ["run", "dev", "--", "--host", args.host, "--port", str(args.frontend_port)],
+        ["run", "dev", "--", "--host", args.host, "--port", str(args.frontend_port), "--strictPort"],
     )
+
+
+def port_in_use(host: str, port: int) -> bool:
+    probe = "127.0.0.1" if host in ("0.0.0.0", "::") else host
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.settimeout(0.3)
+        return sock.connect_ex((probe, port)) == 0
+
+
+def ensure_ports(args: argparse.Namespace, *, backend: bool = False, frontend: bool = False) -> None:
+    if backend and port_in_use(args.host, args.backend_port):
+        fail(
+            f"portul backend {args.backend_port} este deja folosit. "
+            "Oprește procesul vechi sau folosește --backend-port <alt port>."
+        )
+    if frontend and port_in_use(args.host, args.frontend_port):
+        fail(
+            f"portul frontend {args.frontend_port} este deja folosit. "
+            "Oprește procesul vechi sau folosește --frontend-port <alt port>."
+        )
 
 
 def api_url(args: argparse.Namespace) -> str:
@@ -325,11 +346,13 @@ def check() -> None:
 
 
 def run_backend(args: argparse.Namespace) -> int:
+    ensure_ports(args, backend=True)
     env = app_env(mock=args.mock, api_url=api_url(args), frontend_url=web_url(args), frontend_port=args.frontend_port)
     return subprocess.run(backend_command(args), cwd=BACKEND, env=env).returncode
 
 
 def run_frontend(args: argparse.Namespace) -> int:
+    ensure_ports(args, frontend=True)
     env = app_env(mock=args.mock, api_url=api_url(args), frontend_url=web_url(args), frontend_port=args.frontend_port)
     return subprocess.run(frontend_command(args), cwd=FRONTEND, env=env).returncode
 
@@ -389,6 +412,7 @@ def run_servers(processes: list[tuple[str, subprocess.Popen]]) -> int:
 
 
 def run_all(args: argparse.Namespace) -> int:
+    ensure_ports(args, backend=True, frontend=True)
     env = app_env(mock=args.mock, api_url=api_url(args), frontend_url=web_url(args), frontend_port=args.frontend_port)
     backend = popen(backend_command(args), cwd=BACKEND, env=env)
     try:
@@ -407,6 +431,7 @@ def run_all(args: argparse.Namespace) -> int:
 
 
 def run_demo(args: argparse.Namespace) -> int:
+    ensure_ports(args, backend=True, frontend=True)
     clip = Path(args.clip).expanduser().resolve() if args.clip else DEFAULT_CLIP
     source = args.rtsp or str(clip)
     token = resolve_edge_token(args.edge_token)

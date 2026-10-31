@@ -125,6 +125,8 @@ sau direct `python3 scripts/dev.py ...`.
 python scripts/dev.py all --backend-port 8000 --frontend-port 5173
 ```
 
+Dacă un port este deja ocupat, launcher-ul se oprește cu mesaj clar; nu mai pornește Vite pe 5174 în silențiu. Oprește procesul vechi sau folosește `--backend-port` / `--frontend-port`.
+
 `.env` la rădăcină este opțional; backend-ul are default-uri sigure. Pentru Slack, Groq sau alte chei:
 
 ```bash
