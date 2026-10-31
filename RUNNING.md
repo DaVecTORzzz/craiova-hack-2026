@@ -51,6 +51,19 @@ python scripts/dev.py demo --mock           # backend mock, fără model
 python scripts/dev.py demo --clip data/videos/<clip>.mp4
 ```
 
+## Fallback demo
+
+Dacă edge-ul, clipul sau modelul pică, backend-ul poate primi un eveniment demo prin aceleași rute edge. Backend-ul trebuie să ruleze deja.
+
+```bash
+python scripts/dev.py fallback
+python scripts/dev.py fallback --type FOD --no-engine
+python scripts/dev.py fallback --type NO_PPE
+python scripts/dev.py fallback --snapshot /path/to/already-blurred.jpg
+```
+
+`--snapshot` trebuie să fie un JPEG **deja blurat**. Nu folosi cadrele din `data/reference_frames/` — acelea conțin fețe neblurate. Scriptul folosește tokenul din `.env`/mediu și API-ul de pe `localhost:8000`; `--api-url` și `--backend-port` sunt disponibile pentru alt port.
+
 ## Pornire pe bucăți
 
 ```bash
