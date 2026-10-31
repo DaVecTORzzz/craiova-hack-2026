@@ -5,6 +5,8 @@ Works on Linux, macOS and Windows with Python 3.12+.
 
     python scripts/dev.py setup          # install backend, ML and frontend deps
     python scripts/dev.py demo           # backend + frontend + one real clip run
+    python scripts/dev.py demo --clip ../data/videos/<clip>.mp4
+    python scripts/dev.py demo --rtsp rtsp://127.0.0.1:8554/stand12
     python scripts/dev.py all            # backend + frontend only
     python scripts/dev.py backend        # one process
     python scripts/dev.py frontend       # one process
@@ -26,6 +28,21 @@ import time
 import urllib.error
 import urllib.request
 from pathlib import Path
+from urllib.parse import urlsplit, urlunsplit
+
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+    for extra_path in [
+        r"C:\Users\PC\AppData\Local\Programs\nodejs",
+        r"C:\Program Files\nodejs",
+        str(Path.home() / "AppData" / "Local" / "Programs" / "nodejs"),
+    ]:
+        if os.path.isdir(extra_path) and extra_path not in os.environ.get("PATH", ""):
+            os.environ["PATH"] = extra_path + os.pathsep + os.environ.get("PATH", "")
 
 ROOT = Path(__file__).resolve().parent.parent
 BACKEND = ROOT / "backend"
@@ -139,8 +156,18 @@ def app_env(
     return env
 
 
-def popen(parts: list[str], *, cwd: Path, env: dict[str, str]) -> subprocess.Popen:
-    print_command(parts)
+def mask_url(url: str) -> str:
+    """Hide RTSP credentials and query tokens in anything printed."""
+    parsed = urlsplit(url)
+    host = parsed.hostname or ""
+    if parsed.port:
+        host = f"{host}:{parsed.port}"
+    auth = "***@" if parsed.username or parsed.password else ""
+    return urlunsplit((parsed.scheme, f"{auth}{host}", parsed.path, "", ""))
+
+
+def popen(parts: list[str], *, cwd: Path, env: dict[str, str], shown: list[str] | None = None) -> subprocess.Popen:
+    print_command(shown or parts)
     kwargs: dict[str, object] = {
         "cwd": str(cwd),
         "env": env,
@@ -381,6 +408,7 @@ def run_all(args: argparse.Namespace) -> int:
 
 def run_demo(args: argparse.Namespace) -> int:
     clip = Path(args.clip).expanduser().resolve() if args.clip else DEFAULT_CLIP
+    source = args.rtsp or str(clip)
     token = resolve_edge_token(args.edge_token)
     live_dir = resolve_snapshot_dir() / "live"
     env = app_env(
@@ -388,7 +416,7 @@ def run_demo(args: argparse.Namespace) -> int:
         api_url=api_url(args),
         frontend_url=web_url(args),
         frontend_port=args.frontend_port,
-        demo_clip=clip.name if clip.is_file() else None,
+        demo_clip=clip.name if not args.rtsp and clip.is_file() else None,
         demo_camera=args.camera_id,
     )
     env["EDGE_TOKEN"] = token
@@ -401,7 +429,7 @@ def run_demo(args: argparse.Namespace) -> int:
             stop(backend)
             return 1
         if not args.mock and not args.no_ml:
-            enable_demo_engine(api_url(args))
+            enable_demo_engine(api_url(args), args.camera_id)
         frontend = popen(frontend_command(args), cwd=FRONTEND, env=env)
     except BaseException:
         stop(backend)
@@ -410,16 +438,19 @@ def run_demo(args: argparse.Namespace) -> int:
     processes: list[tuple[str, subprocess.Popen]] = [("backend", backend), ("frontend", frontend)]
     try:
         print(f"Frontend: {web_url(args)}")
-        print(f"Clip:     {clip}")
-        if not args.mock and not args.no_ml and clip.is_file():
-            print(f"Edge:     {clip.name}")
+        if args.rtsp:
+            print(f"Edge:     {mask_url(args.rtsp)}")
+        else:
+            print(f"Clip:     {clip}")
+            if not args.mock and not args.no_ml and clip.is_file():
+                print(f"Edge:     {clip.name}")
         print()
 
         if args.mock:
             print("Mod mock: backend-ul emite evenimente false; edge-ul nu pornește.")
         elif args.no_ml:
             print("Edge-ul nu pornește (--no-ml).")
-        elif not clip.is_file():
+        elif not args.rtsp and not clip.is_file():
             print(f"Clipul lipsește: {clip}", file=sys.stderr)
             print("UI-ul rămâne pornit. Folosește backend/scripts/demo_event.py pentru fallback.", file=sys.stderr)
         elif not FACE_MODEL.is_file():
@@ -433,7 +464,7 @@ def run_demo(args: argparse.Namespace) -> int:
                     "-m",
                     "safesight_ml.run",
                     "--source",
-                    str(clip),
+                    source,
                     "--zones",
                     "fixtures/zones.stand12.json",
                     "--camera-id",
@@ -449,8 +480,10 @@ def run_demo(args: argparse.Namespace) -> int:
                     str(live_dir),
                 ],
             )
-            # Edge-ul procesează clipul și se oprește; serverele rămân pornite.
-            ml_process = popen(ml_command, cwd=ML, env=base_env())
+            # Clipul rulează în buclă; RTSP rulează continuu. Serverele rămân pornite.
+            print(f"Sursă edge: {mask_url(args.rtsp) if args.rtsp else clip}")
+            shown = [mask_url(part) if part == source else part for part in ml_command]
+            ml_process = popen(ml_command, cwd=ML, env=base_env(), shown=shown)
 
         print("Ctrl-C pentru oprire.\n")
         return run_servers(processes)
@@ -460,6 +493,12 @@ def run_demo(args: argparse.Namespace) -> int:
         stop(backend)
         if frontend is not None:
             stop(frontend)
+
+
+def rtsp_url(value: str) -> str:
+    if urlsplit(value).scheme not in ("rtsp", "rtsps"):
+        raise argparse.ArgumentTypeError("trebuie să înceapă cu rtsp:// sau rtsps://")
+    return value
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -490,7 +529,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_demo = sub.add_parser("demo", help="backend + frontend + un run real pe clip")
     add_common(p_demo)
-    p_demo.add_argument("--clip", type=Path, help="clipul folosit de edge")
+    source = p_demo.add_mutually_exclusive_group()
+    source.add_argument("--clip", type=Path, help="clip local folosit de edge (implicit cam01)")
+    source.add_argument("--rtsp", type=rtsp_url, help="flux RTSP, ex. rtsp://127.0.0.1:8554/stand12")
     p_demo.add_argument("--camera-id", default="stand12", help="camera din backend pentru live frame")
     p_demo.add_argument("--no-ml", action="store_true", help="nu porni edge-ul")
     p_demo.add_argument("--edge-token", default=None, help="token edge; implicit EDGE_TOKEN din mediu sau .env")

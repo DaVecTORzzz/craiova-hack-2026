@@ -110,7 +110,7 @@ export default function MobileAlertsView() {
             {activeEvent.status === 'open' && (
               <div className="p-2 rounded-lg bg-red-950/70 border border-red-500/50 flex items-center justify-between text-xs">
                 <span className="text-red-300 font-bold flex items-center gap-1">
-                  <Clock size={13} /> Timp până la escaladare:
+                  <Clock size={13} /> Timp până la escaladare (estimat demo):
                 </span>
                 <span className="font-mono font-black text-red-400">00:{countdown.toString().padStart(2, '0')}s</span>
               </div>

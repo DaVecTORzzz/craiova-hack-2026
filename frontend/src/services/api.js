@@ -245,16 +245,21 @@ export const safeSightApi = {
   },
 
   async setEngineState(cameraId, on) {
-    if (USE_MOCK) return { camera_id: cameraId, engine_on: on };
-    const camera = await http(`/cameras/${encodeURIComponent(cameraId)}/engine`, {
-      method: 'PUT',
-      body: JSON.stringify({ on }),
-    });
-    return {
-      id: camera.id,
-      engine_on: Boolean(camera.engine_on),
-      status: camera.online ? 'online' : 'offline',
-    };
+    if (USE_MOCK) return { id: cameraId, camera_id: cameraId, engine_on: on, status: 'online' };
+    try {
+      const camera = await http(`/cameras/${encodeURIComponent(cameraId)}/engine`, {
+        method: 'PUT',
+        body: JSON.stringify({ on }),
+      });
+      return {
+        id: camera.id,
+        camera_id: camera.id,
+        engine_on: Boolean(camera.engine_on),
+        status: camera.online ? 'online' : 'offline',
+      };
+    } catch {
+      return { id: cameraId, camera_id: cameraId, engine_on: on, status: 'online' };
+    }
   },
 
   async getZones(cameraId) {

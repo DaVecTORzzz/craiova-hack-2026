@@ -10,7 +10,9 @@ import numpy as np
 
 from .detector import Detector
 from .events import Confidence, EdgeEvent, EventContext, TemporalConfidence
-from .live import LiveFrameWriter
+from .live import AnnotatedVideoWriter, LiveFrameWriter
+from .overlay import draw_alert, draw_overlay, zone_active
+from .ppe import VestTracker, hivis_ratio
 from .privacy import Blurrer
 from .sink import Sink
 from .zones import RuleEngine, Zone, point_in_polygon
@@ -18,6 +20,7 @@ from .zones import RuleEngine, Zone, point_in_polygon
 EVENT_TYPE_BY_RULE = {
     "RESTRICTED": "RESTRICTED_ZONE",
 }
+ALERT_BANNER_S = 2.0
 
 
 class Pipeline:
@@ -34,6 +37,7 @@ class Pipeline:
         rules: RuleEngine | None = None,
         clock: Callable[[], float] | None = None,
         live_writer: LiveFrameWriter | None = None,
+        video_writer: AnnotatedVideoWriter | None = None,
     ) -> None:
         self.camera_id = camera_id
         self.zones = [zone for zone in zones if zone.camera_id == camera_id]
@@ -45,7 +49,10 @@ class Pipeline:
         self.rules = rules or RuleEngine()
         self.clock = clock
         self.live_writer = live_writer
+        self.video_writer = video_writer
         self.frame_index = 0
+        self._alert: tuple[str, float] | None = None
+        self.vests = VestTracker()
 
     def set_config(self, zones: list[Zone], engine_on: bool) -> None:
         self.zones = [zone for zone in zones if zone.camera_id == self.camera_id]
@@ -55,9 +62,25 @@ class Pipeline:
         self.rules.prune(now_s)
         detections = self.detector.detect(frame, self.frame_index)
         boxes = [item.bbox for item in detections]
+        inside = {
+            item.track_id
+            for item in detections
+            for zone in self.zones
+            if zone.rule_type in EVENT_TYPE_BY_RULE
+            and zone_active(zone, self.engine_on)
+            and point_in_polygon(item.foot_point, zone.polygon)
+        }
+        # Colour is read from the raw frame, before blur; it never leaves this process.
+        vest = {item.track_id: self.vests.update(item.track_id, hivis_ratio(frame, item.bbox)) for item in detections}
         live_frame: np.ndarray | None = None
+
+        def annotated() -> np.ndarray:
+            # Blur first: the overlay must never hide or replace the privacy step.
+            blurred = self.blurrer.blur(frame, boxes)
+            return draw_overlay(blurred, self.zones, detections, inside, self.engine_on, vest)
+
         if self.live_writer is not None and self.live_writer.due():
-            live_frame = self.blurrer.blur(frame, boxes)
+            live_frame = annotated()
             self.live_writer.write(live_frame)
 
         emitted: list[EdgeEvent] = []
@@ -82,8 +105,9 @@ class Pipeline:
                 detected_at = datetime.fromtimestamp(event_epoch, tz=UTC)
                 event_id = f"evt_{self.camera_id}_{int(event_epoch * 1000)}_{detection.track_id}"
 
-                blurred = live_frame if live_frame is not None else self.blurrer.blur(frame, boxes)
-                snapshot_url = self.sink.store_snapshot(event_id, blurred)
+                if live_frame is None:
+                    live_frame = annotated()
+                snapshot_url = self.sink.store_snapshot(event_id, live_frame)
 
                 event = EdgeEvent(
                     event_id=event_id,
@@ -107,6 +131,15 @@ class Pipeline:
                 )
                 self.sink.emit(event)
                 emitted.append(event)
+
+        if self.video_writer is not None:
+            out = live_frame if live_frame is not None else annotated()
+            if emitted:
+                last = emitted[-1]
+                self._alert = (f"ALERTA {last.type} | {last.zone_id} | persoana #{last.track_id}", now_s)
+            if self._alert is not None and now_s - self._alert[1] <= ALERT_BANNER_S:
+                out = draw_alert(out, self._alert[0])
+            self.video_writer.write(out)
 
         self.frame_index += 1
         return emitted

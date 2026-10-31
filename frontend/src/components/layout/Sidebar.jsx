@@ -110,9 +110,9 @@ export default function Sidebar() {
       style={{
         backgroundColor: isDarkMode ? '#141A28' : '#FFFFFF',
         borderColor: isDarkMode ? 'rgba(255, 255, 255, 0.08)' : '#E2E8F0',
-        width: isSidebarCollapsed ? '4.25rem' : '16rem'
+        width: isSidebarCollapsed ? '0px' : '15rem'
       }}
-      className="flex flex-col justify-between border-r transition-all duration-300 z-20 select-none shadow-md shrink-0 h-full overflow-hidden"
+      className={`flex flex-col justify-between border-r transition-all duration-300 z-20 select-none shadow-md shrink-0 h-full overflow-hidden ${isSidebarCollapsed ? "border-r-0" : ""}`}
     >
       {/* Zona de Sus: Meniu Principal & Lista Categorisită de Feed-uri */}
       <div className="flex-1 py-3 px-2 space-y-4 overflow-y-auto overflow-x-hidden">
@@ -261,5 +261,6 @@ export default function Sidebar() {
         </button>
       </div>
     </aside>
+
   );
 }

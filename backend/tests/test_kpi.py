@@ -97,7 +97,7 @@ def test_b12_shift_report_aggregates(client, monkeypatch):
         {"hour": "09", "count": 1},
         {"hour": "10", "count": 1},
     ]
-    assert data["summary"] == "Tura morning din 2026-07-15: 5 evenimente, 2 deschise, 1 escaladate."
+    assert data["summary"] == "Tura de dimineață din 2026-07-15: 5 evenimente, 2 deschise, 1 escaladate."
 
 
 def test_shift_report_uses_automation_summary(client, monkeypatch):

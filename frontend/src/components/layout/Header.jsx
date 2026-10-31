@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Shield, Search, Moon, Sun, Wifi, WifiOff, RefreshCw, Zap, Bell, ChevronDown, Check, UserCheck } from 'lucide-react';
+import { Menu, Shield, Search, Moon, Sun, Wifi, WifiOff, RefreshCw, Zap, Bell, ChevronDown, Check, UserCheck } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useSecurity } from '../../context/SecurityContext';
 import { USE_MOCK } from '../../services/api';
@@ -9,7 +9,10 @@ export default function Header() {
   const {
     searchQuery,
     setSearchQuery,
+    isSidebarCollapsed,
+    setIsSidebarCollapsed,
     isWsConnected,
+    isReconnecting,
     activeOperator,
     availableOperators,
     switchOperator,
@@ -41,8 +44,16 @@ export default function Header() {
       className="h-16 px-4 md:px-6 flex items-center justify-between border-b shadow-md z-30 sticky top-0 shrink-0 select-none transition-colors"
     >
       {/* 1. Brand & Titlu SafeSight */}
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md border border-white/20">
+      <div className="flex items-center gap-2.5">
+        <button
+          onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+          className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center justify-center shrink-0"
+          title={isSidebarCollapsed ? "Deschide meniu navigare" : "Restrânge meniu navigare"}
+          aria-label="Comută meniu navigare"
+        >
+          <Menu size={18} />
+        </button>
+        <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md border border-white/20 shrink-0">
           <Shield size={22} className="text-white" />
         </div>
         <div>
@@ -57,14 +68,14 @@ export default function Header() {
 
       {/* 2. Banner Conexiune Edge (C-10) */}
       {!isWsConnected && (
-        <div className="hidden lg:flex items-center gap-2 px-3 py-1 bg-red-600 text-white rounded-lg text-xs font-bold shadow-md animate-pulse">
+        <div className="hidden lg:flex items-center gap-2 px-3 py-1 bg-[#D73833] text-white rounded-lg text-xs font-bold shadow-md animate-pulse">
           <WifiOff size={14} />
           <span>Semnal Edge Pierdut (Polling activat)</span>
           <button
             onClick={toggleWsSimulation}
             className="ml-2 px-2 py-0.5 bg-black/40 hover:bg-black/60 rounded text-[10px] flex items-center gap-1 font-mono"
           >
-            <RefreshCw size={11} /> Reconectează
+            <RefreshCw size={11} className={isReconnecting ? "animate-spin" : ""} /> {isReconnecting ? "Se reconectează..." : "Reconectează"}
           </button>
         </div>
       )}

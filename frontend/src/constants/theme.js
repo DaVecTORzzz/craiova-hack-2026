@@ -1,38 +1,39 @@
 // SafeSight - Design System & Tokeni Oficiali
-// Conform cerințelor de semnalizare industrială și autoritate aeroportuară
+// Conform cerințelor de semnalizare industrială și paletei Coolors oficiale:
+// Carbon Black (#1F1F1F), Scarlet Rush (#D73833), Bright Lemon (#FFEB33), Frosted Blue (#7EDEED), White Smoke (#F5F5F5)
 
 export const THEME_CONFIG = {
   // Paleta Dark Mode (Veritabil Dark Mode pentru consolă de control aeroportuar)
   dark: {
-    appBg: '#121212',           // Gri antracit profund / aproape negru
-    panelBg: '#1A1F2C',         // Panou neutru profund cu contrast ridicat
-    panelBorder: 'rgba(255, 255, 255, 0.09)',
-    navBg: '#0A1128',           // Bleumarin autoritar foarte închis pentru Header & Sidebar
-    navBorder: 'rgba(255, 255, 255, 0.1)',
-    accentColor: '#1976D2',     // Albastru industrial / acțiuni obligatorii
+    appBg: '#1F1F1F',           // Carbon Black oficial Coolors
+    panelBg: '#272727',         // Panou neutru profund cu contrast ridicat
+    panelBorder: 'rgba(255, 255, 255, 0.10)',
+    navBg: '#141414',           // Antracit profund / bleumarin autoritar foarte închis
+    navBorder: 'rgba(255, 255, 255, 0.12)',
+    accentColor: '#1976D2',     // Albastru industrial
     accentHover: '#1565C0',
     textColor: '#F8FAFC',       // Contrast WCAG > 7:1
-    textMuted: '#94A3B8',       // Gri neutru lizibil
-    cardBg: '#1E2433',          // Fundal carduri neutru
-    cardHover: '#262D40',
-    inputBg: '#0F172A',
-    badgeBg: 'rgba(25, 118, 210, 0.25)',
+    textMuted: '#A3A3A3',       // Gri neutru lizibil
+    cardBg: '#2A2A2A',          // Fundal carduri neutru
+    cardHover: '#333333',
+    inputBg: '#171717',
+    badgeBg: 'rgba(126, 222, 237, 0.18)', // Frosted blue badge
     modalOverlay: 'rgba(0, 0, 0, 0.85)'
   },
-  // Paleta Light Mode (Pânză curată, alb și gri deschis cu bleumarin profesional)
+  // Paleta Light Mode (Pânză curată White Smoke conform Coolors cu text Carbon Black)
   light: {
-    appBg: '#F5F5F5',           // White Smoke neutru
+    appBg: '#F5F5F5',           // White Smoke oficial Coolors
     panelBg: '#FFFFFF',         // Alb curat
-    panelBorder: '#E2E8F0',
+    panelBorder: '#E5E7EB',
     navBg: '#0D47A1',           // Bleumarin autoritar pentru navigare
     navBorder: 'rgba(255, 255, 255, 0.15)',
     accentColor: '#1976D2',     // Albastru industrial
     accentHover: '#1565C0',
-    textColor: '#212121',       // Gri Antracit / Aproape Negru (WCAG > 10:1, reduce oboseala)
-    textMuted: '#616161',       // Gri neutru lizibil
+    textColor: '#1F1F1F',       // Carbon Black oficial (WCAG > 10:1)
+    textMuted: '#666666',       // Gri neutru lizibil
     cardBg: '#FFFFFF',
     cardHover: '#F8FAFC',
-    inputBg: '#F8FAFC',
+    inputBg: '#FAFAFA',
     badgeBg: 'rgba(25, 118, 210, 0.12)',
     modalOverlay: 'rgba(15, 23, 42, 0.65)'
   }
@@ -40,45 +41,46 @@ export const THEME_CONFIG = {
 
 // Culori de Semnalizare Industrială & Aeroportuară (Folosite EXCLUSIV pentru status, acțiuni și alerte)
 export const SIGNAL_COLORS = {
-  RED_CRITICAL: '#D32F2F',      // Incidente critice, pericol major, oprire de urgență
-  AMBER_WARNING: '#FFC107',     // Avertismente, zone împiedicare, vehicule în mișcare
+  RED_CRITICAL: '#D73833',      // Scarlet Rush oficial Coolors (incidente critice, pericol major, oprire)
+  AMBER_WARNING: '#FFEB33',     // Bright Lemon oficial Coolors (avertismente, zone împiedicare, vehicule în mișcare)
   GREEN_SAFE: '#388E3C',        // Condiții sigure, prim-ajutor, confirmări (Verificare completă)
-  BLUE_MANDATORY: '#1976D2'     // Acțiuni obligatorii, EIP (vestă, căști antifonice)
+  BLUE_MANDATORY: '#1976D2',    // Acțiuni obligatorii, EIP (vestă, căști antifonice)
+  FROSTED_BLUE: '#7EDEED'       // Frosted Blue oficial Coolors (informare, highlight tactil)
 };
 
 // Tokeni oficiali de stare și severitate (Decizie Canonică N06)
 export const STATUS_TOKENS = {
   // Severitate
   CRITICAL: {
-    color: '#D32F2F',
+    color: '#D73833',
     bg: '#FEF2F2',
-    bgDark: 'rgba(211, 47, 47, 0.18)',
-    text: '#B71C1C',
-    textDark: '#EF5350',
-    border: '#FFCDD2',
-    borderDark: 'rgba(211, 47, 47, 0.45)',
-    dot: '#D32F2F',
+    bgDark: 'rgba(215, 56, 51, 0.22)',
+    text: '#991B1B',
+    textDark: '#FF8A80',
+    border: '#D73833',
+    borderDark: 'rgba(215, 56, 51, 0.60)',
+    dot: '#D73833',
     label: 'CRITICAL'
   },
   WARNING: {
-    color: '#FFC107',
+    color: '#FFEB33',
     bg: '#FFFBEB',
-    bgDark: 'rgba(255, 193, 7, 0.16)',
-    text: '#B45309',
-    textDark: '#FFD54F',
-    border: '#FDE68A',
-    borderDark: 'rgba(255, 193, 7, 0.45)',
-    dot: '#FFC107',
+    bgDark: 'rgba(255, 235, 51, 0.18)',
+    text: '#1F1F1F',
+    textDark: '#FFEB33',
+    border: '#FFEB33',
+    borderDark: 'rgba(255, 235, 51, 0.60)',
+    dot: '#FFEB33',
     label: 'WARNING'
   },
   // Stări Human-In-The-Loop
   open: {
-    color: '#D32F2F',
+    color: '#D73833',
     bg: '#FEF2F2',
-    bgDark: 'rgba(211, 47, 47, 0.15)',
-    text: '#B71C1C',
-    textDark: '#EF5350',
-    border: '#FECACA',
+    bgDark: 'rgba(215, 56, 51, 0.20)',
+    text: '#991B1B',
+    textDark: '#FF8A80',
+    border: '#D73833',
     label: 'Deschis'
   },
   acknowledged: {
@@ -100,12 +102,12 @@ export const STATUS_TOKENS = {
     label: 'Fals Pozitiv'
   },
   escalated: {
-    color: '#D32F2F',
+    color: '#D73833',
     bg: '#FEE2E2',
-    bgDark: 'rgba(211, 47, 47, 0.25)',
+    bgDark: 'rgba(215, 56, 51, 0.30)',
     text: '#991B1B',
     textDark: '#FF8A80',
-    border: '#EF4444',
+    border: '#D73833',
     label: 'Escaladat (Urgență)'
   },
   resolved: {

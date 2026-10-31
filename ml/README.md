@@ -35,7 +35,18 @@ uv run python -m safesight_ml.run \
   --live-dir ../backend/snapshots/live
 ```
 
-`fixtures/zones.stand12.json` are poligonul calibrat pe clip. `--live-dir` scrie `live/stand12.jpg`, pe care backend-ul îl servește la `/stream/stand12.mjpg`. Cu Docker, calea este `../backend/data/snapshots/live`.
+`fixtures/zones.stand12.json` are poligonul calibrat pe `cam01`: solul din fața motorului stâng până la roata din față (zona de pericol în care lucrează echipa de pushback). Camera din clip se mișcă, deci poligonul e aproximativ; pe o cameră fixă se trasează o dată pe cadrul de referință. Pe `cam01` dă 1 eveniment (track #3); marshaller-ul de lângă aripă și trecătorii nu mai declanșează. `--live-dir` scrie `live/stand12.jpg`, pe care backend-ul îl servește la `/stream/stand12.mjpg`. Cadrul live și snapshot-urile sunt blurate întâi, apoi adnotate: zona (roșu dacă e activă, gri dacă nu), caseta fiecărei persoane cu track și scor (roșu în zonă, verde în afara ei), eticheta `vesta` / `vesta ?` și o bară de stare. Cadrul live e scris atomic, la cel mult 1280 px lățime, de 2 ori pe secundă; blur-ul costă ~160 ms/cadru pe CPU, deci un ritm mai mare scade FPS-ul detecției. Cu Docker, calea este `../backend/data/snapshots/live`.
+
+Video adnotat, ca să vezi detecția cadru cu cadru (fișier local, nu intră în git):
+
+```bash
+uv run python -m safesight_ml --source ../data/videos/2026-10-30_restricted-zone_cam01_persoana-langa-motor.mp4 \
+  --zones fixtures/zones.stand12.json --engine-on --dry-run --out out/cam01 --annotated-video out/cam01_annotated.mp4
+```
+
+Fiecare cadru e blurat și adnotat; la un eveniment apare 2 s un banner `ALERTA RESTRICTED_ZONE`. Randarea e mai lentă decât live-ul (~4 FPS pe 1080p, ~1 FPS pe 4K), pentru că blur-ul rulează pe fiecare cadru.
+
+Vesta (`ppe.py`) e detectată după culoare (portocaliu / galben-verde fluorescent pe trunchi), fără model antrenat, și e doar afișată. În clipurile noastre toți poartă echipament reflectorizant, iar unele geci au reflectorizant doar pe umeri, deci un scor mic înseamnă „nesigur”, nu „fără vestă”. Nu emitem `NO_PPE` până nu avem un clip cu o încălcare reală pe care să validăm regula.
 
 Integrare cu backend-ul:
 
@@ -140,7 +151,9 @@ safesight_ml/
   privacy.py   # FaceBlurrer (YuNet) înainte de salvare/upload
   privacy_audit.py  # scanare snapshot-uri pentru fețe neblurate
   sink.py      # JsonlSink (dry-run) și HttpSink (/edge/snapshots, /edge/events)
-  live.py      # ultimul cadru blurat pentru /stream MJPEG
+  live.py      # ultimul cadru blurat + adnotat pentru /stream MJPEG; video MP4 adnotat
+  overlay.py   # desenează zone, casete, vestă, stare și banner de alertă peste cadrul deja blurat
+  ppe.py       # scor de vestă reflectorizantă după culoare (doar afișare)
   pipeline.py  # cadru -> detecții -> reguli -> eveniment
   remote.py    # GET /edge/zones (zone + engine_on)
   run.py       # CLI

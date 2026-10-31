@@ -23,7 +23,7 @@ import numpy as np
 
 from .detector import SyntheticDetector, YoloDetector
 from .events import EdgeEvent
-from .live import LiveFrameWriter
+from .live import AnnotatedVideoWriter, LiveFrameWriter
 from .pipeline import Pipeline
 from .privacy import FaceBlurrer, NoopBlurrer
 from .remote import fetch_edge_config
@@ -84,6 +84,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--remote-config", action="store_true", help="load zones and engine_on from GET /edge/zones")
     parser.add_argument("--config-refresh-s", type=float, default=30.0, help="remote config poll interval")
     parser.add_argument("--live-dir", default=os.getenv("LIVE_DIR", ""), help="write live/{camera}.jpg for backend MJPEG")
+    parser.add_argument("--annotated-video", type=Path, help="write every frame, blurred and annotated, to this MP4")
     parser.add_argument("--metrics-json", type=Path, help="write a JSON summary for this run")
     return parser
 
@@ -132,7 +133,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     start_epoch = time.time()
-    run_started = time.monotonic()
+    run_started = time.perf_counter()
 
     if args.fake:
         detector = SyntheticDetector(total_frames=args.max_frames or 60)
@@ -177,6 +178,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.fake:
         fps = args.fps or 10.0
+        if args.annotated_video:
+            pipeline.video_writer = AnnotatedVideoWriter(args.annotated_video, fps)
         limit = args.max_frames or 60
         for frame_index in range(limit):
             frame = _draw_fake_frame(frame_index, detector, pipeline.zones)
@@ -190,9 +193,11 @@ def main(argv: list[str] | None = None) -> int:
     else:
         capture = cv2.VideoCapture(args.source)
         if not capture.isOpened():
-            print(f"could not open source: {args.source}", file=sys.stderr)
+            print(f"could not open source: {_metrics_source(args.source)}", file=sys.stderr)
             return 2
         fps = _resolve_fps(args.fps, capture.get(cv2.CAP_PROP_FPS))
+        if args.annotated_video:
+            pipeline.video_writer = AnnotatedVideoWriter(args.annotated_video, fps)
         frame_index = 0
         last_refresh = time.monotonic()
         try:
@@ -229,8 +234,10 @@ def main(argv: list[str] | None = None) -> int:
 
     if isinstance(sink, HttpSink):
         sink.close()
+    if pipeline.video_writer is not None:
+        pipeline.video_writer.close()
 
-    elapsed_s = time.monotonic() - run_started
+    elapsed_s = max(time.perf_counter() - run_started, 0.001)
     event_types: dict[str, int] = {}
     for row in event_rows:
         event_types[row["type"]] = event_types.get(row["type"], 0) + 1
@@ -242,7 +249,7 @@ def main(argv: list[str] | None = None) -> int:
         "event_types": event_types,
         "event_details": event_rows,
         "elapsed_s": round(elapsed_s, 3),
-        "fps": round(total / elapsed_s, 2) if elapsed_s > 0 else 0.0,
+        "fps": round(total / elapsed_s, 2),
         "engine_on": pipeline.engine_on,
         "sink": "http" if args.post else "jsonl",
         "model": detector.model_name,
@@ -260,6 +267,8 @@ def main(argv: list[str] | None = None) -> int:
     if not args.post:
         print(f"events: {Path(args.out) / 'events.jsonl'}")
         print(f"snapshots: {Path(args.out) / 'snapshots'}")
+    if pipeline.video_writer is not None:
+        print(f"annotated video: {args.annotated_video} ({pipeline.video_writer.frames} frames)")
     return 0
 
 
