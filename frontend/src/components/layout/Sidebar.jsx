@@ -23,7 +23,7 @@ export default function Sidebar() {
     kpis
   } = useSecurity();
 
-  // Cele 6 Ecrane Solicitate în Brief-ul SafeTarmac AI
+  // Cele 6 Ecrane Solicitate în Brief-ul SafeSight AI
   const menuItems = [
     {
       id: 'live',
@@ -78,7 +78,7 @@ export default function Sidebar() {
       {/* Meniu Principal */}
       <div className="py-4 px-2 space-y-1.5 overflow-y-auto">
         <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-wider opacity-60">
-          {!isSidebarCollapsed ? 'Meniu SafeTarmac' : 'Meniu'}
+          {!isSidebarCollapsed ? 'Meniu SafeSight' : 'Meniu'}
         </div>
 
         {menuItems.map((item) => {
@@ -139,7 +139,7 @@ export default function Sidebar() {
               <span className="text-emerald-400 font-mono text-[10px]">ACTIV</span>
             </div>
             <p style={{ color: themeStyles.textMuted }} className="text-[10px] leading-tight">
-              YOLOv8x + ByteTrack • Slack Webhook cablat • Retenție 7 zile
+              YOLO26 + ByteTrack • Slack Webhook cablat • Retenție 7 zile
             </p>
           </div>
         )}

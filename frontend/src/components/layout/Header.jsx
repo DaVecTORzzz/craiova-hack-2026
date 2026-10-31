@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Shield, Search, Moon, Sun, Wifi, WifiOff, RefreshCw, Zap, Bell, ChevronDown } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useSecurity } from '../../context/SecurityContext';
+import { USE_MOCK } from '../../services/api';
 
 export default function Header() {
   const { isDarkMode, toggleTheme, themeStyles } = useTheme();
@@ -24,7 +25,7 @@ export default function Header() {
       }}
       className="h-16 px-4 md:px-6 flex items-center justify-between border-b shadow-sm z-20 sticky top-0 shrink-0 select-none"
     >
-      {/* Brand & Logo SafeTarmac AI */}
+      {/* Brand & Logo SafeSight AI */}
       <div className="flex items-center gap-3">
         <div
           style={{ backgroundColor: themeStyles.accentColor }}
@@ -35,7 +36,7 @@ export default function Header() {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="font-black text-lg md:text-xl tracking-tight leading-none uppercase">
-              SafeTarmac AI
+              SafeSight AI
             </h1>
             <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-400/30">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
@@ -90,7 +91,8 @@ export default function Header() {
 
       {/* Controale Dreapta: Demo Triggers, Toggle Teme, Operator */}
       <div className="flex items-center gap-2 md:gap-3">
-        {/* BUTON DEMO PITCH CONTROLS (Execuția scenariului de 90s pentru juriu) */}
+        {/* Demo triggers sunt doar pentru modul mock; în demo real folosește backend/scripts/demo_event.py */}
+        {USE_MOCK && (
         <div className="relative">
           <button
             onClick={() => setShowDemoMenu(!showDemoMenu)}
@@ -143,6 +145,7 @@ export default function Header() {
             </div>
           )}
         </div>
+        )}
 
         {/* Toggle DARK / LIGHT MODE */}
         <button

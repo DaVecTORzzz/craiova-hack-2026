@@ -42,7 +42,7 @@ export default function MobileAlertsView() {
         <div className="flex items-center justify-between border-b border-white/10 pb-2 px-1">
           <div className="flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="font-black text-xs uppercase tracking-wider">SafeTarmac Mobile PWA</span>
+            <span className="font-black text-xs uppercase tracking-wider">SafeSight Mobile PWA</span>
           </div>
           <span className="font-mono text-[10px] text-slate-400">390 px</span>
         </div>

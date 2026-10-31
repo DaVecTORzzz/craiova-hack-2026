@@ -1,4 +1,4 @@
-// Contractul canonic SafeTarmac AI conform specificațiilor din 03_C_frontend.pdf
+// Contractul canonic SafeSight AI conform specificațiilor din 03_C_frontend.pdf
 
 export const INITIAL_CAMERAS = [
   {

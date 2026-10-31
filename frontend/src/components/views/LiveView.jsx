@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ShieldAlert,
   HardHat,
@@ -34,7 +34,18 @@ export default function LiveView() {
     setCurrentView
   } = useSecurity();
 
+  const [streamFailed, setStreamFailed] = useState(false);
+
+  useEffect(() => {
+    setStreamFailed(false);
+  }, [activeCamera?.id]);
+
+  if (!activeCamera) {
+    return <div className="p-8 text-center font-mono text-sm">Se încarcă camerele...</div>;
+  }
+
   const isOffline = activeCamera.status === 'offline';
+  const showStream = Boolean(activeCamera.stream_url) && !isOffline && !streamFailed;
 
   return (
     <div className="flex-1 flex flex-col p-3 md:p-4 overflow-y-auto space-y-3 h-full select-none">
@@ -49,7 +60,7 @@ export default function LiveView() {
               Conformitate PPE
             </p>
             <p className="text-xl md:text-2xl font-black font-mono text-emerald-400">
-              {kpis.ppe_compliance_pct}%
+              {kpis.ppe_compliance_pct === '—' ? '—' : `${kpis.ppe_compliance_pct}%`}
             </p>
           </div>
           <HardHat size={26} className="text-emerald-400 opacity-80" />
@@ -79,7 +90,7 @@ export default function LiveView() {
               Detecție → Alertă
             </p>
             <p className="text-xl md:text-2xl font-black font-mono text-indigo-400">
-              {kpis.detection_to_alert_latency_s}s
+              {kpis.detection_to_alert_latency_s === '—' ? '—' : `${kpis.detection_to_alert_latency_s}s`}
             </p>
           </div>
           <Clock size={26} className="text-indigo-400 opacity-80" />
@@ -158,17 +169,26 @@ export default function LiveView() {
                 <p className="text-xs text-slate-400 mt-1">CAMERA {activeCamera.id} ESTE MOMENTAN OFFLINE</p>
               </div>
             ) : (
-              <div
-                className={`w-full h-full bg-gradient-to-br ${activeCamera.previewBg} relative flex items-center justify-center`}
-              >
-                <div className="text-center opacity-30 select-none">
-                  <Video size={70} className="mx-auto mb-2 text-slate-300" />
-                  <p className="font-mono font-bold text-white text-base">{activeCamera.name.toUpperCase()}</p>
-                  <p className="font-mono text-xs text-slate-300">LIVE ANNOTATED STREAM • {activeCamera.fps} FPS</p>
-                </div>
+              <div className={`w-full h-full bg-gradient-to-br ${activeCamera.previewBg} relative flex items-center justify-center`}>
+                {showStream ? (
+                  <img
+                    src={activeCamera.stream_url}
+                    alt={`Flux live ${activeCamera.id}`}
+                    className="w-full h-full object-cover"
+                    onError={() => setStreamFailed(true)}
+                  />
+                ) : (
+                  <div className="text-center opacity-40 select-none">
+                    <Video size={70} className="mx-auto mb-2 text-slate-300" />
+                    <p className="font-mono font-bold text-white text-base">{activeCamera.name.toUpperCase()}</p>
+                    <p className="font-mono text-xs text-slate-300">
+                      {streamFailed ? 'STREAM INDISPONIBIL • SNAPSHOT FALLBACK' : 'LIVE ANNOTATED STREAM'}
+                    </p>
+                  </div>
+                )}
 
-                {/* Bounding Boxes */}
-                {activeCamera.boxes && activeCamera.boxes.map((box) => (
+                {/* Bounding Boxes (dacă backend-ul le trimite) */}
+                {activeCamera.boxes?.map((box) => (
                   <BoundingBox key={box.id} box={box} />
                 ))}
 
