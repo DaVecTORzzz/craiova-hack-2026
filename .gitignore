@@ -41,7 +41,8 @@ data/**
 *.mp4
 
 # Date generate la rulare
-backend/data/
+backend/data/*
+!backend/data/.gitkeep
 *.db
 *.sqlite
 snapshots/
