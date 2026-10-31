@@ -54,3 +54,10 @@ def test_stream_sends_a_new_live_frame_without_waiting_half_a_second(client):
     assert b"one" in first
     assert b"two" in second
     assert waited < FRAME_INTERVAL_S / 2
+
+
+def test_streaming_marks_the_camera_as_watched():
+    watch = Path(get_settings().snapshot_dir) / "live" / "stand12.watch"
+    watch.unlink(missing_ok=True)
+    _first_chunk("stand12")
+    assert watch.exists()

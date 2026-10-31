@@ -63,18 +63,30 @@ class AsyncLiveWriter:
         writer: LiveFrameWriter,
         *,
         faces=None,
-        max_fps: float = 15.0,
+        max_fps: float = 30.0,
         face_margin: float = 0.5,
         max_queue: int = 30,
         max_wait_s: float = 3.0,
+        max_lag_s: float = 1.5,
+        watch_path: str | Path | None = None,
+        watch_ttl_s: float = 3.0,
     ) -> None:
         self.writer = writer
         self.faces = faces
         self.min_interval_s = 1.0 / max_fps
         self.face_margin = face_margin
         self.max_wait_s = max_wait_s
+        self.max_lag_s = max_lag_s
+        # With a watch file, frames are rendered (and YuNet runs) only while someone views
+        # this camera: the backend touches the file while a /stream client is connected.
+        self.watch_path = Path(watch_path) if watch_path else None
+        self.watch_ttl_s = watch_ttl_s
+        self._watch_checked = 0.0
+        self._watched = watch_path is None
         self.written = 0
         self.dropped = 0
+        # Why frames were not written, and what writing cost; reported in metrics.json.
+        self.stats = {"queue_full": 0, "lagging": 0, "no_later_pass": 0, "render_s": 0.0, "faces_s": 0.0, "passes": 0}
         self._cond = threading.Condition()
         self._queue: deque[tuple[float, np.ndarray, Render]] = deque(maxlen=max_queue)
         self._to_detect: tuple[float, np.ndarray] | None = None
@@ -86,11 +98,27 @@ class AsyncLiveWriter:
         for thread in self._threads:
             thread.start()
 
+    def watched(self) -> bool:
+        """True without a watch file; else whether a viewer touched it recently (checked twice a second)."""
+        if self.watch_path is None:
+            return True
+        now = time.monotonic()
+        if now - self._watch_checked >= 0.5:
+            self._watch_checked = now
+            try:
+                self._watched = time.time() - self.watch_path.stat().st_mtime < self.watch_ttl_s
+            except OSError:
+                self._watched = False
+        return self._watched
+
     def submit(self, frame: np.ndarray, render: Render) -> None:
+        if not self.watched():
+            return
         now = time.monotonic()
         with self._cond:
             if len(self._queue) == self._queue.maxlen:
                 self.dropped += 1
+                self.stats["queue_full"] += 1
             self._queue.append((now, frame, render))
             self._to_detect = (now, frame)
             self._cond.notify_all()
@@ -104,7 +132,10 @@ class AsyncLiveWriter:
                 stamp, frame = self._to_detect
                 self._to_detect = None
             height, width = frame.shape[:2]
+            started = time.monotonic()
             found = [(x / width, y / height, w / width, h / height) for x, y, w, h in self.faces.detect_faces(frame)]
+            self.stats["faces_s"] += time.monotonic() - started
+            self.stats["passes"] += 1
             with self._cond:
                 self._passes.append((stamp, found))
                 self._cond.notify_all()
@@ -118,29 +149,42 @@ class AsyncLiveWriter:
     def _write_loop(self) -> None:
         from .privacy import FixedFacesBlurrer, NoopBlurrer
 
-        last = 0.0
+        last_written = 0.0
+        last_stamp: float | None = None
         while True:
             with self._cond:
                 self._cond.wait_for(lambda: self._ready() or self._closed)
                 if self._closed:
                     return
                 stamp, frame, render = self._queue.popleft()
+                behind = len(self._queue)
                 before = [faces for t, faces in self._passes if t <= stamp][-1:]
                 after = [faces for t, faces in self._passes if t >= stamp][:1]
+            if behind and time.monotonic() - stamp > self.max_lag_s:
+                self.dropped += 1  # too far behind real time with newer frames waiting: catch up
+                self.stats["lagging"] += 1
+                continue
             if self.faces is None:
                 blurrer = NoopBlurrer()
             elif not after:
                 self.dropped += 1  # no YuNet pass after it in time: never show it unchecked
+                self.stats["no_later_pass"] += 1
                 continue
             else:
                 blurrer = FixedFacesBlurrer([box for faces in before + after for box in faces], self.face_margin)
-            if time.monotonic() - last < self.min_interval_s:
-                self.dropped += 1  # over the fps cap: skip, the next frame is newer anyway
-                continue
-            last = time.monotonic()
+            # One YuNet pass releases every frame held since the previous pass at once.
+            # Pace them with their original spacing (at most max_fps) instead of dropping
+            # all but the first, so the view moves at the detection rate, slightly late.
+            gap = self.min_interval_s if last_stamp is None else max(self.min_interval_s, stamp - last_stamp)
+            wait = last_written + gap - time.monotonic()
+            if wait > 0:
+                time.sleep(min(wait, 0.25))
+            last_written, last_stamp = time.monotonic(), stamp
             try:
+                started = time.monotonic()
                 if self.writer.write(render(blurrer)):
                     self.written += 1
+                self.stats["render_s"] += time.monotonic() - started
             except Exception as exc:  # noqa: BLE001 - a bad frame must not kill the live view
                 print(f"warn: live frame failed: {exc}")
 

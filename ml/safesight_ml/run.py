@@ -128,7 +128,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--remote-config", action="store_true", help="load zones and engine_on from GET /edge/zones")
     parser.add_argument("--config-refresh-s", type=float, default=30.0, help="remote config poll interval")
     parser.add_argument("--live-dir", default=os.getenv("LIVE_DIR", ""), help="write live/{camera}.jpg for backend MJPEG")
-    parser.add_argument("--live-fps", type=float, default=15.0, help="cap for live frames per second (the blur may allow fewer)")
+    parser.add_argument(
+        "--live-when-watched",
+        action="store_true",
+        help="render the live frame (and run the live YuNet) only while live/{camera}.watch is fresh; "
+        "the backend touches it while a /stream client is connected. Detection and alerts always run",
+    )
+    parser.add_argument("--live-fps", type=float, default=30.0, help="cap for live frames per second (the blur may allow fewer)")
     parser.add_argument("--annotated-video", type=Path, help="write every frame, blurred and annotated, to this MP4")
     parser.add_argument(
         "--align-reference",
@@ -219,6 +225,7 @@ def main(argv: list[str] | None = None) -> int:
             LiveFrameWriter(args.live_dir, args.camera_id),
             faces=blurrer if isinstance(blurrer, FaceBlurrer) else None,
             max_fps=args.live_fps,
+            watch_path=Path(args.live_dir) / f"{args.camera_id}.watch" if args.live_when_watched else None,
         )
         if args.live_dir
         else None
@@ -369,6 +376,15 @@ def main(argv: list[str] | None = None) -> int:
         "fps": round(total / elapsed_s, 2),
         "dropped_frames": dropped_frames,
         "live_frames": live_writer.written if live_writer is not None else 0,
+        "live": (
+            {
+                **{k: v for k, v in live_writer.stats.items() if not k.endswith("_s")},
+                "render_ms": round(1000 * live_writer.stats["render_s"] / max(live_writer.written, 1), 1),
+                "face_pass_ms": round(1000 * live_writer.stats["faces_s"] / max(live_writer.stats["passes"], 1), 1),
+            }
+            if live_writer is not None
+            else None
+        ),
         "zone_transitions": pipeline.membership.transitions,
         "align_lost_updates": aligner.lost_updates if aligner is not None else None,
         "stages": pipeline.timer.summary(),

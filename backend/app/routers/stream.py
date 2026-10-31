@@ -13,6 +13,7 @@ router = APIRouter(tags=["stream"])
 
 FRAME_INTERVAL_S = 0.5
 POLL_INTERVAL_S = 0.05
+WATCH_TOUCH_S = 1.0
 
 
 def current_frame(camera_id: str) -> bytes:
@@ -31,6 +32,17 @@ def _live_version(camera_id: str) -> int | None:
         return None
 
 
+def _touch_watch(camera_id: str) -> None:
+    """Tell the edge someone is viewing this camera: it renders live frames only then
+    (`--live-when-watched`). Best effort: the stream never fails because of it."""
+    live_dir = Path(get_settings().snapshot_dir) / "live"
+    try:
+        live_dir.mkdir(parents=True, exist_ok=True)
+        (live_dir / f"{camera_id}.watch").touch()
+    except OSError:
+        pass
+
+
 async def mjpeg_frames(camera_id: str) -> AsyncIterator[bytes]:
     # The file is checked every POLL_INTERVAL_S and a frame is sent only when it changed,
     # so the browser gets the edge's own rate (up to ~15 fps) instead of a fixed 2 fps.
@@ -39,9 +51,13 @@ async def mjpeg_frames(camera_id: str) -> AsyncIterator[bytes]:
     loop = asyncio.get_running_loop()
     last_version: int | None = None
     last_sent: float | None = None
+    last_watch: float | None = None
     while True:
         version = _live_version(camera_id)
         now = loop.time()
+        if last_watch is None or now - last_watch >= WATCH_TOUCH_S:
+            _touch_watch(camera_id)
+            last_watch = now
         if last_sent is None or version != last_version or now - last_sent >= FRAME_INTERVAL_S:
             frame = current_frame(camera_id)
             last_version, last_sent = version, now

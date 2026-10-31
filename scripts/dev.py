@@ -595,6 +595,9 @@ def run_demo(args: argparse.Namespace) -> int:
                         token,
                         "--live-dir",
                         str(live_dir),
+                        # Live frames (and the live face pass) only for the camera someone
+                        # is viewing; detection and alerts run on every camera.
+                        "--live-when-watched",
                         # The clip camera pans; the zone follows the ground from its first frame.
                         # Not for RTSP: the published clip may differ and the zone would stay unknown.
                         *([] if args.rtsp else ["--align-reference", str(feed.clip)]),
