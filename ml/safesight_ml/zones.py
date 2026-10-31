@@ -6,6 +6,8 @@ from collections import deque
 from dataclasses import dataclass, field
 from typing import Literal
 
+import cv2
+import numpy as np
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 Point = tuple[float, float]
@@ -51,6 +53,62 @@ def point_in_polygon(point: Point, polygon: list[Point]) -> bool:
             if x < x_cross:
                 inside = not inside
     return inside
+
+
+# Feet within this many frame heights of the bottom edge are cut off by the frame.
+TRUNCATED_BOTTOM = 0.985
+
+
+def signed_distance(point: Point, polygon: list[Point], aspect: float = 1.0) -> float:
+    """Distance from the polygon edge in frame heights: > 0 inside, < 0 outside.
+
+    ``aspect`` is width / height, so x and y are measured in the same unit.
+    """
+    contour = np.float32([(x * aspect, y) for x, y in polygon]).reshape(-1, 1, 2)
+    return float(cv2.pointPolygonTest(contour, (point[0] * aspect, point[1]), True))
+
+
+class ZoneMembership:
+    """Is a person in a zone, with a margin so that standing on the edge does not flicker.
+
+    A person enters once the feet are ``margin`` person-heights inside the polygon and
+    leaves once they are ``margin`` outside; in between the last state holds. When the
+    box touches the bottom of the frame the feet are not visible, so the state holds too
+    and no new entry starts.
+    """
+
+    def __init__(self, *, margin: float = 0.10, ttl_s: float = 10.0) -> None:
+        if margin < 0:
+            raise ValueError("margin must be >= 0")
+        self.margin = margin
+        self.ttl_s = ttl_s
+        self._state: dict[tuple[int, str], tuple[bool, float]] = {}
+        self.transitions = 0
+
+    def update(self, *, track_id: int, bbox: tuple[float, float, float, float], zone: Zone, now: float, aspect: float = 1.0) -> bool:
+        key = (track_id, zone.id)
+        previous = self._state.get(key, (False, now))[0]
+        x1, y1, x2, y2 = bbox
+        if y2 >= TRUNCATED_BOTTOM:
+            inside = previous
+        else:
+            depth = signed_distance(((x1 + x2) / 2.0, y2), zone.polygon, aspect)
+            band = self.margin * (y2 - y1)
+            if depth >= band:
+                inside = True
+            elif depth <= -band:
+                inside = False
+            else:
+                inside = previous
+        if inside != previous:
+            self.transitions += 1
+        self._state[key] = (inside, now)
+        return inside
+
+    def prune(self, now: float) -> None:
+        for key, (_, seen) in list(self._state.items()):
+            if now - seen >= self.ttl_s:
+                del self._state[key]
 
 
 @dataclass

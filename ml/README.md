@@ -210,6 +210,9 @@ fixtures/
 ## Reguli
 
 - Punctul de intrare în zonă este **centrul de jos al bbox-ului** (picioarele), nu centrul cutiei.
+- Marginea zonei are toleranță (`--zone-margin`, implicit 0,10): persoana intră când picioarele sunt cu 10% din înălțimea ei în interiorul poligonului și iese când sunt cu 10% în afară; între ele, starea rămâne. Cine stă pe linie nu mai intră și iese de la un cadru la altul. Distanța e măsurată în înălțimi de cadru, cu aspectul imaginii, deci toleranța e aceeași pe orizontală și pe verticală. `--zone-margin 0` = testul vechi cu un singur punct.
+- O casetă care atinge marginea de jos a cadrului nu arată picioarele: starea rămâne cea anterioară și nu începe o intrare nouă.
+- `zone_transitions` în metrics numără intrările și ieșirile; pe cele 6 clipuri, cu aliniere, toleranța le scade de la 25 la 19, cu aceleași evenimente.
 - `active_when=engine_on` nu emite nimic când motorul e oprit; `--remote-config` ia starea din backend.
 - `debounce_s` și confidence temporal: minim 5 cadre observate și 80% confirmare.
 - `detected_at` folosește ceasul real al procesării, nu timpul video; `now_s` rămâne pentru durata în zonă.

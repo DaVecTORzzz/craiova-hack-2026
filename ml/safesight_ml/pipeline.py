@@ -17,7 +17,7 @@ from .overlay import draw_alert, draw_overlay, zone_active
 from .ppe import VestTracker, hivis_ratio
 from .privacy import Blurrer
 from .sink import Sink
-from .zones import RuleEngine, Zone, point_in_polygon
+from .zones import RuleEngine, Zone, ZoneMembership
 
 EVENT_TYPE_BY_RULE = {
     "RESTRICTED": "RESTRICTED_ZONE",
@@ -71,6 +71,7 @@ class Pipeline:
         live_writer: LiveFrameWriter | None = None,
         video_writer: AnnotatedVideoWriter | None = None,
         aligner: ZoneAligner | None = None,
+        membership: ZoneMembership | None = None,
     ) -> None:
         self.camera_id = camera_id
         self.zones = [zone for zone in zones if zone.camera_id == camera_id]
@@ -84,6 +85,7 @@ class Pipeline:
         self.live_writer = live_writer
         self.video_writer = video_writer
         self.aligner = aligner
+        self.membership = membership or ZoneMembership()
         self.timer = StageTimer()
         self.frame_index = 0
         self._alert: tuple[str, float] | None = None
@@ -98,6 +100,7 @@ class Pipeline:
 
     def process(self, frame: np.ndarray, now_s: float) -> list[EdgeEvent]:
         self.rules.prune(now_s)
+        self.membership.prune(now_s)
         with self.timer.stage("detect"):
             detections = self.detector.detect(frame, self.frame_index)
         boxes = [item.bbox for item in detections]
@@ -109,13 +112,21 @@ class Pipeline:
         # None: the camera view could not be matched to the reference, so no zone is trusted.
         zones_known = zones is not None
         zones = zones or []
+        height, width = frame.shape[:2]
+        # Updated every frame, also while events are muted, so the state never goes stale.
+        in_zone = {
+            (item.track_id, zone.id): self.membership.update(
+                track_id=item.track_id, bbox=item.bbox, zone=zone, now=now_s, aspect=width / height
+            )
+            for item in detections
+            for zone in zones
+            if zone.rule_type in EVENT_TYPE_BY_RULE
+        }
         inside = {
             item.track_id
             for item in detections
             for zone in zones
-            if zone.rule_type in EVENT_TYPE_BY_RULE
-            and zone_active(zone, self.engine_on)
-            and point_in_polygon(item.foot_point, zone.polygon)
+            if zone_active(zone, self.engine_on) and in_zone.get((item.track_id, zone.id), False)
         }
         # Colour is read from the raw frame, before blur; it never leaves this process.
         vest = {item.track_id: self.vests.update(item.track_id, hivis_ratio(frame, item.bbox)) for item in detections}
@@ -138,15 +149,13 @@ class Pipeline:
         emitted: list[EdgeEvent] = []
 
         for detection in detections if self.emit_events else ():
-            foot = detection.foot_point
             for zone in zones:
                 if zone.rule_type not in EVENT_TYPE_BY_RULE:
                     continue
-                in_zone = point_in_polygon(foot, zone.polygon)
                 decision = self.rules.observe(
                     track_id=detection.track_id,
                     zone=zone,
-                    in_zone=in_zone,
+                    in_zone=in_zone[(detection.track_id, zone.id)],
                     now=now_s,
                     engine_on=self.engine_on,
                 )
