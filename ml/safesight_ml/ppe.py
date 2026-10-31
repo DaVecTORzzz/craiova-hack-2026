@@ -4,7 +4,10 @@ Each person track gets one of three states: ``vest``, ``no_vest`` or ``unknown``
 A frame only counts when the person is big enough and fully inside the frame, and
 ``no_vest`` also needs a confident person detection, because the low scores on our
 clips came from partial boxes and from objects mistaken for people, not from people
-without a vest. Display only: no NO_PPE event is raised from it yet.
+without a vest.
+
+``no_vest`` raises ``NO_PPE`` in a ``PPE_REQUIRED`` zone that requires ``hi_vis_vest``;
+``unknown`` never does. This is still a colour heuristic, not a trained classifier.
 """
 
 from __future__ import annotations

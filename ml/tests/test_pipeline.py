@@ -5,7 +5,8 @@ import json
 import numpy as np
 
 from safesight_ml.detector import Detection, FakeDetector
-from safesight_ml.pipeline import Pipeline
+from safesight_ml import pipeline as pipeline_module
+from safesight_ml.pipeline import Pipeline, triggers_event
 from safesight_ml.run import _metrics_source, _resolve_fps
 from safesight_ml.run import main as run_main
 from safesight_ml.sink import JsonlSink
@@ -238,3 +239,158 @@ def test_pipeline_skips_events_while_emit_events_is_off():
     pipeline.emit_events = True
     emitted = [event for step in range(20, 40) for event in pipeline.process(blank, now_s=step / 10)]
     assert len(emitted) == 1
+
+
+# --- PPE_REQUIRED -> NO_PPE -------------------------------------------------
+
+# Feet at y=0.70 land inside this polygon; the station is generous so the entry
+# margin never decides the test.
+PPE_ZONE = Zone(
+    id="apron-stand12",
+    camera_id="stand12",
+    name="Apron stand 12",
+    rule_type="PPE_REQUIRED",
+    active_when="always",
+    required_ppe=["hi_vis_vest"],
+    severity="WARNING",
+    debounce_s=0.5,
+    escalate_after_s=30,
+    polygon=[(0.40, 0.10), (0.80, 0.10), (0.80, 0.90), (0.40, 0.90)],
+)
+
+# 180 px tall at 360 px, above the threshold below which "no vest" is not claimed.
+TALL_PERSON = (0.50, 0.20, 0.60, 0.70)
+# 144 px tall: enough to see the torso, too small to call a violation.
+SMALL_PERSON = (0.50, 0.20, 0.60, 0.60)
+
+
+def frame_with_vest() -> np.ndarray:
+    """Black frame with a fluorescent torso for the tall person box."""
+    frame = np.zeros((360, 640, 3), dtype=np.uint8)
+    # Torso band that ppe.hivis_ratio samples for TALL_PERSON.
+    frame[99:171, 332:371] = (0, 255, 0)  # yellow-green in BGR
+    return frame
+
+
+def _run_ppe(
+    zone: Zone,
+    frame: np.ndarray,
+    bbox: tuple[float, float, float, float],
+    frames: int = 30,
+    engine_on: bool = False,
+):
+    detections = [[Detection(track_id=1, bbox=bbox, confidence=0.91)] for _ in range(frames)]
+    sink = RecordingSink()
+    pipeline = Pipeline(
+        camera_id="stand12",
+        zones=[zone],
+        detector=FakeDetector(detections),
+        blurrer=RecordingBlurrer(),
+        sink=sink,
+        engine_on=engine_on,
+        start_epoch=1_793_356_933.0,
+    )
+    for step in range(frames):
+        pipeline.process(frame, now_s=step / 10)
+    return sink.events
+
+
+def test_ppe_zone_raises_no_ppe_when_the_vest_is_missing():
+    events = _run_ppe(PPE_ZONE, np.zeros((360, 640, 3), dtype=np.uint8), TALL_PERSON)
+
+    assert len(events) == 1
+    assert events[0].type == "NO_PPE"
+    # Severity comes from the zone, not from the detector.
+    assert events[0].severity == "WARNING"
+    assert events[0].zone_id == "apron-stand12"
+    assert events[0].track_id == 1
+    # The engine is irrelevant for a PPE zone that is always active.
+    assert events[0].context.engine_on is False
+
+
+def test_ppe_zone_is_silent_when_the_vest_is_present():
+    assert _run_ppe(PPE_ZONE, frame_with_vest(), TALL_PERSON) == []
+
+
+def test_ppe_zone_is_silent_when_the_person_is_too_small_to_judge():
+    # A small person stays "unknown": a low colour score is not proof of a missing vest.
+    assert _run_ppe(PPE_ZONE, np.zeros((360, 640, 3), dtype=np.uint8), SMALL_PERSON) == []
+
+
+def test_ppe_zone_without_hi_vis_requirement_is_silent():
+    # Hard hats have no detector yet, so such a zone can never prove a violation.
+    hats_only = PPE_ZONE.model_copy(update={"required_ppe": ["hard_hat"]})
+    assert _run_ppe(hats_only, np.zeros((360, 640, 3), dtype=np.uint8), TALL_PERSON) == []
+
+
+def test_restricted_zone_still_fires_for_anyone_inside():
+    # Regression: the PPE gate must not leak into other rule types.
+    assert len(_run_ppe(ZONE, frame_with_vest(), SMALL_PERSON, engine_on=True)) == 1
+
+
+# --- triggers_event: the policy, unit by unit --------------------------------
+
+
+def test_triggers_event_fires_for_anyone_in_a_restricted_zone():
+    for state in ("vest", "no_vest", "unknown", None):
+        assert triggers_event(ZONE, state) is True
+
+
+def test_triggers_event_fires_only_on_a_proven_vest_violation():
+    assert triggers_event(PPE_ZONE, "no_vest") is True
+    assert triggers_event(PPE_ZONE, "vest") is False
+    # "unknown" is not proof: small or partly hidden people stay silent.
+    assert triggers_event(PPE_ZONE, "unknown") is False
+    assert triggers_event(PPE_ZONE, None) is False
+
+
+def test_triggers_event_ignores_ppe_we_cannot_check():
+    hats_only = PPE_ZONE.model_copy(update={"required_ppe": ["hard_hat"]})
+    # No detector for hard hats, so no state can ever satisfy this.
+    assert triggers_event(hats_only, "no_vest") is False
+
+
+def test_triggers_event_is_silent_for_rule_types_without_a_person_rule():
+    # A zone type with no mapped rule must never start firing person-in-zone.
+    for rule_type in ("FOD_WATCH", "NO_SMOKING", "CROWD_WATCH"):
+        zone = PPE_ZONE.model_copy(update={"rule_type": rule_type})
+        assert triggers_event(zone, "no_vest") is False
+
+
+class FakeLiveWriter:
+    """Always due, so the pipeline annotates a frame even without an event."""
+
+    def due(self) -> bool:
+        return True
+
+    def write(self, frame: np.ndarray) -> None:
+        pass
+
+
+def test_a_compliant_person_in_a_ppe_zone_is_not_highlighted(monkeypatch):
+    """Red boxes must mean 'this is a violation', not just 'someone is standing here'."""
+    captured: list[set[int]] = []
+    real = pipeline_module.draw_overlay
+
+    def spy(frame, zones, detections, inside, engine_on, vest=None, zones_known=True):
+        captured.append(set(inside))
+        return real(frame, zones, detections, inside, engine_on, vest, zones_known)
+
+    monkeypatch.setattr(pipeline_module, "draw_overlay", spy)
+
+    detections = [[Detection(track_id=1, bbox=TALL_PERSON, confidence=0.91)] for _ in range(20)]
+    pipeline = Pipeline(
+        camera_id="stand12",
+        zones=[PPE_ZONE],
+        detector=FakeDetector(detections),
+        blurrer=RecordingBlurrer(),
+        sink=RecordingSink(),
+        engine_on=False,
+        start_epoch=1_793_356_933.0,
+        live_writer=FakeLiveWriter(),
+    )
+    for step in range(20):
+        pipeline.process(frame_with_vest(), now_s=step / 10)
+
+    assert captured, "the pipeline never annotated a frame"
+    assert all(inside == set() for inside in captured)
