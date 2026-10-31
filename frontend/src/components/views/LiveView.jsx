@@ -108,7 +108,7 @@ export default function LiveView() {
                 <div className="text-center opacity-25 select-none">
                   <Video size={100} className="mx-auto mb-3 text-slate-300" />
                   <p className="font-mono font-bold text-white text-xl">{activeCamera?.name?.toUpperCase()}</p>
-                  <p className="font-mono text-sm text-slate-300">LIVE FEED • {activeCamera?.fps} FPS</p>
+                  <p className="font-mono text-sm text-slate-300">LIVE FEED{activeCamera?.fps ? ` • ${activeCamera.fps} FPS` : ''}</p>
                 </div>
               )}
 
