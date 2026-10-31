@@ -125,12 +125,23 @@ async function http(path, options = {}) {
   return response.json();
 }
 
+// dev.py demo --webcam: the laptop camera runs on a seeded camera id (no contract change);
+// only its label changes here.
+const WEBCAM_CAMERA = import.meta.env.VITE_WEBCAM_CAMERA || '';
+const WEBCAM_METADATA = {
+  code: 'WEBCAM',
+  name: 'WEBCAM • Camera laptopului',
+  subtitle: 'Verificare vestă în timp real (experimental)',
+  category: 'Webcam',
+};
+
 function mapCamera(camera, index = 0) {
-  const meta = CAMERA_METADATA[camera.id] || {};
+  const webcam = WEBCAM_CAMERA && camera.id === WEBCAM_CAMERA;
+  const meta = webcam ? { ...CAMERA_METADATA[camera.id], ...WEBCAM_METADATA } : CAMERA_METADATA[camera.id] || {};
   return {
     ...camera,
     code: meta.code || `CAM-0${index + 1}`,
-    name: camera.name || meta.name || `CAM-${camera.id}`,
+    name: (webcam && meta.name) || camera.name || meta.name || `CAM-${camera.id}`,
     subtitle: meta.subtitle || (camera.name ? `Zonă ${camera.name}` : 'Flux Video Monitorizat'),
     category: meta.category || 'Alimentare & Rampă',
     zone_id: meta.zone_id || camera.id,
