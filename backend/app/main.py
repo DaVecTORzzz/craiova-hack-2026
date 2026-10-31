@@ -50,6 +50,9 @@ async def lifespan(app: FastAPI):
 
 def create_app() -> FastAPI:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+    # httpx/httpcore log request URLs at INFO/DEBUG, which would leak the Slack webhook URL.
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
     settings = get_settings()
     app = FastAPI(title="SafeSight API", lifespan=lifespan)
 
