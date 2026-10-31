@@ -233,6 +233,11 @@ function mapShiftReport(report) {
 }
 
 export const safeSightApi = {
+  async getHealth() {
+    if (USE_MOCK) return { status: 'ok', db: true, edge_last_seen_s: 0, mock: true };
+    return http('/health');
+  },
+
   async getCameras() {
     if (USE_MOCK) return INITIAL_CAMERAS;
     const cameras = await http('/cameras');

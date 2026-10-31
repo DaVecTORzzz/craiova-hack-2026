@@ -128,13 +128,25 @@ def resolve_snapshot_dir() -> Path:
     return path if path.is_absolute() else (BACKEND / path)
 
 
-def app_env(*, mock: bool, api_url: str, frontend_url: str, frontend_port: int) -> dict[str, str]:
+def app_env(
+    *,
+    mock: bool,
+    api_url: str,
+    frontend_url: str,
+    frontend_port: int,
+    demo_clip: str | None = None,
+    demo_camera: str | None = None,
+) -> dict[str, str]:
     env = base_env()
     env["USE_MOCK"] = "true" if mock else "false"
     env["APP_BASE_URL"] = frontend_url
     env["VITE_API_URL"] = api_url
     # The UI always talks to the backend; --mock only switches the backend to fake events.
     env["VITE_USE_MOCK"] = "false"
+    if demo_clip:
+        env["VITE_DEMO_CLIP"] = demo_clip
+    if demo_camera:
+        env["VITE_DEMO_CAMERA"] = demo_camera
     if frontend_port != 5173:
         origins = f"http://localhost:{frontend_port},http://127.0.0.1:{frontend_port}"
         existing = env.get("CORS_ORIGINS") or dotenv_value("CORS_ORIGINS")
@@ -145,14 +157,13 @@ def app_env(*, mock: bool, api_url: str, frontend_url: str, frontend_port: int) 
 
 
 def mask_url(url: str) -> str:
-    """Hide RTSP credentials in anything printed (terminal, screen recording)."""
+    """Hide RTSP credentials and query tokens in anything printed."""
     parsed = urlsplit(url)
-    if not parsed.username and not parsed.password:
-        return url
     host = parsed.hostname or ""
     if parsed.port:
         host = f"{host}:{parsed.port}"
-    return urlunsplit((parsed.scheme, f"***@{host}", parsed.path, parsed.query, ""))
+    auth = "***@" if parsed.username or parsed.password else ""
+    return urlunsplit((parsed.scheme, f"{auth}{host}", parsed.path, "", ""))
 
 
 def popen(parts: list[str], *, cwd: Path, env: dict[str, str], shown: list[str] | None = None) -> subprocess.Popen:
@@ -193,6 +204,21 @@ def stop(process: subprocess.Popen) -> None:
                 os.killpg(os.getpgid(process.pid), signal.SIGKILL)
             except ProcessLookupError:
                 pass
+
+
+def enable_demo_engine(base_url: str, camera_id: str = "stand12") -> None:
+    """Match the UI engine state with the demo edge run."""
+    request = urllib.request.Request(
+        f"{base_url}/cameras/{camera_id}/engine",
+        data=b'{"on": true}',
+        method="PUT",
+        headers={"Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=2) as response:
+            response.read(1)
+    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        print(f"warn: nu am putut porni motorul în backend: {exc}", file=sys.stderr)
 
 
 def wait_for_http(url: str, timeout: float = 30.0, process: subprocess.Popen | None = None) -> bool:
@@ -366,11 +392,15 @@ def run_all(args: argparse.Namespace) -> int:
     env = app_env(mock=args.mock, api_url=api_url(args), frontend_url=web_url(args), frontend_port=args.frontend_port)
     backend = popen(backend_command(args), cwd=BACKEND, env=env)
     try:
+        print(f"Backend:  {api_url(args)}/health")
+        if not wait_for_http(f"{api_url(args)}/health", process=backend):
+            print("Backend-ul nu a răspuns la /health.", file=sys.stderr)
+            stop(backend)
+            return 1
         frontend = popen(frontend_command(args), cwd=FRONTEND, env=env)
     except BaseException:
         stop(backend)
         raise
-    print(f"\nBackend:  {api_url(args)}/health")
     print(f"Frontend: {web_url(args)}")
     print("Ctrl-C pentru oprire.\n")
     return run_servers([("backend", backend), ("frontend", frontend)])
@@ -381,10 +411,25 @@ def run_demo(args: argparse.Namespace) -> int:
     source = args.rtsp or str(clip)
     token = resolve_edge_token(args.edge_token)
     live_dir = resolve_snapshot_dir() / "live"
-    env = app_env(mock=args.mock, api_url=api_url(args), frontend_url=web_url(args), frontend_port=args.frontend_port)
+    env = app_env(
+        mock=args.mock,
+        api_url=api_url(args),
+        frontend_url=web_url(args),
+        frontend_port=args.frontend_port,
+        demo_clip=clip.name if not args.rtsp and clip.is_file() else None,
+        demo_camera=args.camera_id,
+    )
     env["EDGE_TOKEN"] = token
     backend = popen(backend_command(args), cwd=BACKEND, env=env)
+    frontend: subprocess.Popen | None = None
     try:
+        print(f"Backend:  {api_url(args)}/health")
+        if not wait_for_http(f"{api_url(args)}/health", process=backend):
+            print("Backend-ul nu a răspuns la /health.", file=sys.stderr)
+            stop(backend)
+            return 1
+        if not args.mock and not args.no_ml:
+            enable_demo_engine(api_url(args), args.camera_id)
         frontend = popen(frontend_command(args), cwd=FRONTEND, env=env)
     except BaseException:
         stop(backend)
@@ -392,11 +437,14 @@ def run_demo(args: argparse.Namespace) -> int:
     ml_process: subprocess.Popen | None = None
     processes: list[tuple[str, subprocess.Popen]] = [("backend", backend), ("frontend", frontend)]
     try:
-        print(f"\nBackend:  {api_url(args)}/health")
         print(f"Frontend: {web_url(args)}")
-        if not wait_for_http(f"{api_url(args)}/health", process=backend):
-            print("Backend-ul nu a răspuns la /health.", file=sys.stderr)
-            return 1
+        if args.rtsp:
+            print(f"Edge:     {mask_url(args.rtsp)}")
+        else:
+            print(f"Clip:     {clip}")
+            if not args.mock and not args.no_ml and clip.is_file():
+                print(f"Edge:     {clip.name}")
+        print()
 
         if args.mock:
             print("Mod mock: backend-ul emite evenimente false; edge-ul nu pornește.")
@@ -420,8 +468,9 @@ def run_demo(args: argparse.Namespace) -> int:
                     "--zones",
                     "fixtures/zones.stand12.json",
                     "--camera-id",
-                    "stand12",
+                    args.camera_id,
                     "--engine-on",
+                    "--loop",
                     "--post",
                     "--api-url",
                     api_url(args),
@@ -431,8 +480,7 @@ def run_demo(args: argparse.Namespace) -> int:
                     str(live_dir),
                 ],
             )
-            # Clipul se procesează o dată și edge-ul se oprește; RTSP rulează până la Ctrl-C.
-            # Serverele rămân pornite în ambele cazuri.
+            # Clipul rulează în buclă; RTSP rulează continuu. Serverele rămân pornite.
             print(f"Sursă edge: {mask_url(args.rtsp) if args.rtsp else clip}")
             shown = [mask_url(part) if part == source else part for part in ml_command]
             ml_process = popen(ml_command, cwd=ML, env=base_env(), shown=shown)
@@ -443,7 +491,8 @@ def run_demo(args: argparse.Namespace) -> int:
         if ml_process is not None:
             stop(ml_process)
         stop(backend)
-        stop(frontend)
+        if frontend is not None:
+            stop(frontend)
 
 
 def rtsp_url(value: str) -> str:
@@ -483,6 +532,7 @@ def build_parser() -> argparse.ArgumentParser:
     source = p_demo.add_mutually_exclusive_group()
     source.add_argument("--clip", type=Path, help="clip local folosit de edge (implicit cam01)")
     source.add_argument("--rtsp", type=rtsp_url, help="flux RTSP, ex. rtsp://127.0.0.1:8554/stand12")
+    p_demo.add_argument("--camera-id", default="stand12", help="camera din backend pentru live frame")
     p_demo.add_argument("--no-ml", action="store_true", help="nu porni edge-ul")
     p_demo.add_argument("--edge-token", default=None, help="token edge; implicit EDGE_TOKEN din mediu sau .env")
     p_demo.set_defaults(func=run_demo)

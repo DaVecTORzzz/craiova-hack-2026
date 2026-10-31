@@ -70,6 +70,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--face-model", default=os.getenv("FACE_MODEL_PATH", DEFAULT_FACE_MODEL))
     parser.add_argument("--out", default="out")
     parser.add_argument("--max-frames", type=int, default=0, help="0 = all frames")
+    parser.add_argument("--loop", action="store_true", help="restart a file source at EOF")
     parser.add_argument("--duration-s", type=float, default=0.0, help="stop after wall-clock seconds; 0 = no limit")
     parser.add_argument("--fps", type=float, default=0.0, help="override source FPS")
     parser.add_argument("--engine-on", dest="engine_on", action="store_true", default=None)
@@ -203,6 +204,9 @@ def main(argv: list[str] | None = None) -> int:
             while True:
                 ok, frame = capture.read()
                 if not ok:
+                    if args.loop and not str(args.source).lower().startswith(("rtsp://", "http://", "https://")):
+                        capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                        continue
                     break
                 try:
                     record_events(pipeline.process(frame, frame_index / fps))

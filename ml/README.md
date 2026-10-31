@@ -56,6 +56,7 @@ uv run python -m safesight_ml.run \
   --zones fixtures/zones.stand12.json \
   --camera-id stand12 \
   --engine-on \
+  --loop \
   --post \
   --live-dir ../backend/snapshots/live \
   --api-url http://localhost:8000 \

@@ -102,6 +102,11 @@ export function SecurityProvider({ children }) {
 
   // 8. Stare Conexiune & Toast / Banner Erori (Regulă C-10)
   const [isWsConnected, setIsWsConnected] = useState(true);
+  const [health, setHealth] = useState(
+    USE_MOCK
+      ? { status: 'ok', db: true, edge_last_seen_s: 0, mock: true }
+      : { status: 'connecting', db: false, edge_last_seen_s: null }
+  );
   const [isReconnecting, setIsReconnecting] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
 
@@ -114,13 +119,16 @@ export function SecurityProvider({ children }) {
   useEffect(() => {
     if (USE_MOCK) return;
     let cancelled = false;
+    let retryTimer;
+    let announced = false;
 
     const load = async () => {
-      const [cams, evs, zs, kpi] = await Promise.allSettled([
+      const [cams, evs, zs, kpi, healthResult] = await Promise.allSettled([
         safeSightApi.getCameras(),
         safeSightApi.getEvents(),
         safeSightApi.getZones(),
-        safeSightApi.getKPIs()
+        safeSightApi.getKPIs(),
+        safeSightApi.getHealth()
       ]);
       if (cancelled) return;
 
@@ -151,14 +159,47 @@ export function SecurityProvider({ children }) {
       } else {
         failures.push('KPI');
       }
+      if (healthResult.status === 'fulfilled') {
+        setHealth(healthResult.value);
+      } else {
+        failures.push('health');
+      }
 
       if (failures.length) {
-        showToast(`Backend incomplet: ${failures.join(', ')} indisponibil. Restul datelor sunt reale.`);
+        if (!announced) {
+          showToast(`Backend incomplet: ${failures.join(', ')}. Reîncerc automat...`);
+          announced = true;
+        }
+        // Frontend-ul pornește înaintea backend-ului: reîncearcă până apare.
+        retryTimer = setTimeout(load, 2000);
       }
     };
 
     load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      clearTimeout(retryTimer);
+    };
+  }, []);
+
+  // /health se actualizează separat, ca statusul Edge să nu depindă de un refresh de pagină.
+  useEffect(() => {
+    if (USE_MOCK) return;
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const next = await safeSightApi.getHealth();
+        if (!cancelled) setHealth(next);
+      } catch {
+        if (!cancelled) setHealth((prev) => ({ ...prev, status: 'offline' }));
+      }
+    };
+    tick();
+    const interval = setInterval(tick, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, []);
 
   // Raportul de tură se reîncarcă la schimbarea turei.
@@ -548,6 +589,7 @@ export function SecurityProvider({ children }) {
         setSelectedShift,
         isWsConnected,
         setIsWsConnected,
+        health,
         isReconnecting,
         toastMessage,
         showToast,

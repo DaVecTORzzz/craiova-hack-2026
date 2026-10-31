@@ -37,7 +37,8 @@ export default function LiveView() {
     setFilterMode,
     acknowledgeEvent,
     setSelectedEventId,
-    setCurrentView
+    setCurrentView,
+    health
   } = useSecurity();
 
   // Moduri interactive de afișare: 'standard' | 'split' | 'fullscreen'
@@ -49,7 +50,43 @@ export default function LiveView() {
   }, [activeCamera?.id]);
 
   const isOffline = activeCamera?.status === 'offline';
-  const showStream = Boolean(activeCamera?.stream_url && !streamFailed && !isOffline);
+  const demoClip = import.meta.env.VITE_DEMO_CLIP;
+  const demoCamera = import.meta.env.VITE_DEMO_CAMERA;
+  const demoCameraLabel = cameras.find((camera) => camera.id === demoCamera)?.code || demoCamera;
+  const noLiveForCamera = Boolean(demoCamera && activeCamera?.id && activeCamera.id !== demoCamera);
+  const showStream = Boolean(activeCamera?.stream_url && !streamFailed && !isOffline && !noLiveForCamera);
+  const edgeSeen = health?.edge_last_seen_s;
+  const edgeActive = Boolean(health?.db && edgeSeen != null && edgeSeen < 60);
+
+  if (!activeCamera) {
+    return (
+      <div className="flex-1 flex items-center justify-center p-6 select-none">
+        <div
+          style={{ backgroundColor: themeStyles.panelBg, borderColor: themeStyles.panelBorder }}
+          className="max-w-lg w-full rounded-2xl border p-6 shadow-lg space-y-3 text-center"
+        >
+          <Video size={42} className="mx-auto text-blue-500" />
+          <h2 className="font-black text-lg uppercase tracking-tight">Nu există feed încă</h2>
+          <p style={{ color: themeStyles.textMuted }} className="text-sm">
+            {health?.db
+              ? 'Backend-ul e online, dar nu a returnat camere. Verifică seed-ul sau reîncarcă.'
+              : 'Backend-ul încă pornește sau nu răspunde. Frontend-ul reîncearcă automat la 2 secunde.'}
+          </p>
+          <div className="p-3 rounded-lg bg-black/20 text-left font-mono text-xs space-y-1">
+            <p className="text-white font-bold">Pornește tot stack-ul:</p>
+            <p>./run.sh demo</p>
+            <p className="text-slate-400">sau: python scripts/dev.py demo</p>
+          </div>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold"
+          >
+            Reîncarcă
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // Mod Full-Screen Imersiv
   if (displayMode === 'fullscreen') {
@@ -111,7 +148,11 @@ export default function LiveView() {
                 <div className="text-center opacity-25 select-none">
                   <Video size={100} className="mx-auto mb-3 text-slate-300" />
                   <p className="font-mono font-bold text-white text-xl">{activeCamera?.name?.toUpperCase()}</p>
-                  <p className="font-mono text-sm text-slate-300">LIVE FEED{activeCamera?.fps ? ` • ${activeCamera?.fps} FPS` : ''}</p>
+                  <p className="font-mono text-sm text-slate-300">
+                    {noLiveForCamera
+                      ? `Fără feed live pe ${activeCamera?.code || activeCamera?.id}; demo rulează pe ${demoCameraLabel}.`
+                      : `LIVE FEED${activeCamera?.fps ? ` • ${activeCamera.fps} FPS` : ''}`}
+                  </p>
                 </div>
               )}
 
@@ -300,7 +341,17 @@ export default function LiveView() {
               </div>
             ) : (
               <div className={`w-full h-full bg-gradient-to-br ${activeCamera?.previewBg || 'from-slate-900 to-black'} relative flex items-center justify-center overflow-hidden`}>
-                {showStream ? (
+                {noLiveForCamera ? (
+                  <div className="text-center p-6 max-w-md select-none">
+                    <WifiOff size={44} className="mx-auto mb-2 text-amber-400" />
+                    <p className="font-bold text-white text-sm">
+                      {activeCamera?.code || activeCamera?.id} nu are feed live în demo
+                    </p>
+                    <p className="text-slate-300 text-xs mt-1">
+                      Edge-ul rulează pe {demoCameraLabel}. Alege camera respectivă sau pornește un al doilea edge.
+                    </p>
+                  </div>
+                ) : showStream ? (
                   <img
                     src={activeCamera?.stream_url}
                     alt={`Flux live ${activeCamera?.id}`}
@@ -329,6 +380,17 @@ export default function LiveView() {
                   <span className="text-slate-400">|</span>
                   <span>{activeCamera?.resolution || '4K (3840x2160)'}</span>
                 </div>
+
+                {!edgeActive && !noLiveForCamera && (
+                  <div className="absolute top-2.5 right-2.5 max-w-xs px-2.5 py-1.5 rounded-lg bg-amber-500/95 text-slate-950 text-[10px] font-bold shadow border border-amber-300">
+                    Edge fără cadre live. Pornește: ./run.sh demo
+                  </div>
+                )}
+                {demoClip && !noLiveForCamera && (
+                  <div className="absolute bottom-12 left-2.5 px-2 py-1 rounded bg-black/75 text-white text-[10px] font-mono border border-white/10">
+                    Sursă demo: {demoClip}
+                  </div>
+                )}
 
                 {/* Banner jos cu detalii cameră afișate sub denumire conform cerinței */}
                 <div className="absolute bottom-2.5 left-2.5 right-2.5 bg-black/75 backdrop-blur px-3 py-1.5 rounded-lg border border-white/10 flex items-center justify-between text-xs">
