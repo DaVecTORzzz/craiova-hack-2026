@@ -45,7 +45,7 @@ Pornește:
 |---|---|---|
 | `stand12` (CAM-01) | `restricted-zone_cam01_persoana-langa-motor` | `ml/fixtures/zones.stand12.json` |
 | `taxiway-b` (CAM-02) | `broll_cam01_marshaller-conuri-apron` | `ml/fixtures/zones/broll-cam01.json` |
-| `baggage-area` (CAM-03) | `broll_cam02_avion-la-poarta-bagaje` | `ml/fixtures/zones/broll-cam02.json` |
+| `baggage-area` (CAM-03) | `broll_cam02_avion-la-poarta-bagaje` (4K, citit la 1920 px cu `--max-size`) | `ml/fixtures/zones/broll-cam02.json` |
 
 Ctrl-C oprește tot. Dacă backend-ul nu e gata, scriptul așteaptă `/health` înainte de edge.
 
