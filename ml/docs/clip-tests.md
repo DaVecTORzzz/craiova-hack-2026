@@ -21,7 +21,7 @@ Testare pe toate cele 6 clipuri din `data/videos/`, cu modelul real și poligonu
 | `restricted-zone_cam01_persoana-langa-motor` | 1920×1080 | 263 | 2 | 29,3 | 0,40–0,55 | cazul validat pentru demo |
 | `restricted-zone_cam02_lucratori-pushback-motor` | 3840×2160 | 200 | 3 | 20,7 | 0,44–0,75 | al doilea caz real; poligonul nu e calibrat pe cam02 |
 
-Pentru comparație, eșantionul de 120 cadre din `cam01` a ieșit la 21,1 FPS, iar `cam02` la 17,3 FPS. Diferența față de rularea integrală vine din prima inferență și din încălzirea modelului.
+Pentru comparație, eșantionul de 120 cadre din `cam01` din [`benchmark.md`](benchmark.md) a ieșit la ~17,3 FPS (6,94 s, inclusiv pornirea Python și încărcarea modelului), iar la re-măsurare ~22,3 FPS. Diferența față de rularea integrală vine din pornire, din prima inferență și din încălzirea modelului.
 
 ## Ce arată rezultatele
 
@@ -62,7 +62,7 @@ Auditul default (0,6) este intenționat conservator: poate semnala texturi din z
 Folosește cifre conservative și spune pe ce hardware au fost măsurate:
 
 - **2 clipuri reale** `restricted-zone`, cu **2–3 evenimente** fiecare.
-- **17–29 FPS** pe fișier, pe laptopul de demo, în funcție de rezoluție.
+- **17–29 FPS** pe laptopul de demo: ~17,3 FPS pe eșantionul `cam01` de 120 cadre, cu pornire inclusă, și 20,7–29,3 FPS pe clipurile `restricted-zone` rulate integral.
 - **120 cadre RTSP în 9,34 s**, cu `--remote-config`.
 - **200 cadre `cam02` prin backend în 15,62 s**, cu live frame real.
 - **0 fețe neblurate** în snapshot-urile verificate; 2 semnalări slabe pe blur, clarificate manual.
