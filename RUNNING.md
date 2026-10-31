@@ -49,7 +49,10 @@ Variante:
 python scripts/dev.py demo --no-ml          # doar backend + frontend
 python scripts/dev.py demo --mock           # backend mock, fără model
 python scripts/dev.py demo --clip data/videos/<clip>.mp4
+python scripts/dev.py demo --rtsp rtsp://127.0.0.1:8554/stand12
 ```
+
+`--clip` și `--rtsp` se exclud. Clipul se procesează o dată, apoi edge-ul se oprește; fluxul RTSP rulează până la Ctrl-C. Pentru un RTSP local din clip, vezi `ml/README.md` (mediamtx + `ml/scripts/rtsp-loop.sh`). Credențialele din URL-ul RTSP nu apar în terminal (`rtsp://***@host/...`).
 
 ## Fallback demo
 

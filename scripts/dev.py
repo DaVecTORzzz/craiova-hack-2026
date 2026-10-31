@@ -5,6 +5,8 @@ Works on Linux, macOS and Windows with Python 3.12+.
 
     python scripts/dev.py setup          # install backend, ML and frontend deps
     python scripts/dev.py demo           # backend + frontend + one real clip run
+    python scripts/dev.py demo --clip ../data/videos/<clip>.mp4
+    python scripts/dev.py demo --rtsp rtsp://127.0.0.1:8554/stand12
     python scripts/dev.py all            # backend + frontend only
     python scripts/dev.py backend        # one process
     python scripts/dev.py frontend       # one process
@@ -26,6 +28,7 @@ import time
 import urllib.error
 import urllib.request
 from pathlib import Path
+from urllib.parse import urlsplit, urlunsplit
 
 if sys.platform == "win32":
     try:
@@ -141,8 +144,19 @@ def app_env(*, mock: bool, api_url: str, frontend_url: str, frontend_port: int) 
     return env
 
 
-def popen(parts: list[str], *, cwd: Path, env: dict[str, str]) -> subprocess.Popen:
-    print_command(parts)
+def mask_url(url: str) -> str:
+    """Hide RTSP credentials in anything printed (terminal, screen recording)."""
+    parsed = urlsplit(url)
+    if not parsed.username and not parsed.password:
+        return url
+    host = parsed.hostname or ""
+    if parsed.port:
+        host = f"{host}:{parsed.port}"
+    return urlunsplit((parsed.scheme, f"***@{host}", parsed.path, parsed.query, ""))
+
+
+def popen(parts: list[str], *, cwd: Path, env: dict[str, str], shown: list[str] | None = None) -> subprocess.Popen:
+    print_command(shown or parts)
     kwargs: dict[str, object] = {
         "cwd": str(cwd),
         "env": env,
@@ -364,6 +378,7 @@ def run_all(args: argparse.Namespace) -> int:
 
 def run_demo(args: argparse.Namespace) -> int:
     clip = Path(args.clip).expanduser().resolve() if args.clip else DEFAULT_CLIP
+    source = args.rtsp or str(clip)
     token = resolve_edge_token(args.edge_token)
     live_dir = resolve_snapshot_dir() / "live"
     env = app_env(mock=args.mock, api_url=api_url(args), frontend_url=web_url(args), frontend_port=args.frontend_port)
@@ -387,7 +402,7 @@ def run_demo(args: argparse.Namespace) -> int:
             print("Mod mock: backend-ul emite evenimente false; edge-ul nu pornește.")
         elif args.no_ml:
             print("Edge-ul nu pornește (--no-ml).")
-        elif not clip.is_file():
+        elif not args.rtsp and not clip.is_file():
             print(f"Clipul lipsește: {clip}", file=sys.stderr)
             print("UI-ul rămâne pornit. Folosește backend/scripts/demo_event.py pentru fallback.", file=sys.stderr)
         elif not FACE_MODEL.is_file():
@@ -401,7 +416,7 @@ def run_demo(args: argparse.Namespace) -> int:
                     "-m",
                     "safesight_ml.run",
                     "--source",
-                    str(clip),
+                    source,
                     "--zones",
                     "fixtures/zones.stand12.json",
                     "--camera-id",
@@ -416,8 +431,11 @@ def run_demo(args: argparse.Namespace) -> int:
                     str(live_dir),
                 ],
             )
-            # Edge-ul procesează clipul și se oprește; serverele rămân pornite.
-            ml_process = popen(ml_command, cwd=ML, env=base_env())
+            # Clipul se procesează o dată și edge-ul se oprește; RTSP rulează până la Ctrl-C.
+            # Serverele rămân pornite în ambele cazuri.
+            print(f"Sursă edge: {mask_url(args.rtsp) if args.rtsp else clip}")
+            shown = [mask_url(part) if part == source else part for part in ml_command]
+            ml_process = popen(ml_command, cwd=ML, env=base_env(), shown=shown)
 
         print("Ctrl-C pentru oprire.\n")
         return run_servers(processes)
@@ -426,6 +444,12 @@ def run_demo(args: argparse.Namespace) -> int:
             stop(ml_process)
         stop(backend)
         stop(frontend)
+
+
+def rtsp_url(value: str) -> str:
+    if urlsplit(value).scheme not in ("rtsp", "rtsps"):
+        raise argparse.ArgumentTypeError("trebuie să înceapă cu rtsp:// sau rtsps://")
+    return value
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -456,7 +480,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_demo = sub.add_parser("demo", help="backend + frontend + un run real pe clip")
     add_common(p_demo)
-    p_demo.add_argument("--clip", type=Path, help="clipul folosit de edge")
+    source = p_demo.add_mutually_exclusive_group()
+    source.add_argument("--clip", type=Path, help="clip local folosit de edge (implicit cam01)")
+    source.add_argument("--rtsp", type=rtsp_url, help="flux RTSP, ex. rtsp://127.0.0.1:8554/stand12")
     p_demo.add_argument("--no-ml", action="store_true", help="nu porni edge-ul")
     p_demo.add_argument("--edge-token", default=None, help="token edge; implicit EDGE_TOKEN din mediu sau .env")
     p_demo.set_defaults(func=run_demo)
