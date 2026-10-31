@@ -183,6 +183,21 @@ podman rm -f safesight-rtsp 2>/dev/null || true
 
 Verificat local pe 31 octombrie 2026: 120 de cadre citite din `rtsp://127.0.0.1:8554/stand12` în 9,34 s end-to-end, 2 evenimente `RESTRICTED_ZONE`, `--remote-config` activ, iar `/stream/stand12.mjpg` a servit exact cadrul scris de edge. Dacă backend-ul nu răspunde, edge-ul folosește `fixtures/zones.stand12.json` și `--engine-on`.
 
+## Webcam laptop, verificare vestă live (experimental)
+
+`--source webcam` (sau `webcam:N` pentru alt dispozitiv) citește camera locală prin OpenCV, cere 1280×720 și o tratează ca un flux live: se păstrează doar cadrul cel mai nou, fără `--realtime` și fără `--align-reference`. Blur-ul pe fețe rulează la fel ca pe clipuri.
+
+```bash
+python scripts/dev.py demo --webcam          # din rădăcina repo-ului
+# sau doar edge-ul:
+uv run python -m safesight_ml.run --source webcam --zones fixtures/zones/webcam-ppe.json \
+  --camera-id baggage-area --zone-margin 0 --live-dir ../backend/snapshots/live --post
+```
+
+Webcam-ul folosește camera `baggage-area` din seed, deci contractul nu se schimbă. `fixtures/zones/webcam-ppe.json` face zona `PPE_REQUIRED` (`hi_vis_vest`) cât tot cadrul, iar `dev.py` o scrie în backend chiar dacă o rulare anterioară a pus acolo zona clipului. `--zone-margin 0` e necesar: picioarele sunt aproape de marginea de jos, iar cu marja de 10% persoana ar rămâne „în afara” zonei.
+
+Heuristica vestei nu se schimbă, deci **încadrarea contează**: o casetă tăiată de marginea cadrului nu se judecă (`vesta ?`). Persoana trebuie să stea la 2–3 m, cu tot corpul în cadru. `FARA VESTA` apare după ≥ 10 cadre bune (≈ 1 s), cu persoana de ≥ 150 px și o detecție ≥ 0,5. Vesta trebuie să fie portocalie sau galben-verde fluorescentă. Netestat încă pe camera laptopului de prezentare.
+
 ## Soak și metrics
 
 `--duration-s` oprește run-ul după timpul real, iar `--metrics-json` scrie un rezumat pentru benchmark și pentru triajul de falsuri:

@@ -67,8 +67,11 @@ def draw_overlay(
             text += VEST_LABEL[vest.get(detection.track_id, "unknown")]
         _label(out, text, p1, color, font, thick)
 
-    status = "MOTOR PORNIT" if engine_on else "MOTOR OPRIT"
-    text = f"{status} | {len(detections)} persoane | {len(inside)} in zona"
+    parts = [f"{len(detections)} persoane", f"{len(inside)} in zona"]
+    # The engine only matters where a zone depends on it (not on a PPE-only camera).
+    if any(zone.active_when == "engine_on" for zone in zones):
+        parts.insert(0, "MOTOR PORNIT" if engine_on else "MOTOR OPRIT")
+    text = " | ".join(parts)
     if not zones_known:
         text += " | ZONA NEALINIATA"
     _label(out, text, (0, 0), RED if inside else GREY, font, thick, below=True)
