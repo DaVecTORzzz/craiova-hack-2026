@@ -758,8 +758,6 @@ Each step lists what to build, the tests to write, and the "done when" check. Ti
 
 - Run the API with `USE_MOCK=true` and `MOCK_INTERVAL_S=1` for 10 minutes (the rest of the window) with one browser tab on the frontend. Check that memory does not keep growing (`docker stats` or `ps`), that the WebSocket stays connected, and that `GET /events?limit=500` stays under 200 ms. Write the result in `OPEN_QUESTIONS.md` under "Stability run".
 
-**T+5:30: freeze.** No new routes after this point, only bug fixes.
-
 ### No login
 
 Do not implement login, JWT, roles or an audit log. The contract (N08) decided that the demo uses an `operator` field in the action body and that JWT/SSO, roles and audit are roadmap, shown only in the pitch.
