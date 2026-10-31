@@ -37,7 +37,19 @@ docker compose up --build
 curl localhost:8000/health
 ```
 
-The image includes `backend/` and `automation/`. The DB and snapshots live in `backend/data/` on the host (ignored by git). `.env` at the repo root is optional; without it the defaults from `app/config.py` apply.
+The image includes `backend/` and `automation/`. The DB and snapshots live in `backend/data/` on the host; git keeps only `.gitkeep`, so a fresh clone already has the folder with your ownership. `.env` at the repo root is optional; without it the defaults from `app/config.py` apply.
+
+The API runs as `${UID:-1000}:${GID:-1000}`, so the edge on the host can write live frames to `backend/data/snapshots/live/`. Shells do not export `UID` by default; unless your UID/GID are 1000, pass them explicitly:
+
+```bash
+UID=$(id -u) GID=$(id -g) docker compose up --build
+```
+
+If `backend/data/` was created by an older root container, fix it once without `sudo`:
+
+```bash
+docker compose run --rm --no-deps --user 0:0 --entrypoint chown api -R "$(id -u):$(id -g)" /srv/backend/data
+```
 
 ## Demo fallback
 

@@ -3,12 +3,16 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
+    # Host UID, so the edge on the host can write backend/data/snapshots/live/.
+    user: "${UID:-1000}:${GID:-1000}"
     env_file:
       - path: .env
         required: false
     environment:
       DATABASE_URL: sqlite:///./data/safesight.db
       SNAPSHOT_DIR: ./data/snapshots
+      UV_CACHE_DIR: /tmp/uv
+      PYTHONDONTWRITEBYTECODE: "1"
     ports:
       - "8000:8000"
     volumes:
