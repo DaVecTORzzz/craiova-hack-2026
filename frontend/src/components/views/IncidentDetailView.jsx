@@ -18,6 +18,8 @@ import { useTheme } from '../../context/ThemeContext';
 import { useSecurity } from '../../context/SecurityContext';
 import { STATUS_TOKENS } from '../../constants/theme';
 import ConfidenceBadge from '../common/ConfidenceBadge';
+import { printAsPdf } from '../../utils/print';
+import { canDo } from '../../constants/eventActions';
 
 export default function IncidentDetailView() {
   const { isDarkMode, themeStyles } = useTheme();
@@ -28,8 +30,7 @@ export default function IncidentDetailView() {
     acknowledgeEvent,
     markFalsePositive,
     reopenEvent,
-    regenerateReport,
-    showToast
+    regenerateReport
   } = useSecurity();
 
   const [falsePositiveNote, setFalsePositiveNote] = useState('');
@@ -52,6 +53,12 @@ export default function IncidentDetailView() {
 
   const isAcked = selectedEvent.status === 'acknowledged';
   const isFalsePos = selectedEvent.status === 'false_positive';
+  // A button is enabled only when the backend accepts that action from this status.
+  const canAck = canDo('ack', selectedEvent.status);
+  const canFalsePos = canDo('false_positive', selectedEvent.status);
+  const canReopen = canDo('reopen', selectedEvent.status);
+  // The report is written automatically at ingest; retry only when the AI was not used.
+  const canRetryReport = !selectedEvent.report || selectedEvent.report.source !== 'llm';
 
   // Formatare ore în Europe/Bucharest (Regulă din PDF: API trimite UTC, conversie în UI)
   const formatTime = (isoString) => {
@@ -82,7 +89,7 @@ export default function IncidentDetailView() {
           <button
             onClick={() => setCurrentView('incidents')}
             style={{ backgroundColor: themeStyles.cardBg }}
-            className="p-2 rounded-lg border hover:bg-white/10 flex items-center gap-1.5 text-xs font-bold"
+            className="no-print p-2 rounded-lg border hover:bg-white/10 flex items-center gap-1.5 text-xs font-bold"
           >
             <ArrowLeft size={16} /> Incidente
           </button>
@@ -127,7 +134,7 @@ export default function IncidentDetailView() {
               setSelectedCameraId(selectedEvent.camera_id);
               setCurrentView('live');
             }}
-            className="px-3 py-2 rounded-lg bg-[#7EDEED] hover:bg-[#5ccedc] text-[#1F1F1F] text-xs font-bold flex items-center gap-1.5"
+            className="no-print px-3 py-2 rounded-lg bg-[#7EDEED] hover:bg-[#5ccedc] text-[#1F1F1F] text-xs font-bold flex items-center gap-1.5"
           >
             <Video size={15} /> Vezi camera acum
           </button>
@@ -164,7 +171,7 @@ export default function IncidentDetailView() {
               </div>
             )}
             <div className="absolute bottom-2 left-2 px-2 py-1 bg-black/80 text-white font-mono text-[10px] rounded border border-white/20">
-              Snapshot HTTP (GDPR Compliant • Fețe blurate la Edge)
+              Momentul incidentului • fețe blurate pe edge
             </div>
           </div>
 
@@ -211,15 +218,18 @@ export default function IncidentDetailView() {
             <div className="flex items-center justify-between pb-2 border-b border-white/10">
               <h3 className="font-bold text-sm uppercase tracking-wider flex items-center gap-2">
                 <Info size={16} className="text-indigo-400" />
-                Raport de Securitate ({selectedEvent.report?.source?.toUpperCase() || 'LLM'})
+                Raport incident ({selectedEvent.report?.source === 'llm' ? 'AI' : 'șablon'})
               </h3>
-              <button
-                onClick={handleRegenerate}
-                className="text-xs text-indigo-400 hover:underline flex items-center gap-1 font-semibold"
-              >
-                <RefreshCw size={12} className={isRegenerating ? 'animate-spin' : ''} />
-                Regenerează Raportul
-              </button>
+              {canRetryReport && (
+                <button
+                  onClick={handleRegenerate}
+                  className="no-print text-xs text-indigo-400 hover:underline flex items-center gap-1 font-semibold"
+                  title="Raportul a fost scris din șablon (AI indisponibil); încearcă din nou cu AI"
+                >
+                  <RefreshCw size={12} className={isRegenerating ? 'animate-spin' : ''} />
+                  Reîncearcă cu AI
+                </button>
+              )}
             </div>
 
             {isRegenerating ? (
@@ -254,36 +264,36 @@ export default function IncidentDetailView() {
             )}
           </div>
 
-          {/* BLOC „HUMAN IN THE LOOP” (Acțiuni Operator) */}
+          {/* Decizia operatorului (acțiuni; nu apar în PDF) */}
           <div
             style={{ backgroundColor: themeStyles.panelBg, borderColor: themeStyles.panelBorder }}
-            className="rounded-xl border p-4 shadow-lg space-y-3"
+            className="no-print rounded-xl border p-4 shadow-lg space-y-3"
           >
             <h4 className="font-bold text-xs uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
-              <Check size={15} /> Bloc Decizional Human-In-The-Loop
+              <Check size={15} /> Decizia operatorului
             </h4>
 
             <div className="grid grid-cols-2 gap-2 text-xs">
               {/* Buton 1: Acknowledge */}
               <button
-                disabled={isAcked}
+                disabled={!canAck}
                 onClick={(e) => acknowledgeEvent(selectedEvent.event_id, e)}
                 className={`py-2.5 px-3 rounded-lg font-bold flex items-center justify-center gap-2 shadow transition-all ${
-                  isAcked
+                  !canAck
                     ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-500/40 cursor-not-allowed'
                     : 'bg-emerald-600 hover:bg-emerald-500 text-white hover:scale-[1.02]'
                 }`}
               >
                 <Check size={16} />
-                <span>{isAcked ? 'Confirmat (Acked)' : 'Acknowledge (Confirmă)'}</span>
+                <span>{isAcked ? 'Confirmat' : 'Confirmă'}</span>
               </button>
 
               {/* Buton 2: Fals Pozitiv */}
               <button
-                disabled={isFalsePos}
+                disabled={!canFalsePos}
                 onClick={() => setShowNoteDialog(true)}
                 className={`py-2.5 px-3 rounded-lg font-bold flex items-center justify-center gap-2 border border-slate-600 transition-all ${
-                  isFalsePos
+                  !canFalsePos
                     ? 'bg-slate-900 text-slate-500 cursor-not-allowed'
                     : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
                 }`}
@@ -294,20 +304,23 @@ export default function IncidentDetailView() {
 
               {/* Buton 3: Reopen */}
               <button
+                disabled={!canReopen}
                 onClick={() => reopenEvent(selectedEvent.event_id)}
-                className="py-2.5 px-3 rounded-lg font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 flex items-center justify-center gap-2"
+                className={`py-2.5 px-3 rounded-lg font-bold border border-slate-600 flex items-center justify-center gap-2 ${
+                  canReopen ? 'bg-slate-800 hover:bg-slate-700 text-slate-200' : 'bg-slate-900 text-slate-500 cursor-not-allowed'
+                }`}
               >
                 <RotateCcw size={15} />
-                <span>Redeschide (Reopen)</span>
+                <span>Redeschide</span>
               </button>
 
-              {/* Buton 4: Export PDF Placeholder */}
+              {/* Buton 4: Export PDF (dialogul de tipărire al browserului) */}
               <button
-                onClick={() => showToast('Export PDF generat: tichet_incident_demo.pdf (Placeholder Demo).')}
+                onClick={() => printAsPdf(`SafeSight_incident_${selectedEvent.event_id}`)}
                 className="py-2.5 px-3 rounded-lg font-bold bg-indigo-900/60 hover:bg-indigo-900 text-indigo-200 border border-indigo-700/60 flex items-center justify-center gap-2"
               >
                 <FileDown size={15} />
-                <span>Export PDF [Demo]</span>
+                <span>Export PDF</span>
               </button>
             </div>
           </div>

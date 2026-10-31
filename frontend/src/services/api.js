@@ -321,7 +321,7 @@ export const safeSightApi = {
     return mapEvent(await http(`/events/${encodeURIComponent(eventId)}`));
   },
 
-  async acknowledgeEvent(eventId, operator = 'Ariana') {
+  async acknowledgeEvent(eventId, operator = 'Operator') {
     if (USE_MOCK) return { event_id: eventId, status: 'acknowledged', acked_by: operator };
     return mapEvent(await http(`/events/${encodeURIComponent(eventId)}/ack`, {
       method: 'POST',
@@ -329,7 +329,7 @@ export const safeSightApi = {
     }));
   },
 
-  async markFalsePositive(eventId, operator = 'Ariana', note = '') {
+  async markFalsePositive(eventId, operator = 'Operator', note = '') {
     if (USE_MOCK) return { event_id: eventId, status: 'false_positive', note };
     return mapEvent(await http(`/events/${encodeURIComponent(eventId)}/false-positive`, {
       method: 'POST',
@@ -337,7 +337,7 @@ export const safeSightApi = {
     }));
   },
 
-  async reopenEvent(eventId, operator = 'Ariana') {
+  async reopenEvent(eventId, operator = 'Operator') {
     if (USE_MOCK) return { event_id: eventId, status: 'open' };
     return mapEvent(await http(`/events/${encodeURIComponent(eventId)}/reopen`, {
       method: 'POST',

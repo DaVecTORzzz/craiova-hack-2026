@@ -22,6 +22,7 @@ import { useSecurity } from '../../context/SecurityContext';
 import { STATUS_TOKENS } from '../../constants/theme';
 import ConfidenceBadge from '../common/ConfidenceBadge';
 import BoundingBox from '../video/BoundingBox';
+import { canDo } from '../../constants/eventActions';
 
 export default function LiveView() {
   const { isDarkMode, themeStyles } = useTheme();
@@ -127,7 +128,7 @@ export default function LiveView() {
               }`}
             >
               <Power size={13} />
-              ENGINE: {activeCamera?.engine_on ? 'ON' : 'OFF'}
+              MOTOR: {activeCamera?.engine_on ? 'PORNIT' : 'OPRIT'}
             </button>
 
             <button
@@ -135,7 +136,7 @@ export default function LiveView() {
               className="px-3.5 py-1.5 rounded-xl bg-white/20 hover:bg-white/30 text-white text-xs font-bold flex items-center gap-1.5 transition-all"
             >
               <Minimize2 size={14} />
-              <span>Ieșire Full-Screen</span>
+              <span>Ieșire ecran complet</span>
             </button>
           </div>
         </div>
@@ -619,13 +620,13 @@ export default function LiveView() {
                         <Eye size={12} /> Detalii Incident
                       </span>
 
-                      {!isAcked && (
+                      {canDo('ack', ev.status) && (
                         <button
                           onClick={(e) => acknowledgeEvent(ev.event_id, e)}
                           className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 flex items-center gap-1 shadow-sm transition-colors"
                           title="Confirmă incidentul și anulează timerul de escaladare"
                         >
-                          <Check size={12} /> Confirmă (Ack)
+                          <Check size={12} /> Confirmă
                         </button>
                       )}
                     </div>

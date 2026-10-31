@@ -28,7 +28,6 @@ function MainAppLayout() {
       case 'settings':
         return <SettingsView />;
       case 'live':
-      case 'dashboard':
       default:
         return <LiveView />;
     }

@@ -2,10 +2,11 @@ import React from 'react';
 import { FileText, FileDown, Calendar, Clock, BarChart3, ShieldCheck, TrendingUp } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useSecurity } from '../../context/SecurityContext';
+import { printAsPdf } from '../../utils/print';
 
 export default function ReportsView() {
   const { themeStyles } = useTheme();
-  const { shiftReport, selectedShift, setSelectedShift, showToast } = useSecurity();
+  const { shiftReport, selectedShift, setSelectedShift } = useSecurity();
 
   const shifts = [
     { id: 'shift_1', label: 'Tura 1 (Dimineață: 06:00 - 14:00)' },
@@ -22,19 +23,19 @@ export default function ReportsView() {
         <div>
           <h2 className="font-black text-lg uppercase tracking-tight flex items-center gap-2">
             <FileText size={20} className="text-indigo-400" />
-            Raport Operațional de Tură (Shift Report)
+            Raport de tură
           </h2>
           <p style={{ color: themeStyles.textMuted }} className="text-xs font-mono">
-            Conformitate ICAO Anexa 14 & Regulamentul UE 376/2014 (§5.4)
+            Incidente, timpi de reacție și conformitate PPE pe tură
           </p>
         </div>
 
-        {/* Buton Export PDF Placeholder [marcat DEMO conform PDF 5.2] */}
+        {/* Export PDF: dialogul de tipărire al browserului */}
         <button
-          onClick={() => showToast('Export PDF generat: Raport_Tura_1_SafeSight.pdf [Placeholder Demo].')}
-          className="px-3.5 py-2 rounded-lg bg-indigo-700 hover:bg-indigo-600 text-white font-bold text-xs flex items-center gap-2 shadow"
+          onClick={() => printAsPdf(`SafeSight_raport_${shiftReport.date}_${shiftReport.shift}`.replace(/[^\w.-]+/g, '_'))}
+          className="no-print px-3.5 py-2 rounded-lg bg-indigo-700 hover:bg-indigo-600 text-white font-bold text-xs flex items-center gap-2 shadow"
         >
-          <FileDown size={15} /> Export PDF [Demo]
+          <FileDown size={15} /> Export PDF
         </button>
       </div>
 
@@ -81,7 +82,7 @@ export default function ReportsView() {
           style={{ backgroundColor: themeStyles.panelBg, borderColor: themeStyles.panelBorder }}
           className="p-3.5 rounded-xl border shadow-sm space-y-1"
         >
-          <p style={{ color: themeStyles.textMuted }} className="text-xs font-semibold">Timp Mediu Confirmare (Ack)</p>
+          <p style={{ color: themeStyles.textMuted }} className="text-xs font-semibold">Timp mediu de confirmare</p>
           <p className="text-2xl font-black font-mono text-indigo-400">
             {shiftReport.kpi.avg_ack_time_s === '—' ? '—' : `${shiftReport.kpi.avg_ack_time_s} sec`}
           </p>
@@ -187,7 +188,7 @@ export default function ReportsView() {
                 <th className="pb-1.5">Zonă / Sector</th>
                 <th className="pb-1.5 text-red-400">Critice</th>
                 <th className="pb-1.5 text-amber-400">Warning</th>
-                <th className="pb-1.5 text-right">Timp Mediu Confirmare (Ack)</th>
+                <th className="pb-1.5 text-right">Timp mediu de confirmare</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">

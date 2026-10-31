@@ -123,9 +123,10 @@ export const INITIAL_CAMERAS = [
 ];
 
 export const AVAILABLE_OPERATORS = [
-  { id: 'ariana', name: 'Ariana V.', role: 'Dispatcher Principal (Lead)', badge: 'AIRSIDE-LEAD' },
-  { id: 'mihai', name: 'Mihai D.', role: 'Șef Tură Rampă & Apron', badge: 'RAMP-CHIEF' },
-  { id: 'radu', name: 'Radu P.', role: 'Inspector Siguranță Sol', badge: 'SAFETY-INSP' }
+  // Roles, not people: the operator types their own name (kept in this browser only).
+  { id: 'dispatcher', name: 'Dispecer', role: 'Dispecer siguranță airside', badge: 'DISPECER' },
+  { id: 'shift-lead', name: 'Șef tură', role: 'Șef tură rampă & apron', badge: 'SEF TURA' },
+  { id: 'inspector', name: 'Inspector', role: 'Inspector siguranță sol', badge: 'INSPECTOR' }
 ];
 
 export const INITIAL_EVENTS = [
@@ -206,7 +207,7 @@ export const INITIAL_EVENTS = [
     escalated_at: null,
     escalate_after_s: 60,
     acked_at: "2026-10-31T07:32:05.100Z",
-    acked_by: "Ariana V.",
+    acked_by: "Dispecer",
     report: {
       what: "Tehnician de mentenanță fără căști antifonice conforme EN 352.",
       where: "Stand 12, proximitate motor B777.",
@@ -330,7 +331,7 @@ export const INITIAL_SHIFT_REPORT = {
     avg_ack_time_s: 38,
     ppe_compliance_pct: 94.2
   },
-  summary: "Tura de dimineață a decurs conform normelor ICAO, cu un nivel de conformitate PPE de 94.2%. A fost neutralizat rapid un fragment FOD pe Pista 08R în mai puțin de 4 minute, prevenind întârzieri pe fluxul de decolare.",
+  summary: "Tura de dimineață a avut un nivel de conformitate PPE de 94.2%. A fost neutralizat rapid un fragment FOD pe Pista 08R în mai puțin de 4 minute, prevenind întârzieri pe fluxul de decolare.",
   by_type: [
     { type: "NO_PPE", count: 9, label: "Echipament Lipsă" },
     { type: "RESTRICTED_ZONE", count: 4, label: "Zonă Restricționată" },
