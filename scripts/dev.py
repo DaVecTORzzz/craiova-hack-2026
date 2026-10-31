@@ -304,7 +304,10 @@ def run_fallback(args: argparse.Namespace) -> int:
         token,
     ]
     if args.snapshot:
-        extra.extend(["--snapshot", str(args.snapshot.expanduser().resolve())])
+        snapshot = args.snapshot.expanduser().resolve()
+        if not snapshot.is_file():
+            fail(f"snapshot-ul nu există: {snapshot}")
+        extra.extend(["--snapshot", str(snapshot)])
     if args.no_engine:
         extra.append("--no-engine")
     cmd = command("uv", extra)

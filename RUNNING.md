@@ -59,10 +59,10 @@ Dacă edge-ul, clipul sau modelul pică, backend-ul poate primi un eveniment dem
 python scripts/dev.py fallback
 python scripts/dev.py fallback --type FOD --no-engine
 python scripts/dev.py fallback --type NO_PPE
-python scripts/dev.py fallback --snapshot data/reference_frames/<cadru>.jpeg
+python scripts/dev.py fallback --snapshot /path/to/already-blurred.jpg
 ```
 
-`--snapshot` trebuie să fie un JPEG **deja blurat**. Scriptul folosește tokenul din `.env`/mediu și API-ul de pe `localhost:8000`; `--api-url` și `--backend-port` sunt disponibile pentru alt port.
+`--snapshot` trebuie să fie un JPEG **deja blurat**. Nu folosi cadrele din `data/reference_frames/` — acelea conțin fețe neblurate. Scriptul folosește tokenul din `.env`/mediu și API-ul de pe `localhost:8000`; `--api-url` și `--backend-port` sunt disponibile pentru alt port.
 
 ## Pornire pe bucăți
 
