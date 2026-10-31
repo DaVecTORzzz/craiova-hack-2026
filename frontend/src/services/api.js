@@ -40,6 +40,13 @@ function apiPath(path) {
   return `${API_BASE_URL}${path}`;
 }
 
+function localDateString(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 function queryString(params = {}) {
   const query = new URLSearchParams();
   Object.entries(params).forEach(([key, value]) => {
@@ -134,9 +141,21 @@ function mapShiftReport(report) {
   const total = byType.reduce((sum, row) => sum + row.count, 0);
   const critical = (report.by_type || []).reduce((sum, row) => sum + (row.critical || 0), 0);
   const warning = (report.by_type || []).reduce((sum, row) => sum + (row.warning || 0), 0);
-  const ackValues = (report.by_zone || []).map((zone) => zone.avg_ack_s).filter((value) => value != null);
-  const avgAck = ackValues.length
-    ? Math.round(ackValues.reduce((sum, value) => sum + value, 0) / ackValues.length)
+  // Backend-ul dă avg_ack_s per zonă; aproximăm media globală ponderând cu volumul zonei.
+  const ackRows = (report.by_zone || []).filter((zone) => zone.avg_ack_s != null);
+  const ackWeight = ackRows.reduce(
+    (sum, zone) => sum + (zone.critical || 0) + (zone.warning || 0),
+    0
+  );
+  const avgAck = ackRows.length
+    ? Math.round(
+        ackWeight > 0
+          ? ackRows.reduce(
+              (sum, zone) => sum + zone.avg_ack_s * ((zone.critical || 0) + (zone.warning || 0)),
+              0
+            ) / ackWeight
+          : ackRows.reduce((sum, zone) => sum + zone.avg_ack_s, 0) / ackRows.length
+      )
     : null;
 
   return {
@@ -179,7 +198,11 @@ export const safeSightApi = {
       method: 'PUT',
       body: JSON.stringify({ on }),
     });
-    return mapCamera(camera);
+    return {
+      id: camera.id,
+      engine_on: Boolean(camera.engine_on),
+      status: camera.online ? 'online' : 'offline',
+    };
   },
 
   async getZones(cameraId) {
@@ -252,7 +275,20 @@ export const safeSightApi = {
   },
 
   async regenerateReport(eventId) {
-    if (USE_MOCK) return { report: { source: 'llm' } };
+    if (USE_MOCK) {
+      const fallback = INITIAL_EVENTS.find((event) => event.event_id === eventId);
+      return {
+        event_id: eventId,
+        report: {
+          what: fallback?.report?.what || 'Persoană în zona motorului.',
+          where: fallback?.report?.where || 'Stand 12, zona motorului stâng.',
+          when: fallback?.report?.when || new Date().toISOString(),
+          severity_reason: fallback?.report?.severity_reason || 'Motorul este pornit.',
+          recommended_action: fallback?.report?.recommended_action || 'Îndepărtează persoana și confirmă zona.',
+          source: 'llm',
+        },
+      };
+    }
     return mapEvent(await http(`/events/${encodeURIComponent(eventId)}/regenerate-report`, { method: 'POST' }));
   },
 
@@ -261,7 +297,7 @@ export const safeSightApi = {
     return mapKpi(await http(`/kpi${queryString({ date, shift })}`));
   },
 
-  async getShiftReport(shift = 'morning', date = new Date().toISOString().slice(0, 10)) {
+  async getShiftReport(shift = 'morning', date = localDateString()) {
     if (USE_MOCK) return { ...INITIAL_SHIFT_REPORT };
     return mapShiftReport(await http(`/reports${queryString({ shift, date })}`));
   },

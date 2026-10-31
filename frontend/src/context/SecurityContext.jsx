@@ -11,6 +11,29 @@ import { playCriticalAlertSound } from '../utils/sound';
 
 const SecurityContext = createContext();
 
+const EMPTY_KPIS = {
+  ppe_compliance_pct: '—',
+  open_incidents_count: 0,
+  detection_to_alert_latency_s: '—',
+  escalated_incidents_count: 0,
+};
+
+const EMPTY_SHIFT_REPORT = {
+  shift: '—',
+  date: '—',
+  kpi: {
+    total_events: 0,
+    critical_events: 0,
+    warning_events: 0,
+    avg_ack_time_s: '—',
+    ppe_compliance_pct: '—',
+  },
+  summary: 'Se încarcă raportul de tură...',
+  by_type: [],
+  by_zone: [],
+  by_hour: [],
+};
+
 export function SecurityProvider({ children }) {
   // 1. Navigare Ecrane (Conform 03_C_frontend.pdf):
   // 'live' | 'incident_detail' | 'zones' | 'reports' | 'mobile' | 'settings'
@@ -21,23 +44,23 @@ export function SecurityProvider({ children }) {
   const [operatorName, setOperatorName] = useState('Ariana');
 
   // 3. Camere CCTV & Stare Motor (PUT /cameras/{id}/engine)
-  const [cameras, setCameras] = useState(INITIAL_CAMERAS);
+  const [cameras, setCameras] = useState(USE_MOCK ? INITIAL_CAMERAS : []);
   const [selectedCameraId, setSelectedCameraId] = useState('stand12');
 
   // 4. Evenimente & Incidente
-  const [events, setEvents] = useState(INITIAL_EVENTS);
-  const [selectedEventId, setSelectedEventId] = useState('evt_stand12_1730284933120_17');
+  const [events, setEvents] = useState(USE_MOCK ? INITIAL_EVENTS : []);
+  const [selectedEventId, setSelectedEventId] = useState(USE_MOCK ? 'evt_stand12_1730284933120_17' : null);
   const [filterMode, setFilterMode] = useState('open'); // 'open' | 'critical' | 'all'
   const [searchQuery, setSearchQuery] = useState('');
 
   // 5. KPI Live (4 KPI: PPE, incidente deschise, latență, escaladate)
-  const [kpis, setKpis] = useState(INITIAL_KPIS);
+  const [kpis, setKpis] = useState(USE_MOCK ? INITIAL_KPIS : EMPTY_KPIS);
 
   // 6. Zone & Editor Poligoane
-  const [zones, setZones] = useState(INITIAL_ZONES);
+  const [zones, setZones] = useState(USE_MOCK ? INITIAL_ZONES : []);
 
   // 7. Raport de Tură
-  const [shiftReport, setShiftReport] = useState(INITIAL_SHIFT_REPORT);
+  const [shiftReport, setShiftReport] = useState(USE_MOCK ? INITIAL_SHIFT_REPORT : EMPTY_SHIFT_REPORT);
   const [selectedShift, setSelectedShift] = useState('shift_1');
 
   // 8. Stare Conexiune & Toast / Banner Erori (Regulă C-10)
@@ -49,28 +72,50 @@ export function SecurityProvider({ children }) {
     setTimeout(() => setToastMessage(null), 3800);
   };
 
-  // Încarcă datele reale din backend. Fără backend, UI-ul rămâne pe mock-ul local.
+  // Încarcă datele reale din backend. Un endpoint picat nu le blochează pe celelalte.
   useEffect(() => {
     if (USE_MOCK) return;
     let cancelled = false;
 
     const load = async () => {
-      try {
-        const [cams, evs, zs, kpi] = await Promise.all([
-          safeSightApi.getCameras(),
-          safeSightApi.getEvents(),
-          safeSightApi.getZones(),
-          safeSightApi.getKPIs()
-        ]);
-        if (cancelled) return;
-        setCameras(cams);
-        setEvents(evs);
-        setZones(zs);
-        setKpis(kpi);
-        setSelectedCameraId((current) => (cams.some((c) => c.id === current) ? current : cams[0]?.id));
-        setSelectedEventId((current) => (evs.some((e) => e.event_id === current) ? current : evs[0]?.event_id));
-      } catch (error) {
-        if (!cancelled) showToast(`Backend indisponibil: ${error.message}. Rulează API-ul pentru date reale.`);
+      const [cams, evs, zs, kpi] = await Promise.allSettled([
+        safeSightApi.getCameras(),
+        safeSightApi.getEvents(),
+        safeSightApi.getZones(),
+        safeSightApi.getKPIs()
+      ]);
+      if (cancelled) return;
+
+      const failures = [];
+      if (cams.status === 'fulfilled') {
+        setCameras(cams.value);
+        setSelectedCameraId((current) =>
+          cams.value.some((c) => c.id === current) ? current : cams.value[0]?.id
+        );
+      } else {
+        failures.push('camere');
+      }
+      if (evs.status === 'fulfilled') {
+        setEvents(evs.value);
+        setSelectedEventId((current) =>
+          evs.value.some((e) => e.event_id === current) ? current : evs.value[0]?.event_id
+        );
+      } else {
+        failures.push('evenimente');
+      }
+      if (zs.status === 'fulfilled') {
+        setZones(zs.value);
+      } else {
+        failures.push('zone');
+      }
+      if (kpi.status === 'fulfilled') {
+        setKpis(kpi.value);
+      } else {
+        failures.push('KPI');
+      }
+
+      if (failures.length) {
+        showToast(`Backend incomplet: ${failures.join(', ')} indisponibil. Restul datelor sunt reale.`);
       }
     };
 
@@ -185,20 +230,13 @@ export function SecurityProvider({ children }) {
           if (msg.type === 'event.created' && incoming.severity === 'CRITICAL') {
             playCriticalAlertSound();
           }
+          safeSightApi.getKPIs().then(setKpis).catch(() => {});
         }
       },
       () => setIsWsConnected(false),
       () => setIsWsConnected(true)
     );
     return () => disconnect();
-  }, []);
-
-  // KPI se reîmprospătează periodic; evenimentele vin pe WebSocket.
-  useEffect(() => {
-    if (USE_MOCK) return;
-    const refresh = () => safeSightApi.getKPIs().then(setKpis).catch(() => {});
-    const interval = setInterval(refresh, 5000);
-    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -222,7 +260,7 @@ export function SecurityProvider({ children }) {
   // 1. Acknowledge (Buton principal, un singur clic - C-02)
   const acknowledgeEvent = async (eventId, e) => {
     if (e) e.stopPropagation();
-    // Optimistic update
+    const previous = events.find((ev) => ev.event_id === eventId);
     setEvents((prev) =>
       prev.map((ev) =>
         ev.event_id === eventId
@@ -235,17 +273,19 @@ export function SecurityProvider({ children }) {
           : ev
       )
     );
-    showToast(`Evenimentul ${eventId.slice(-6)} confirmat de ${operatorName}. Escaladare anulată.`);
     try {
       const updated = await safeSightApi.acknowledgeEvent(eventId, operatorName);
       setEvents((prev) => prev.map((ev) => (ev.event_id === eventId ? { ...ev, ...updated } : ev)));
+      showToast(`Evenimentul ${eventId.slice(-6)} confirmat de ${operatorName}. Escaladare anulată.`);
     } catch (error) {
+      if (previous) setEvents((prev) => prev.map((ev) => (ev.event_id === eventId ? previous : ev)));
       showToast(`Ack eșuat: ${error.message}`);
     }
   };
 
   // 2. Fals Pozitiv (C-03: Iese din Deschise, rămâne în Toate)
   const markFalsePositive = async (eventId, note = '') => {
+    const previous = events.find((ev) => ev.event_id === eventId);
     setEvents((prev) =>
       prev.map((ev) =>
         ev.event_id === eventId
@@ -258,24 +298,26 @@ export function SecurityProvider({ children }) {
           : ev
       )
     );
-    showToast(`Marcat ca Fals Pozitiv. Feedback înregistrat pentru modelul AI.`);
     try {
       const updated = await safeSightApi.markFalsePositive(eventId, operatorName, note);
       setEvents((prev) => prev.map((ev) => (ev.event_id === eventId ? { ...ev, ...updated } : ev)));
+      showToast('Marcat ca Fals Pozitiv. Feedback înregistrat pentru modelul AI.');
     } catch (error) {
+      if (previous) setEvents((prev) => prev.map((ev) => (ev.event_id === eventId ? previous : ev)));
       showToast(`Fals pozitiv eșuat: ${error.message}`);
     }
   };
 
   // 3. Reopen (C-04: Revine în Deschise; timerul repornește)
   const reopenEvent = async (eventId) => {
+    const previous = events.find((ev) => ev.event_id === eventId);
     setEvents((prev) =>
       prev.map((ev) =>
         ev.event_id === eventId
           ? {
               ...ev,
               status: 'open',
-              detected_at: new Date().toISOString(), // Repornește timerul de escaladare
+              detected_at: new Date().toISOString(),
               escalated_at: null,
               acked_at: null,
               acked_by: null
@@ -283,11 +325,12 @@ export function SecurityProvider({ children }) {
           : ev
       )
     );
-    showToast(`Eveniment redeschis. Timerul de escaladare a repornit.`);
     try {
       const updated = await safeSightApi.reopenEvent(eventId, operatorName);
       setEvents((prev) => prev.map((ev) => (ev.event_id === eventId ? { ...ev, ...updated } : ev)));
+      showToast('Eveniment redeschis. Timerul de escaladare a repornit.');
     } catch (error) {
+      if (previous) setEvents((prev) => prev.map((ev) => (ev.event_id === eventId ? previous : ev)));
       showToast(`Reopen eșuat: ${error.message}`);
     }
   };
@@ -307,17 +350,21 @@ export function SecurityProvider({ children }) {
   // 5. Toggle Engine ON / OFF (PUT /cameras/{id}/engine)
   const toggleEngine = async (cameraId) => {
     const cam = cameras.find((c) => c.id === cameraId);
+    const previous = cam?.engine_on;
     const newState = !cam?.engine_on;
     setCameras((prev) =>
       prev.map((c) => (c.id === cameraId ? { ...c, engine_on: newState } : c))
     );
-    showToast(`Stare motor pentru ${cameraId}: ${newState ? 'PORNIT (ON)' : 'OPRIT (OFF)'}`);
     try {
       const updated = await safeSightApi.setEngineState(cameraId, newState);
-      setCameras((prev) => prev.map((cam) => (
-        cam.id === cameraId ? { ...cam, ...updated, id: cam.id, name: cam.name } : cam
+      setCameras((prev) => prev.map((item) => (
+        item.id === cameraId ? { ...item, engine_on: updated.engine_on, status: updated.status } : item
       )));
+      showToast(`Stare motor pentru ${cameraId}: ${newState ? 'PORNIT (ON)' : 'OPRIT (OFF)'}`);
     } catch (error) {
+      setCameras((prev) => prev.map((item) => (
+        item.id === cameraId ? { ...item, engine_on: previous } : item
+      )));
       showToast(`Comutarea motorului a eșuat: ${error.message}`);
     }
   };

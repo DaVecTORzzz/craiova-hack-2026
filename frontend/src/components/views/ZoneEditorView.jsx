@@ -38,15 +38,42 @@ export default function ZoneEditorView() {
 
   const canvasContainerRef = useRef(null);
   const referenceFileRef = useRef(null);
+  const previousCameraRef = useRef(selectedCameraId);
 
-  const activeZone = zones.find((zone) => zone.zone_id === zoneId);
+  const activeZone = zones.find(
+    (zone) => zone.zone_id === zoneId && zone.camera_id === selectedCameraId
+  );
 
   useEffect(() => {
     const cameraZones = zones.filter((zone) => zone.camera_id === selectedCameraId);
-    const zone = cameraZones.find((item) => item.zone_id === 'engine-left') || cameraZones[0];
-    if (!zone) return;
+    const cameraChanged = previousCameraRef.current !== selectedCameraId;
+    previousCameraRef.current = selectedCameraId;
+
+    // Cameră fără zone: editorul se golește, ca Save să nu mute o zonă de pe altă cameră.
+    if (cameraZones.length === 0) {
+      setZoneId('');
+      setPoints([]);
+      setIsPolygonClosed(false);
+      setJsonInput('[]');
+      setRuleType('RESTRICTED');
+      setActiveWhen('always');
+      setSeverity('CRITICAL');
+      setDebounceSeconds(1);
+      setEscalateAfterS(null);
+      return;
+    }
+
+    // La schimbarea camerei preferăm zona motorului; altfel păstrăm zona editată curent.
+    const preferred = cameraChanged
+      ? null
+      : cameraZones.find((item) => item.zone_id === zoneId);
+    const zone = preferred
+      || cameraZones.find((item) => item.zone_id === 'engine-left')
+      || cameraZones[0];
+
     setZoneId(zone.zone_id);
     setPoints(zone.polygon || []);
+    setIsPolygonClosed(true);
     setJsonInput(JSON.stringify(zone.polygon || [], null, 2));
     setRuleType(zone.rule_type || 'RESTRICTED');
     setActiveWhen(zone.active_when || 'always');
@@ -98,7 +125,13 @@ export default function ZoneEditorView() {
     }
   };
 
+  const canSave = Boolean(zoneId) && points.length >= 3;
+
   const handleSave = () => {
+    if (!zoneId) {
+      showToast('Completează un ID de zonă înainte de salvare.');
+      return;
+    }
     if (points.length < 3) {
       showToast('Eroare validare: Poligonul trebuie să aibă minimum 3 puncte.');
       return;
@@ -149,15 +182,17 @@ export default function ZoneEditorView() {
             type="file"
             accept="image/jpeg"
             className="hidden"
+            disabled={!zoneId}
             onChange={(event) => {
               const file = event.target.files?.[0];
-              if (file) captureReferenceFrame(zoneId, file);
+              if (file && zoneId) captureReferenceFrame(zoneId, file);
               event.target.value = '';
             }}
           />
           <button
             onClick={() => referenceFileRef.current?.click()}
-            className="px-3 py-1.5 rounded-lg bg-indigo-700 hover:bg-indigo-600 text-white font-mono text-xs font-bold flex items-center gap-1.5 shadow"
+            disabled={!zoneId}
+            className="px-3 py-1.5 rounded-lg bg-indigo-700 hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-mono text-xs font-bold flex items-center gap-1.5 shadow"
             title="Încarcă un JPEG deja blurat ca referință FOD"
           >
             <Camera size={14} /> Încarcă referință FOD
@@ -364,11 +399,17 @@ export default function ZoneEditorView() {
           <div className="pt-2">
             <button
               onClick={handleSave}
-              className="w-full py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg transition-transform hover:scale-[1.02]"
+              disabled={!canSave}
+              className="w-full py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg transition-transform hover:scale-[1.02]"
             >
               <Save size={15} />
               <span>Salvează Zona ({points.length} puncte)</span>
             </button>
+            {!zoneId && (
+              <p className="text-[11px] text-amber-300 font-mono">
+                Camera selectată nu are zone. Scrie un ID și desenează un poligon pentru a crea una nouă.
+              </p>
+            )}
           </div>
         </div>
       </div>
