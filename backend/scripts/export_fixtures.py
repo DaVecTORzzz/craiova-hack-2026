@@ -21,6 +21,28 @@ from app.schemas import (
     Temporal,
     ZoneIO,
 )
+from app.routers.zones import zone_io
+from app.seed import seed_zones
+
+
+class _CollectingSession:
+    """Minimal session so the seed can run without a database."""
+
+    def __init__(self) -> None:
+        self.added: list = []
+
+    def get(self, _model, _id):
+        return None
+
+    def add(self, obj) -> None:
+        self.added.append(obj)
+
+
+def seeded_zones() -> list[ZoneIO]:
+    """The zones exactly as app/seed.py defines them."""
+    session = _CollectingSession()
+    seed_zones(session)
+    return [zone_io(zone) for zone in session.added]
 
 
 def export_fixtures() -> None:
@@ -56,65 +78,10 @@ def export_fixtures() -> None:
     cameras_file.write_text(json.dumps(cameras_data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     print(f"Exported {len(cameras_data)} cameras to {cameras_file}")
 
-    # 2. Zones
-    zones = [
-        ZoneIO(
-            id="engine-left",
-            camera_id="stand12",
-            name="Motor stâng",
-            rule_type=RuleType.RESTRICTED,
-            active_when=ActiveWhen.engine_on,
-            required_ppe=[],
-            severity=Severity.CRITICAL,
-            debounce_s=1.0,
-            escalate_after_s=30,
-            notify_channel="slack",
-            polygon=[(0.46, 0.16), (0.76, 0.16), (0.76, 0.68), (0.46, 0.68)],
-            reference_frame=None,
-        ),
-        ZoneIO(
-            id="apron-stand12",
-            camera_id="stand12",
-            name="Platformă Stand 12",
-            rule_type=RuleType.PPE_REQUIRED,
-            active_when=ActiveWhen.always,
-            required_ppe=["hi_vis_vest", "hard_hat", "ear_defenders"],
-            severity=Severity.WARNING,
-            debounce_s=2.0,
-            escalate_after_s=30,
-            notify_channel="slack",
-            polygon=[(0.04, 0.22), (0.42, 0.22), (0.42, 0.72), (0.04, 0.72)],
-            reference_frame=None,
-        ),
-        ZoneIO(
-            id="taxiway-b",
-            camera_id="taxiway-b",
-            name="Taxiway B",
-            rule_type=RuleType.FOD_WATCH,
-            active_when=ActiveWhen.always,
-            required_ppe=[],
-            severity=Severity.CRITICAL,
-            debounce_s=3.0,
-            escalate_after_s=30,
-            notify_channel="slack",
-            polygon=[(0.0, 0.76), (1.0, 0.76), (1.0, 0.92), (0.0, 0.92)],
-            reference_frame=None,
-        ),
-        ZoneIO(
-            id="baggage-area",
-            camera_id="baggage-area",
-            name="Zona bagaje",
-            rule_type=RuleType.PPE_REQUIRED,
-            active_when=ActiveWhen.always,
-            required_ppe=["hi_vis_vest"],
-            severity=Severity.WARNING,
-            debounce_s=2.0,
-            escalate_after_s=None,
-            notify_channel="slack",
-            polygon=[(0.05, 0.10), (0.95, 0.10), (0.95, 0.95), (0.05, 0.95)],
-            reference_frame=None,
-        ),
-    ]
+    # 2. Zones — built from the seed, never hand-written here. The fixture used to
+    # duplicate this list, and the copy drifted from app/seed.py: the demo edge and the
+    # UI then disagreed about the same zone (name, debounce, even the polygon).
+    zones = seeded_zones()
     zones_file = fixtures_dir / "zones.json"
     zones_data = [z.model_dump(mode="json") for z in zones]
     zones_file.write_text(json.dumps(zones_data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
