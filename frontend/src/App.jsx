@@ -1,0 +1,70 @@
+import React from 'react';
+import { ThemeProvider, useTheme } from './context/ThemeContext';
+import { SecurityProvider, useSecurity } from './context/SecurityContext';
+import Header from './components/layout/Header';
+import Sidebar from './components/layout/Sidebar';
+import LiveView from './components/views/LiveView';
+import IncidentDetailView from './components/views/IncidentDetailView';
+import ZoneEditorView from './components/views/ZoneEditorView';
+import ReportsView from './components/views/ReportsView';
+import MobileAlertsView from './components/views/MobileAlertsView';
+import SettingsView from './components/views/SettingsView';
+import Toast from './components/common/Toast';
+
+function MainAppLayout() {
+  const { themeStyles } = useTheme();
+  const { currentView } = useSecurity();
+
+  const renderActiveView = () => {
+    switch (currentView) {
+      case 'incident_detail':
+        return <IncidentDetailView />;
+      case 'zones':
+        return <ZoneEditorView />;
+      case 'reports':
+        return <ReportsView />;
+      case 'mobile':
+        return <MobileAlertsView />;
+      case 'settings':
+        return <SettingsView />;
+      case 'live':
+      case 'dashboard':
+      default:
+        return <LiveView />;
+    }
+  };
+
+  return (
+    <div
+      style={{
+        backgroundColor: themeStyles.appBg,
+        color: themeStyles.textColor
+      }}
+      className="h-screen w-screen flex flex-col overflow-hidden antialiased selection:bg-indigo-500 selection:text-white"
+    >
+      {/* 1. Header (Bara de Sus cu Brand SafeTarmac AI) */}
+      <Header />
+
+      {/* 2. Corp Principal (Sidebar Stânga + Conținut Activ din cele 6 Ecrane) */}
+      <div className="flex-1 flex overflow-hidden">
+        <Sidebar />
+        <div className="flex-1 overflow-hidden relative">
+          {renderActiveView()}
+        </div>
+      </div>
+
+      {/* 3. Notificări Toast */}
+      <Toast />
+    </div>
+  );
+}
+
+export default function App() {
+  return (
+    <ThemeProvider>
+      <SecurityProvider>
+        <MainAppLayout />
+      </SecurityProvider>
+    </ThemeProvider>
+  );
+}

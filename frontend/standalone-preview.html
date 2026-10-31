@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Airport AI Command Center - Interactive Dashboard</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- React & ReactDOM CDN -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <!-- Babel CDN for JSX -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <!-- Lucide icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    /* Custom scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.1);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.4);
+    }
+  </style>
+</head>
+<body class="bg-[#292929] text-white">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useMemo, useEffect } = React;
+
+    // Helper SVG icon generator using Lucide symbols or standard SVG
+    function Icon({ name, size = 18, className = "" }) {
+      useEffect(() => {
+        if (window.lucide) {
+          window.lucide.createIcons();
+        }
+      });
+      return <i data-lucide={name} style={{ width: size, height: size }} className={`inline-block shrink-0 ${className}`}></i>;
+    }
+
+    const INITIAL_CAMERAS = [
+      {
+        id: "CAM-01",
+        name: "Terminal 1 - Poarta 4B",
+        zone: "Zonă Îmbarcare Pasageri",
+        status: "online",
+        fps: 30,
+        resolution: "4K (3840x2160)",
+        incidentsCount: 1,
+        previewBg: "from-slate-900 to-indigo-950",
+        boxes: [
+          {
+            id: "box-1",
+            label: "Aglomerație Flux 74%",
+            type: "warning",
+            coords: { top: "35%", left: "48%", width: "24%", height: "38%" },
+            trackingId: "TRK-0192",
+            details: "Densitate 3.8 pers/m² lângă ghișeul de îmbarcare."
+          },
+          {
+            id: "box-2",
+            label: "Cale Evacuare Sigură",
+            type: "resolved",
+            coords: { top: "20%", left: "12%", width: "18%", height: "45%" },
+            trackingId: "TRK-0193",
+            details: "Ușă evacuare liberă, flux optim."
+          }
+        ]
+      },
+      {
+        id: "CAM-02",
+        name: "Pista 08R - Runway & Tarmac",
+        zone: "Zonă Decolare / Aterizare",
+        status: "online",
+        fps: 60,
+        resolution: "4K 60FPS HDR",
+        incidentsCount: 1,
+        previewBg: "from-zinc-900 to-neutral-800",
+        boxes: [
+          {
+            id: "box-3",
+            label: "FOD Detectat pe Cale Rulare 96%",
+            type: "critical",
+            coords: { top: "58%", left: "38%", width: "22%", height: "20%" },
+            trackingId: "FOD-8841",
+            details: "Obiect metalic nespecificat ~14cm pe axul pistei."
+          }
+        ]
+      },
+      {
+        id: "CAM-03",
+        name: "Zonă Alimentare B777 (Apron Est)",
+        zone: "Tarmac / Alimentare Cherosen Jet-A1",
+        status: "online",
+        fps: 30,
+        resolution: "1080p 60FPS",
+        incidentsCount: 2,
+        previewBg: "from-blue-950 to-slate-900",
+        boxes: [
+          {
+            id: "box-4",
+            label: "FUMAT INTERZIS ÎN PERIMETRU 99%",
+            type: "critical",
+            coords: { top: "28%", left: "62%", width: "22%", height: "42%" },
+            trackingId: "HAZ-003",
+            details: "Sursă activă de fum detectată lângă cisterna de combustibil."
+          },
+          {
+            id: "box-5",
+            label: "FĂRĂ CĂȘTI ANTIFONICE 88%",
+            type: "warning",
+            coords: { top: "42%", left: "22%", width: "19%", height: "40%" },
+            trackingId: "PPE-109",
+            details: "Operator la sol sub 10m de motor fără EIP auditiv."
+          }
+        ]
+      },
+      {
+        id: "CAM-04",
+        name: "Terminal Plecări - Check-In",
+        zone: "Hol Public Principal",
+        status: "online",
+        fps: 30,
+        resolution: "4K (3840x2160)",
+        incidentsCount: 1,
+        previewBg: "from-slate-900 to-purple-950",
+        boxes: [
+          {
+            id: "box-6",
+            label: "BAGAJ ABANDONAT 98%",
+            type: "critical",
+            coords: { top: "52%", left: "44%", width: "20%", height: "28%" },
+            trackingId: "BAGG-991",
+            details: "Rucsac negru nesupravegheat de peste 10 minute."
+          }
+        ]
+      },
+      {
+        id: "CAM-05",
+        name: "Triere Bagaje & Rampă Sud",
+        zone: "Zonă Tehnică Cală",
+        status: "offline",
+        fps: 0,
+        resolution: "Semnal Nedisponibil",
+        incidentsCount: 0,
+        previewBg: "from-neutral-900 to-black",
+        boxes: []
+      },
+      {
+        id: "CAM-06",
+        name: "Control Securitate - Porți X-Ray",
+        zone: "Filtru Control Pasageri",
+        status: "online",
+        fps: 30,
+        resolution: "1080p 30FPS",
+        incidentsCount: 1,
+        previewBg: "from-slate-900 to-slate-800",
+        boxes: [
+          {
+            id: "box-7",
+            label: "Distanță Siguranță Respectată 95%",
+            type: "resolved",
+            coords: { top: "30%", left: "32%", width: "36%", height: "50%" },
+            trackingId: "SAF-202",
+            details: "Conformitate maximă protocol inspecție corporală."
+          }
+        ]
+      },
+      {
+        id: "CAM-07",
+        name: "Perimetru Gard Nord (Linie Graniță)",
+        zone: "Senzori Optici & PIDS",
+        status: "offline",
+        fps: 0,
+        resolution: "Semnal Nedisponibil",
+        incidentsCount: 0,
+        previewBg: "from-black to-zinc-950",
+        boxes: []
+      },
+      {
+        id: "CAM-08",
+        name: "Stand 12 - Descărcare Bagaje",
+        zone: "Tarmac Descărcare Aeronave",
+        status: "online",
+        fps: 30,
+        resolution: "1080p 30FPS",
+        incidentsCount: 1,
+        previewBg: "from-slate-950 to-blue-950",
+        boxes: [
+          {
+            id: "box-8",
+            label: "Manipulare Brutală Bagaje 82%",
+            type: "warning",
+            coords: { top: "40%", left: "40%", width: "25%", height: "35%" },
+            trackingId: "BAGG-412",
+            details: "Aruncare repetată a bagajelor de cală peste 1.4m înălțime."
+          }
+        ]
+      }
+    ];
+
+    const INITIAL_INCIDENTS = [
+      {
+        id: "INC-8901",
+        cameraId: "CAM-04",
+        cameraName: "Terminal Plecări - Check-In",
+        title: "Bagaj Nesupravegheat (Posibil Dispozitiv)",
+        severity: "critical",
+        confidence: 98,
+        detectedAt: "19:57:12 (Acum 2 min)",
+        boxLabel: "BAGAJ ABANDONAT [PERICOL IMINENT]",
+        reasoning: "Obiect volumetric static identificat de peste 10 minute fără pasager asociat pe o rază de 3.5m. Risc ridicat de explozibil sau substanțe periculoase.",
+        targetType: "Valiză / Rucsac Negru",
+        snapshotId: "SNAP-8901-T1.jpg",
+        actionSuggested: "Izolare zonă și alertare echipă pirotehnică (EOD)."
+      },
+      {
+        id: "INC-8902",
+        cameraId: "CAM-03",
+        cameraName: "Zonă Alimentare B777 (Apron Est)",
+        title: "Fumat Activ lângă Cisterna Jet-A1",
+        severity: "critical",
+        confidence: 99,
+        detectedAt: "19:55:04 (Acum 4 min)",
+        boxLabel: "FUMAT LÂNGĂ CISTERNE [PERICOL IMINENT]",
+        reasoning: "Detecție optică spectrală de flacără deschisă și emisie de fum de la o țigară activă la 4 metri de furtunul de transfer combustibil.",
+        targetType: "Operator Sol Neidentificat",
+        snapshotId: "SNAP-8902-FUEL.jpg",
+        actionSuggested: "Oprire imediată alimentare și evacuare/reținere operator."
+      },
+      {
+        id: "INC-8903",
+        cameraId: "CAM-03",
+        cameraName: "Zonă Alimentare B777 (Apron Est)",
+        title: "Personal Fără Căști Antifonice",
+        severity: "warning",
+        confidence: 88,
+        detectedAt: "19:51:30 (Acum 8 min)",
+        boxLabel: "PROTECȚIE AUDITIVĂ LIPSĂ [AVERTISMENT]",
+        reasoning: "Tehnician mentenanță aflat în perimetrul de 9 metri de turbina GE90 în regim de relanti fără căști fonoizolante conforme EN 352.",
+        targetType: "Muncitor Sol GSE",
+        snapshotId: "SNAP-8903-EIP.jpg",
+        actionSuggested: "Transmitere avertisment acustic pe stația de sol a echipei."
+      },
+      {
+        id: "INC-8904",
+        cameraId: "CAM-02",
+        cameraName: "Pista 08R - Runway & Tarmac",
+        title: "FOD (Foreign Object Debris) pe Pistă",
+        severity: "critical",
+        confidence: 96,
+        detectedAt: "19:48:15 (Acum 11 min)",
+        boxLabel: "OBIECT METALIC STRĂIN [PERICOL IMINENT]",
+        reasoning: "Fragment metalic reflectorizant de ~14cm identificat pe axul pistei la 420m de prag. Pericol extrem de ingestie în motoare.",
+        targetType: "Piesă Metalică Pierdută",
+        snapshotId: "SNAP-8904-FOD.jpg",
+        actionSuggested: "Blocare decolări din TWR și trimitere vehicul 'Follow-Me' FOD sweeper."
+      },
+      {
+        id: "INC-8905",
+        cameraId: "CAM-08",
+        cameraName: "Stand 12 - Descărcare Bagaje",
+        title: "Manipulare Brutală / Aruncare Bagaje",
+        severity: "warning",
+        confidence: 82,
+        detectedAt: "19:44:20 (Acum 15 min)",
+        boxLabel: "ARUNCARE REPETATĂ BAGAJ [AVERTISMENT]",
+        reasoning: "Analiza cinematică indică aruncarea bagajelor fragile de la o înălțime de 1.5m cu forță de impact ce depășește standardele IATA.",
+        targetType: "Echipă Manipulanți Bagaje",
+        snapshotId: "SNAP-8905-BAG.jpg",
+        actionSuggested: "Înregistrare abatere în registrul de calitate handling."
+      },
+      {
+        id: "INC-8906",
+        cameraId: "CAM-01",
+        cameraName: "Terminal 1 - Poarta 4B",
+        title: "Aglomerație Critică la Poartă",
+        severity: "warning",
+        confidence: 74,
+        detectedAt: "19:41:00 (Acum 18 min)",
+        boxLabel: "DENSITATE DEPASITĂ 3.8 P/M² [AVERTISMENT]",
+        reasoning: "Formare de bottleneck în fața porții 4B cauzată de întârzierea scanării biletelor; căile de evacuare parțial blocate.",
+        targetType: "Grup Pasageri Îmbarcare",
+        snapshotId: "SNAP-8906-CROWD.jpg",
+        actionSuggested: "Deschidere bandă secundară de acces și ghidare flux."
+      },
+      {
+        id: "INC-8907",
+        cameraId: "CAM-06",
+        cameraName: "Control Securitate - Porți X-Ray",
+        title: "Distanță Siguranță X-Ray Restabilită",
+        severity: "resolved",
+        confidence: 95,
+        detectedAt: "19:37:44 (Acum 22 min)",
+        boxLabel: "PROTOCOL CONFORM [REMEDIAT]",
+        reasoning: "Operatorul a recalibrat poziția de protecție la scanarea călătorilor. Niciun risc activ.",
+        targetType: "Filtru Securitate Linia 2",
+        snapshotId: "SNAP-8907-SAFE.jpg",
+        actionSuggested: "Nicio acțiune necesară. Incident remediat."
+      }
+    ];
+
+    function App() {
+      // 1. STĂRI TEMĂ
+      // Dark Mode: bg: #292929, panels: #352F6B, accent: #4034AD, text: alb
+      // Light Mode: bg: #F5F5F5, panels: #B3F1B2, accent: #70ED6E, text: negru
+      const [isDarkMode, setIsDarkMode] = useState(true);
+      const [currentView, setCurrentView] = useState("dashboard");
+      const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
+      // 2. STĂRI CAMERE & INCIDENTE
+      const [cameras, setCameras] = useState(INITIAL_CAMERAS);
+      const [selectedCameraId, setSelectedCameraId] = useState("CAM-04");
+      const [incidents, setIncidents] = useState(INITIAL_INCIDENTS);
+      const [searchQuery, setSearchQuery] = useState("");
+      const [severityFilter, setSeverityFilter] = useState("all");
+
+      // 3. CAPTURI AUTOMATE
+      const [capturedScreenshots, setCapturedScreenshots] = useState([
+        { id: "SNAP-8901", camera: "CAM-04", title: "Bagaj Nesupravegheat 98%", time: "19:57:12", hash: "e3b0c44298fc1c149afbf4c8..." },
+        { id: "SNAP-8902", camera: "CAM-03", title: "Fumat Lângă Cisterne 99%", time: "19:55:04", hash: "8f434346648f6b96df89dda9..." }
+      ]);
+      const [showSnapshotModal, setShowSnapshotModal] = useState(false);
+      const [toastMessage, setToastMessage] = useState(null);
+
+      useEffect(() => {
+        if (window.lucide) {
+          window.lucide.createIcons();
+        }
+      });
+
+      const showToast = (msg) => {
+        setToastMessage(msg);
+        setTimeout(() => setToastMessage(null), 3500);
+      };
+
+      const activeCamera = useMemo(() => {
+        return cameras.find((c) => c.id === selectedCameraId) || cameras[0];
+      }, [cameras, selectedCameraId]);
+
+      const filteredIncidents = useMemo(() => {
+        return incidents.filter((inc) => {
+          const q = searchQuery.toLowerCase().trim();
+          const matches =
+            !q ||
+            inc.title.toLowerCase().includes(q) ||
+            inc.cameraName.toLowerCase().includes(q) ||
+            inc.reasoning.toLowerCase().includes(q) ||
+            inc.targetType.toLowerCase().includes(q);
+          const matchesSev = severityFilter === "all" || inc.severity === severityFilter;
+          return matches && matchesSev;
+        });
+      }, [incidents, searchQuery, severityFilter]);
+
+      const handleAcknowledge = (id, e) => {
+        if (e) e.stopPropagation();
+        const item = incidents.find((i) => i.id === id);
+        setIncidents((prev) => prev.filter((i) => i.id !== id));
+        showToast(`Incidentul "${item?.title || id}" a fost arhivat și marcat ca REZOLVAT.`);
+      };
+
+      const handleManualCapture = () => {
+        const snap = {
+          id: `SNAP-${Date.now().toString().slice(-4)}`,
+          camera: activeCamera.id,
+          title: activeCamera.boxes[0]?.label || "Captură Live Manuală",
+          time: new Date().toLocaleTimeString("ro-RO"),
+          hash: Math.random().toString(36).substring(2, 12) + "..."
+        };
+        setCapturedScreenshots((p) => [snap, ...p]);
+        showToast(`Captură automată AI înregistrată!`);
+      };
+
+      const theme = {
+        appBg: isDarkMode ? "#292929" : "#F5F5F5",
+        panelBg: isDarkMode ? "#352F6B" : "#B3F1B2",
+        panelBorder: isDarkMode ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)",
+        accentColor: isDarkMode ? "#4034AD" : "#70ED6E",
+        textColor: isDarkMode ? "#FFFFFF" : "#0F172A",
+        textMuted: isDarkMode ? "#CBD5E1" : "#334155",
+        cardBg: isDarkMode ? "rgba(41, 41, 41, 0.5)" : "rgba(255, 255, 255, 0.6)",
+        inputBg: isDarkMode ? "#292929" : "#FFFFFF"
+      };
+
+      const renderBox = (b) => {
+        const isCrit = b.type === "critical";
+        const isWarn = b.type === "warning";
+        const borderColor = isCrit ? "border-red-500" : isWarn ? "border-amber-400" : "border-emerald-400";
+        const tagBg = isCrit ? "bg-red-600 text-white animate-pulse" : isWarn ? "bg-amber-500 text-slate-900" : "bg-emerald-600 text-white";
+
+        return (
+          <div
+            key={b.id}
+            style={{ top: b.coords.top, left: b.coords.left, width: b.coords.width, height: b.coords.height }}
+            className={`absolute border-2 ${borderColor} rounded transition-all ring-2 ring-white/20 cursor-pointer shadow-lg`}
+            onClick={() => showToast(`AI Tracker: ${b.label} [${b.trackingId}]`)}
+          >
+            <div className={`absolute -top-6 left-0 px-2 py-0.5 rounded text-[10px] font-bold shadow ${tagBg} whitespace-nowrap`}>
+              {b.label} <span className="opacity-75 font-mono text-[9px]">[{b.trackingId}]</span>
+            </div>
+          </div>
+        );
+      };
+
+      return (
+        <div style={{ backgroundColor: theme.appBg, color: theme.textColor }} className="min-h-screen flex flex-col antialiased">
+          {/* HEADER */}
+          <header style={{ backgroundColor: theme.panelBg, borderColor: theme.panelBorder }} className="h-16 px-4 md:px-6 flex items-center justify-between border-b sticky top-0 z-20 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div style={{ backgroundColor: theme.accentColor }} className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold shadow ${isDarkMode ? "text-white" : "text-slate-950"}`}>
+                <Icon name="shield" size={20} />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h1 className="font-black text-base md:text-lg tracking-tight uppercase">Airport AI Command Center</h1>
+                  <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-red-600/20 text-red-400 border border-red-500/30">
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping"></span> LIVE
+                  </span>
+                </div>
+                <p style={{ color: theme.textMuted }} className="text-xs font-mono hidden md:block">
+                  Perimetru, Piste & Terminale • Detecție Live Multivariantă
+                </p>
+              </div>
+            </div>
+
+            {/* SEARCH BAR (Filtrare Incidente) */}
+            <div className="flex-1 max-w-md mx-4 hidden sm:block">
+              <div className="relative">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Caută incidente, camere, fumat, căști, bagaj, FOD..."
+                  style={{ backgroundColor: theme.inputBg, color: theme.textColor, borderColor: theme.panelBorder }}
+                  className="w-full pl-3 pr-8 py-2 text-xs md:text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                />
+                {searchQuery && (
+                  <button onClick={() => setSearchQuery("")} className="absolute right-2 top-1/2 -translate-y-1/2 opacity-70">
+                    <Icon name="x" size={14} />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* CONTROALE HEADER */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowSnapshotModal(true)}
+                style={{ backgroundColor: theme.cardBg, borderColor: theme.panelBorder }}
+                className="px-2.5 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1.5"
+              >
+                <Icon name="camera" size={15} />
+                <span className="hidden lg:inline">Capturi AI</span>
+                <span style={{ backgroundColor: theme.accentColor }} className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${isDarkMode ? "text-white" : "text-slate-950"}`}>
+                  {capturedScreenshots.length}
+                </span>
+              </button>
+
+              {/* TOGGLE DARK / LIGHT */}
+              <button
+                onClick={() => setIsDarkMode(!isDarkMode)}
+                style={{ backgroundColor: theme.cardBg, borderColor: theme.panelBorder }}
+                className="p-2 rounded-lg border text-xs font-bold flex items-center gap-1 hover:scale-105 transition-transform"
+              >
+                <Icon name={isDarkMode ? "sun" : "moon"} size={16} />
+                <span className="hidden md:inline">{isDarkMode ? "Light" : "Dark"}</span>
+              </button>
+
+              <div style={{ backgroundColor: theme.cardBg, borderColor: theme.panelBorder }} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border">
+                <div style={{ backgroundColor: theme.accentColor }} className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs ${isDarkMode ? "text-white" : "text-slate-950"}`}>
+                  RO
+                </div>
+                <div className="hidden xl:block text-left text-xs leading-tight">
+                  <p className="font-bold">Ofițer Securitate</p>
+                  <p style={{ color: theme.textMuted }} className="text-[10px]">Cpt. Radu M.</p>
+                </div>
+              </div>
+            </div>
+          </header>
+
+          {/* CORP PRINCIPAL */}
+          <div className="flex-1 flex overflow-hidden">
+            {/* SIDEBAR STÂNGA */}
+            <aside
+              style={{ backgroundColor: theme.panelBg, borderColor: theme.panelBorder, width: isSidebarCollapsed ? "4.5rem" : "14rem" }}
+              className="flex flex-col justify-between border-r transition-all duration-300 z-10 select-none shadow-md shrink-0"
+            >
+              <div className="py-4 px-2 space-y-1.5">
+                <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-wider opacity-60">
+                  {!isSidebarCollapsed ? "Navigare" : "Nav"}
+                </div>
+
+                <button
+                  onClick={() => setCurrentView("dashboard")}
+                  style={{ backgroundColor: currentView === "dashboard" ? theme.accentColor : "transparent", color: currentView === "dashboard" && !isDarkMode ? "#0F172A" : theme.textColor }}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs md:text-sm font-semibold transition-all hover:bg-white/10"
+                >
+                  <Icon name="layout-dashboard" size={18} />
+                  {!isSidebarCollapsed && <span>Dashboard</span>}
+                </button>
+
+                <button
+                  onClick={() => setCurrentView("feed-fullscreen")}
+                  style={{ backgroundColor: currentView === "feed-fullscreen" ? theme.accentColor : "transparent", color: currentView === "feed-fullscreen" && !isDarkMode ? "#0F172A" : theme.textColor }}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs md:text-sm font-semibold transition-all hover:bg-white/10"
+                >
+                  <Icon name="maximize-2" size={18} />
+                  {!isSidebarCollapsed && <span>Feed Full-Screen</span>}
+                </button>
+
+                <button
+                  onClick={() => setCurrentView("feed-split")}
+                  style={{ backgroundColor: currentView === "feed-split" ? theme.accentColor : "transparent", color: currentView === "feed-split" && !isDarkMode ? "#0F172A" : theme.textColor }}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs md:text-sm font-semibold transition-all hover:bg-white/10"
+                >
+                  <Icon name="split-square-vertical" size={18} />
+                  {!isSidebarCollapsed && <span>Split View</span>}
+                </button>
+
+                <button
+                  onClick={() => setCurrentView("analytics")}
+                  style={{ backgroundColor: currentView === "analytics" ? theme.accentColor : "transparent", color: currentView === "analytics" && !isDarkMode ? "#0F172A" : theme.textColor }}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs md:text-sm font-semibold transition-all hover:bg-white/10"
+                >
+                  <Icon name="bar-chart-3" size={18} />
+                  {!isSidebarCollapsed && <span>Analytics AI</span>}
+                </button>
+              </div>
+
+              {/* BUTON COLLAPSIBLE */}
+              <div style={{ borderColor: theme.panelBorder }} className="p-3 border-t">
+                <button
+                  onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                  style={{ backgroundColor: theme.cardBg, borderColor: theme.panelBorder }}
+                  className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg border font-semibold text-xs shadow-sm hover:opacity-80"
+                >
+                  <Icon name={isSidebarCollapsed ? "chevron-right" : "chevron-left"} size={17} />
+                  {!isSidebarCollapsed && <span>Restrânge Meniul</span>}
+                </button>
+              </div>
+            </aside>
+
+            {/* VIZUALIZĂRI */}
+            {currentView === "feed-fullscreen" ? (
+              <div className="flex-1 flex flex-col p-4 overflow-y-auto">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="font-bold text-sm uppercase">Perete Video Imersiv - {activeCamera.name}</span>
+                  <button onClick={() => setCurrentView("dashboard")} style={{ backgroundColor: theme.accentColor }} className={`px-3 py-1.5 rounded-lg text-xs font-bold ${isDarkMode ? "text-white" : "text-slate-950"}`}>
+                    Înapoi la Dashboard
+                  </button>
+                </div>
+                <div className="flex-1 relative rounded-xl overflow-hidden bg-black min-h-[500px]">
+                  {activeCamera.status === "offline" ? (
+                    <div className="w-full h-full flex flex-col items-center justify-center text-red-500 font-mono font-bold text-2xl">
+                      SEMNAL PIERDUT (CAMERA OFFLINE)
+                    </div>
+                  ) : (
+                    <div className={`w-full h-full bg-gradient-to-br ${activeCamera.previewBg} relative flex items-center justify-center`}>
+                      <span className="text-white/40 font-mono text-xl">{activeCamera.name} (FULLSCREEN)</span>
+                      {activeCamera.boxes.map(renderBox)}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : currentView === "feed-split" ? (
+              <div className="flex-1 flex flex-col p-4 space-y-4 overflow-y-auto">
+                <div style={{ backgroundColor: theme.panelBg }} className="h-[48%] rounded-xl p-3 flex flex-col border">
+                  <span className="font-bold text-xs uppercase mb-2">Feed Superior: {activeCamera.name}</span>
+                  <div className="flex-1 relative rounded-lg overflow-hidden bg-black">
+                    {activeCamera.status === "offline" ? (
+                      <div className="w-full h-full flex items-center justify-center text-red-500 font-bold font-mono">SEMNAL PIERDUT</div>
+                    ) : (
+                      <div className={`w-full h-full bg-gradient-to-br ${activeCamera.previewBg} relative flex items-center justify-center`}>
+                        <span className="text-white/30 font-mono">{activeCamera.name}</span>
+                        {activeCamera.boxes.map(renderBox)}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div style={{ backgroundColor: theme.panelBg }} className="flex-1 rounded-xl p-3 border overflow-y-auto">
+                  <span className="font-bold text-xs uppercase mb-2 block">Probleme & Telemetrie Inferioară ({filteredIncidents.length})</span>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {filteredIncidents.map((inc) => (
+                      <div key={inc.id} style={{ backgroundColor: theme.cardBg }} className="p-3 rounded-lg border border-white/10 text-xs space-y-1">
+                        <div className="flex justify-between font-bold">
+                          <span>{inc.title}</span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-600 text-white uppercase">{inc.severity}</span>
+                        </div>
+                        <p style={{ color: theme.textMuted }} className="text-[11px]">{inc.reasoning}</p>
+                        <div className="flex justify-between pt-1 font-mono text-[10px]">
+                          <span>{inc.detectedAt}</span>
+                          <button onClick={(e) => handleAcknowledge(inc.id, e)} className="text-emerald-400 font-bold underline">Rezolvă</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : currentView === "analytics" ? (
+              <div className="flex-1 p-6 space-y-4 overflow-y-auto">
+                <h2 className="text-xl font-bold uppercase">Statistici Siguranță AI & Audit</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div style={{ backgroundColor: theme.panelBg }} className="p-4 rounded-xl border">
+                    <p className="text-xs opacity-75">Timp Mediu Răspuns (MTTR)</p>
+                    <p className="text-2xl font-mono font-bold text-emerald-400">42 sec</p>
+                  </div>
+                  <div style={{ backgroundColor: theme.panelBg }} className="p-4 rounded-xl border">
+                    <p className="text-xs opacity-75">Acuratețe Detecție AI</p>
+                    <p className="text-2xl font-mono font-bold text-indigo-400">97.8%</p>
+                  </div>
+                  <div style={{ backgroundColor: theme.panelBg }} className="p-4 rounded-xl border">
+                    <p className="text-xs opacity-75">FOD Detectat pe Piste</p>
+                    <p className="text-2xl font-mono font-bold text-amber-400">14 Obiecte</p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* DASHBOARD 4 ZONE */
+              <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+                {/* ZONA CENTRALĂ: FEED + THUMBNAILS */}
+                <main className="flex-1 flex flex-col p-3 md:p-4 overflow-y-auto space-y-3">
+                  {/* VIDEO PLAYER MARE */}
+                  <div style={{ backgroundColor: theme.panelBg, borderColor: theme.panelBorder }} className="rounded-xl border p-3 flex flex-col shadow-lg flex-1 min-h-[360px]">
+                    <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/10">
+                      <div className="flex items-center gap-2">
+                        <span className={`w-3 h-3 rounded-full ${activeCamera.status === "online" ? "bg-emerald-500 animate-pulse" : "bg-red-500"}`}></span>
+                        <span className="font-bold text-sm">{activeCamera.id} - {activeCamera.name}</span>
+                        <span style={{ backgroundColor: theme.cardBg }} className="text-[10px] font-mono px-2 py-0.5 rounded hidden sm:inline">{activeCamera.zone}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button onClick={handleManualCapture} style={{ backgroundColor: theme.accentColor }} className={`px-2.5 py-1 rounded text-xs font-bold flex items-center gap-1 ${isDarkMode ? "text-white" : "text-slate-950"}`}>
+                          <Icon name="camera" size={13} /> <span>Captură</span>
+                        </button>
+                        <button onClick={() => setCurrentView("feed-fullscreen")} style={{ backgroundColor: theme.cardBg }} className="p-1.5 rounded border border-white/10">
+                          <Icon name="maximize-2" size={14} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* ECRAN VIDEO SAU SEMNAL PIERDUT */}
+                    <div className="flex-1 relative rounded-lg overflow-hidden bg-black border border-slate-700 flex items-center justify-center">
+                      {activeCamera.status === "offline" ? (
+                        <div className="w-full h-full flex flex-col items-center justify-center text-center p-6 bg-zinc-950 text-white">
+                          <Icon name="wifi-off" size={40} className="text-red-500 mb-2 animate-bounce" />
+                          <h2 className="text-2xl font-black text-red-500 font-mono tracking-widest">SEMNAL PIERDUT</h2>
+                          <p className="text-xs text-slate-400 font-mono mt-1">CAMERA {activeCamera.id} ESTE MOMENTAN OFFLINE</p>
+                        </div>
+                      ) : (
+                        <div className={`w-full h-full bg-gradient-to-br ${activeCamera.previewBg} relative flex items-center justify-center`}>
+                          <div className="text-center opacity-40">
+                            <Icon name="plane" size={70} className="mx-auto mb-2 text-slate-300" />
+                            <p className="font-mono font-bold text-white text-base">{activeCamera.name.toUpperCase()}</p>
+                            <p className="font-mono text-xs text-slate-300">AI REAL-TIME VISION INFERENCE</p>
+                          </div>
+                          {activeCamera.boxes.map(renderBox)}
+
+                          <div className="absolute top-3 left-3 flex items-center gap-2 bg-black/70 px-2 py-1 rounded text-[10px] font-mono text-white">
+                            <span className="w-2 h-2 rounded-full bg-red-500 animate-ping"></span>
+                            <span>REC: LIVE</span>
+                            <span>|</span>
+                            <span>{activeCamera.resolution}</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* MINIATURI CAMERE JOS */}
+                  <div style={{ backgroundColor: theme.panelBg, borderColor: theme.panelBorder }} className="rounded-xl border p-3 shadow-md">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-bold text-xs uppercase tracking-wide">Rețeaua CCTV Aeroport ({cameras.length})</span>
+                      <span style={{ color: theme.textMuted }} className="text-[10px]">Click pe miniatură pentru schimbare cameră</span>
+                    </div>
+
+                    <div className="flex gap-2 overflow-x-auto pb-1">
+                      {cameras.map((c) => {
+                        const isSel = c.id === activeCamera.id;
+                        const isOff = c.status === "offline";
+                        return (
+                          <button
+                            key={c.id}
+                            onClick={() => setSelectedCameraId(c.id)}
+                            style={{ borderColor: isSel ? theme.accentColor : theme.panelBorder, backgroundColor: isSel ? theme.cardBg : "rgba(0,0,0,0.15)" }}
+                            className={`min-w-[140px] p-2 rounded-lg border-2 text-left shrink-0 transition-transform hover:scale-105 ${isSel ? "ring-2 ring-indigo-400/50" : ""}`}
+                          >
+                            <div className={`h-14 rounded flex items-center justify-center bg-gradient-to-br ${c.previewBg} mb-1 relative`}>
+                              {isOff ? (
+                                <span className="text-[10px] text-red-400 font-mono font-bold">OFFLINE</span>
+                              ) : (
+                                <Icon name="video" size={16} className="text-slate-300 opacity-60" />
+                              )}
+                              <span className={`absolute top-1 left-1 w-2 h-2 rounded-full ${isOff ? "bg-red-500" : "bg-emerald-400"}`}></span>
+                            </div>
+                            <p className="font-bold text-xs truncate">{c.name}</p>
+                            <p style={{ color: theme.textMuted }} className="text-[9px] font-mono">{c.id} • {c.status.toUpperCase()}</p>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </main>
+
+                {/* SIDEBAR DREAPTA: INCIDENTE & XAI */}
+                <aside style={{ backgroundColor: theme.panelBg, borderColor: theme.panelBorder }} className="w-full lg:w-96 border-t lg:border-t-0 lg:border-l p-3 md:p-4 flex flex-col shrink-0 overflow-hidden shadow-lg">
+                  <div className="flex items-center justify-between pb-3 border-b border-white/10">
+                    <div>
+                      <h2 className="font-bold text-sm uppercase">Alerte Incidente AI</h2>
+                      <p style={{ color: theme.textMuted }} className="text-[10px]">Explainable AI & Live Tracking</p>
+                    </div>
+                    <span style={{ backgroundColor: theme.accentColor }} className={`text-xs font-black px-2 py-0.5 rounded-full ${isDarkMode ? "text-white" : "text-slate-950"}`}>
+                      {filteredIncidents.length}
+                    </span>
+                  </div>
+
+                  {/* FILTRE RAPIDE */}
+                  <div className="flex gap-1 my-2">
+                    {["all", "critical", "warning", "resolved"].map((k) => (
+                      <button
+                        key={k}
+                        onClick={() => setSeverityFilter(k)}
+                        style={{ backgroundColor: severityFilter === k ? theme.accentColor : theme.cardBg, color: severityFilter === k && !isDarkMode ? "#0F172A" : theme.textColor }}
+                        className="flex-1 py-1 text-[10px] font-bold rounded"
+                      >
+                        {k === "all" ? "Toate" : k === "critical" ? "Critice" : k === "warning" ? "Avertiz." : "Rezolv."}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* LISTĂ CARDURI INCIDENTE */}
+                  <div className="flex-1 overflow-y-auto space-y-2.5 pr-1">
+                    {filteredIncidents.length === 0 ? (
+                      <div style={{ backgroundColor: theme.cardBg }} className="p-4 rounded-xl text-center space-y-2 mt-4">
+                        <Icon name="check-circle-2" size={30} className="mx-auto text-emerald-400" />
+                        <p className="font-bold text-xs">Toate incidentele au fost soluționate!</p>
+                      </div>
+                    ) : (
+                      filteredIncidents.map((inc) => {
+                        const isCrit = inc.severity === "critical";
+                        const isWarn = inc.severity === "warning";
+
+                        return (
+                          <div
+                            key={inc.id}
+                            style={{ backgroundColor: theme.cardBg, borderColor: isCrit ? "rgba(239,68,68,0.4)" : isWarn ? "rgba(245,158,11,0.4)" : "rgba(16,185,129,0.4)" }}
+                            className="rounded-xl border p-3 space-y-2 text-xs"
+                          >
+                            <div className="flex justify-between items-start gap-1">
+                              <div>
+                                <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded ${isCrit ? "bg-red-600 text-white" : isWarn ? "bg-amber-500 text-slate-900" : "bg-emerald-600 text-white"}`}>
+                                  {isCrit ? "PERICOL IMINENT" : isWarn ? "AVERTISMENT" : "REMEDIAT"}
+                                </span>
+                                <h3 className="font-bold text-xs mt-1">{inc.title}</h3>
+                              </div>
+                              <button onClick={() => setSelectedCameraId(inc.cameraId)} className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-white/20">
+                                {inc.cameraId}
+                              </button>
+                            </div>
+
+                            <p style={{ color: theme.textMuted }} className="text-[10px] font-mono">{inc.cameraName} • {inc.detectedAt}</p>
+
+                            {/* CONFIDENCE SCORE CU GRADIENT ROȘU - PORTOCALIU - VERDE */}
+                            <div className="space-y-1">
+                              <div className="flex justify-between text-[10px]">
+                                <span className="font-semibold">Confidence Score:</span>
+                                <span className="font-mono font-bold">{inc.confidence}%</span>
+                              </div>
+                              <div className="w-full h-2 rounded-full overflow-hidden bg-black/30 relative">
+                                <div className="absolute inset-0 bg-gradient-to-r from-red-600 via-amber-400 to-emerald-500 opacity-25"></div>
+                                <div
+                                  style={{ width: `${inc.confidence}%` }}
+                                  className="h-full bg-gradient-to-r from-red-600 via-amber-400 to-emerald-500 rounded-full transition-all"
+                                ></div>
+                              </div>
+                            </div>
+
+                            {/* EXPLAINABLE AI (REASONING) */}
+                            <div style={{ backgroundColor: isDarkMode ? "rgba(0,0,0,0.3)" : "rgba(255,255,255,0.7)" }} className="p-2 rounded text-[11px] space-y-1 border border-white/5">
+                              <p className="font-bold text-indigo-400 text-[10px]">AI Reasoning:</p>
+                              <p style={{ color: theme.textMuted }} className="leading-snug">{inc.reasoning}</p>
+                            </div>
+
+                            <div className="flex justify-between items-center pt-1">
+                              <span className="text-[9px] text-slate-400 font-mono">Snap: {inc.snapshotId}</span>
+                              <button
+                                onClick={(e) => handleAcknowledge(inc.id, e)}
+                                style={{ backgroundColor: isDarkMode ? "#4034AD" : "#70ED6E", color: isDarkMode ? "#FFFFFF" : "#0F172A" }}
+                                className="px-3 py-1 rounded text-xs font-bold hover:opacity-90"
+                              >
+                                Marchează Rezolvat
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </aside>
+              </div>
+            )}
+          </div>
+
+          {/* MODAL CAPTURI AUTOMATE */}
+          {showSnapshotModal && (
+            <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+              <div style={{ backgroundColor: theme.panelBg, color: theme.textColor }} className="w-full max-w-xl rounded-2xl p-5 border border-white/10 space-y-4">
+                <div className="flex justify-between items-center border-b border-white/10 pb-2">
+                  <h3 className="font-bold text-sm uppercase">Capturi Automate Generate de AI (Evidence)</h3>
+                  <button onClick={() => setShowSnapshotModal(false)} className="text-lg font-bold">✕</button>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-80 overflow-y-auto">
+                  {capturedScreenshots.map((s) => (
+                    <div key={s.id} style={{ backgroundColor: theme.cardBg }} className="p-3 rounded-xl border border-white/10 space-y-1 text-xs">
+                      <p className="font-bold">{s.title}</p>
+                      <p style={{ color: theme.textMuted }} className="font-mono text-[10px]">{s.camera} • {s.time}</p>
+                      <p className="font-mono text-[9px] opacity-60">SHA-256: {s.hash}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex justify-end">
+                  <button onClick={() => setShowSnapshotModal(false)} style={{ backgroundColor: theme.accentColor }} className={`px-4 py-1.5 rounded-lg text-xs font-bold ${isDarkMode ? "text-white" : "text-slate-950"}`}>
+                    Închide
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TOAST NOTIFICARE */}
+          {toastMessage && (
+            <div className="fixed bottom-4 right-4 z-50 bg-slate-900 text-white px-4 py-2.5 rounded-xl border border-indigo-400 text-xs shadow-2xl animate-fade-in font-medium">
+              {toastMessage}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(<App />);
+  </script>
+</body>
+</html>
