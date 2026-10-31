@@ -33,10 +33,35 @@ uv sync --extra yolo
 
 Pentru integrare, același run cu `--post --api-url http://127.0.0.1:8001 --edge-token dev-edge-token`.
 
+## Măsurători repetate
+
+Re-măsurat pe 31 octombrie 2026, dry-run, fără live/post, pe același clip de 120 cadre: **5,39 s end-to-end, ~22,3 FPS**. Prima inferență încălzește modelul, iar valoarea variază cu încărcarea mașinii; pentru pitch folosește cifra măsurată pe hardware-ul de demo, nu o medie între rulări.
+
+## RTSP local (mediamtx)
+
+Măsurat pe 31 octombrie 2026, cu clipul din demo publicat în buclă prin `ml/scripts/rtsp-loop.sh`.
+
+| Element | Valoare |
+|---|---|
+| Sursă | `rtsp://127.0.0.1:8554/stand12`, H.264 1920×1080 30 fps |
+| Cadre | 120 |
+| Timp end-to-end | 9,34 s |
+| Evenimente | 2 `RESTRICTED_ZONE` |
+| Config | `--remote-config` activ |
+| Live frame | `/stream/stand12.mjpg` a servit exact cadrul scris de edge |
+
+Comanda completă este în `ml/README.md`, secțiunea „RTSP real, pentru demo”. Pentru soak și metrics:
+
+```bash
+uv run python -m safesight_ml.run --source rtsp://127.0.0.1:8554/stand12 \
+  --camera-id stand12 --remote-config --post --duration-s 300 \
+  --metrics-json out/soak.json --api-url http://localhost:8000 --edge-token "$EDGE_TOKEN"
+```
+
 ## Ce nu e măsurat încă
 
 - Rata de falsuri alarme pe 50–100 evenimente etichetate.
-- FPS pe un flux RTSP real, nu pe fișier.
+- Soak de 5 minute pe RTSP, cu reconectare după o cădere scurtă.
 - FPS pe Jetson / hardware de pilot.
 - PPE și FOD, pentru că nu există încă clipuri/adnotări.
 
