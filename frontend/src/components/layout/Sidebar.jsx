@@ -1,18 +1,13 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import {
   Video,
   AlertOctagon,
   PenTool,
   FileText,
-  Smartphone,
   Settings,
   ChevronLeft,
   ChevronRight,
-  ShieldCheck,
-  Building2,
-  Plane,
-  Fuel,
-  Radio
+  ShieldCheck
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useSecurity } from '../../context/SecurityContext';
@@ -25,9 +20,6 @@ export default function Sidebar() {
     isSidebarCollapsed,
     setIsSidebarCollapsed,
     kpis,
-    cameras,
-    selectedCameraId,
-    setSelectedCameraId,
     health
   } = useSecurity();
 
@@ -66,44 +58,12 @@ export default function Sidebar() {
       icon: FileText
     },
     {
-      id: 'mobile',
-      label: 'Alerte Mobile PWA',
-      subtitle: 'Deck Sol & Apel Radio',
-      icon: Smartphone
-    },
-    {
       id: 'settings',
       label: 'Edge & Audit',
       subtitle: 'Stare Pipeline & Logs',
       icon: Settings
     }
   ];
-
-  // Gruparea camerelor pe categorii de zonă aeroportuară
-  const categorizedCameras = useMemo(() => {
-    const groups = {
-      'Terminal & Porți': { icon: Building2, list: [] },
-      'Pistă & Căi Rulare': { icon: Plane, list: [] },
-      'Alimentare & Rampă': { icon: Fuel, list: [] }
-    };
-
-    (cameras || []).forEach((cam) => {
-      const cat = cam.category || 'Alimentare & Rampă';
-      if (!groups[cat]) {
-        groups[cat] = { icon: Radio, list: [] };
-      }
-      groups[cat].list.push(cam);
-    });
-
-    return groups;
-  }, [cameras]);
-
-  const handleSelectCamera = (camId) => {
-    setSelectedCameraId(camId);
-    if (currentView !== 'live') {
-      setCurrentView('live');
-    }
-  };
 
   return (
     <aside
@@ -170,58 +130,6 @@ export default function Sidebar() {
           })}
         </div>
 
-        {/* FEED-URI CATEGORISITE PE ZONE AEROPORTUARE */}
-        {!isSidebarCollapsed && (
-          <div className="pt-2 border-t border-white/10 space-y-3">
-            <div className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              Zone & Feed-uri CCTV
-            </div>
-
-            {Object.entries(categorizedCameras).map(([categoryName, group]) => {
-              if (group.list.length === 0) return null;
-              const CategoryIcon = group.icon;
-              return (
-                <div key={categoryName} className="space-y-1">
-                  <div className="px-3 flex items-center gap-1.5 text-[11px] font-bold text-slate-400">
-                    <CategoryIcon size={13} className="text-[#7EDEED] shrink-0" />
-                    <span>{categoryName}</span>
-                  </div>
-
-                  <div className="space-y-0.5 pl-2">
-                    {group.list.map((cam) => {
-                      const isCamActive = cam.id === selectedCameraId && currentView === 'live';
-                      return (
-                        <button
-                          key={cam.id}
-                          onClick={() => handleSelectCamera(cam.id)}
-                          className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-all flex flex-col ${
-                            isCamActive
-                              ? 'bg-[#7EDEED]/20 text-[#7EDEED] font-bold border-l-2 border-[#7EDEED]'
-                              : 'hover:bg-white/5 text-slate-300'
-                          }`}
-                          title={`${cam.name} - ${cam.subtitle || ''}`}
-                        >
-                          <div className="flex items-center justify-between w-full">
-                            <span className="truncate text-[11px] font-semibold">{cam.name}</span>
-                            <span
-                              className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                                cam.status === 'offline' ? 'bg-[#D73833]' : 'bg-emerald-500'
-                              }`}
-                            />
-                          </div>
-                          {/* Detalii afișate sub denumirea camerei conform cerinței */}
-                          <span className="text-[10px] text-slate-400 font-normal truncate mt-0.5">
-                            {cam.subtitle || cam.id}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
       </div>
 
       {/* Zona de Jos: Status Edge & Buton Minimizare (Fără textul "NAV") */}

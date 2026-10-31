@@ -47,7 +47,7 @@ const EMPTY_SHIFT_REPORT = {
 
 export function SecurityProvider({ children }) {
   // 1. Navigare Ecrane (Conform 03_C_frontend.pdf):
-  // 'live' | 'incident_detail' | 'zones' | 'reports' | 'mobile' | 'settings'
+  // 'live' | 'incident_detail' | 'zones' | 'reports' | 'settings'
   const [currentView, setCurrentView] = useState('live');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
