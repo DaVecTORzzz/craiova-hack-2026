@@ -148,3 +148,28 @@ def test_current_shift():
     assert current_shift(at(14)) == ("afternoon", date(2026, 7, 15))
     assert current_shift(at(23)) == ("night", date(2026, 7, 15))
     assert current_shift(at(3)) == ("night", date(2026, 7, 14))
+
+
+def test_shift_report_avg_ack_over_all_acked_events(client, monkeypatch):
+    monkeypatch.setitem(sys.modules, "automation", None)
+    t = datetime(2026, 7, 15, 12)  # afternoon shift: 11:00-19:00 UTC
+    s = timedelta(seconds=1)
+    acked = {"status": "acknowledged", "acked_by": "operator1"}
+    events = [_event("RESTRICTED_ZONE", "CRITICAL", "engine-left", detected_at=t, acked_at=t + 300 * s, **acked)]
+    events += [
+        _event("NO_PPE", "WARNING", "apron-stand12", detected_at=t + i * s, acked_at=t + (i + 10) * s, **acked)
+        for i in range(9)
+    ]
+    events.append(_event("NO_PPE", "WARNING", "apron-stand12", "open", t))
+    with Session(get_engine()) as session:
+        session.add_all(events)
+        session.commit()
+
+    data = client.get("/reports", params={"date": DAY, "shift": "afternoon"}).json()
+    # (300 + 9 * 10) / 10 acks, not the mean of the two zone averages (155)
+    assert data["avg_ack_s"] == 39
+
+
+def test_shift_report_avg_ack_none_without_acks(client, monkeypatch):
+    monkeypatch.setitem(sys.modules, "automation", None)
+    assert client.get("/reports", params={"date": DAY, "shift": "afternoon"}).json()["avg_ack_s"] is None
