@@ -119,6 +119,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.duration_s < 0:
         parser.error("--duration-s must be >= 0")
+    if args.loop_cooldown_s < 0:
+        parser.error("--loop-cooldown-s must be >= 0")
     engine_on = args.fake if args.engine_on is None else args.engine_on
     zones: list[Zone] = []
 
