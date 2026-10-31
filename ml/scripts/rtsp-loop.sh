@@ -28,6 +28,6 @@ fi
 echo "public ${CLIP} -> ${URL} (buclă; Ctrl-C pentru oprire)"
 
 exec ffmpeg -hide_banner -loglevel warning \
-  -re -stream_loop -1 -i "$CLIP" \
+  -nostdin -re -stream_loop -1 -i "$CLIP" \
   -an -c:v libx264 -preset ultrafast -tune zerolatency \
   -f rtsp -rtsp_transport tcp "$URL"

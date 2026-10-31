@@ -58,7 +58,7 @@ uv run python -m safesight_ml.run \
 Pornește un server RTSP local (o singură dată; imaginea se descarcă prima dată):
 
 ```bash
-podman run --rm -d --name safesight-rtsp -p 8554:8554 bluenviron/mediamtx:latest
+podman run --rm -d --replace --name safesight-rtsp -p 8554:8554 bluenviron/mediamtx:latest
 ```
 
 Publică un clip în buclă, într-un terminal separat:
@@ -82,13 +82,15 @@ uv run python -m safesight_ml.run \
   --edge-token "$EDGE_TOKEN"
 ```
 
+`--live-dir` trebuie să fie exact `SNAPSHOT_DIR/live` al backend-ului: implicit local `../backend/snapshots/live`, iar cu Docker `../backend/data/snapshots/live`. Dacă folosești alt `SNAPSHOT_DIR`, schimbă și aici, altfel `/stream` servește placeholder-ul.
+
 Oprește serverul după demo:
 
 ```bash
 podman rm -f safesight-rtsp
 ```
 
-Verificat local pe 31 octombrie 2026: 120 de cadre citite din `rtsp://127.0.0.1:8554/stand12` în 9,34 s end-to-end, 2 evenimente `RESTRICTED_ZONE`, `--remote-config` activ. Dacă backend-ul nu răspunde, edge-ul folosește `fixtures/zones.stand12.json` și `--engine-on`.
+Verificat local pe 31 octombrie 2026: 120 de cadre citite din `rtsp://127.0.0.1:8554/stand12` în 9,34 s end-to-end, 2 evenimente `RESTRICTED_ZONE`, `--remote-config` activ, iar `/stream/stand12.mjpg` a servit exact cadrul scris de edge. Dacă backend-ul nu răspunde, edge-ul folosește `fixtures/zones.stand12.json` și `--engine-on`.
 
 ## Ce produce
 
