@@ -13,7 +13,7 @@ import numpy as np
 from .align import ZoneAligner
 from .detector import Detector
 from .events import Confidence, EdgeEvent, EventContext, TemporalConfidence
-from .live import AnnotatedVideoWriter, AsyncLiveWriter, LiveFrameWriter
+from .live import AnnotatedVideoWriter, AsyncLiveWriter, LiveFrameWriter, shrink_to_width
 from .overlay import draw_alert, draw_overlay, zone_active
 from .ppe import VestTracker, vest_sample
 from .privacy import Blurrer
@@ -176,12 +176,14 @@ class Pipeline:
 
         engine_on = self.engine_on
 
-        def annotated(blurrer: Blurrer | None = None) -> np.ndarray:
+        def annotated(blurrer: Blurrer | None = None, max_width: int = 0) -> np.ndarray:
             # Blur first: the overlay must never hide or replace the privacy step.
             # Faces are searched on the full frame: downscaling first loses small faces
             # (cam01: 15 -> 7 YuNet hits at 1280 px), so it is not a free speed-up.
             with self.timer.stage("blur"):
                 blurred = (blurrer or self.blurrer).blur(frame, boxes)
+            # The overlay is drawn after the shrink: half the pixels, and it scales with width.
+            blurred = shrink_to_width(blurred, max_width)
             with self.timer.stage("overlay"):
                 return draw_overlay(blurred, zones, detections, inside, engine_on, vest, zones_known)
 
@@ -189,9 +191,10 @@ class Pipeline:
             # Rendered on the writer's thread; detection does not wait for the blur.
             # The writer blurs with YuNet passes around this frame; snapshots and the MP4
             # always use a fresh full pass of ``self.blurrer``.
-            self.live_writer.submit(frame, annotated)
+            live_width = self.live_writer.writer.max_width
+            self.live_writer.submit(frame, lambda blurrer: annotated(blurrer, live_width))
         elif self.live_writer is not None and self.live_writer.due():
-            live_frame = annotated()
+            live_frame = annotated()  # full size: the snapshot and the MP4 reuse it
             with self.timer.stage("live_write"):
                 self.live_writer.write(live_frame)
 

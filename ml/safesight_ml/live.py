@@ -13,6 +13,14 @@ import cv2
 import numpy as np
 
 
+def shrink_to_width(frame: np.ndarray, max_width: int) -> np.ndarray:
+    """At most ``max_width`` px wide, aspect kept; 0 = unchanged."""
+    height, width = frame.shape[:2]
+    if not max_width or width <= max_width:
+        return frame
+    return cv2.resize(frame, (max_width, round(height * max_width / width)), interpolation=cv2.INTER_AREA)
+
+
 class LiveFrameWriter:
     def __init__(self, directory: str | Path, camera_id: str, *, interval_s: float = 0.5, max_width: int = 1280) -> None:
         self.directory = Path(directory)
@@ -27,9 +35,7 @@ class LiveFrameWriter:
         return time.monotonic() - self._last_write >= self.interval_s
 
     def write(self, frame: np.ndarray) -> bool:
-        height, width = frame.shape[:2]
-        if width > self.max_width:
-            frame = cv2.resize(frame, (self.max_width, round(height * self.max_width / width)), interpolation=cv2.INTER_AREA)
+        frame = shrink_to_width(frame, self.max_width)
         ok, data = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
         if not ok:
             return False
