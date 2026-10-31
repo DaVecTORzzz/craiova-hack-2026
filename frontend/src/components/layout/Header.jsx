@@ -136,7 +136,7 @@ export default function Header() {
               </button>
               <button
                 onClick={() => {
-                  simulateIncomingWsEvent('FOD_DETECTED', 'CRITICAL');
+                  simulateIncomingWsEvent('FOD', 'CRITICAL');
                   setShowDemoMenu(false);
                 }}
                 className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-amber-500/10 text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-2 transition-colors"

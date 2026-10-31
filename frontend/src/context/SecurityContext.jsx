@@ -410,7 +410,10 @@ export function SecurityProvider({ children }) {
   const captureReferenceFrame = async (zoneId, file) => {
     showToast(`Salvare cadru de referință pentru zona ${zoneId}...`);
     try {
-      await safeSightApi.captureReferenceFrame(zoneId, file);
+      const updatedZone = await safeSightApi.captureReferenceFrame(zoneId, file);
+      if (updatedZone) {
+        setZones((prev) => prev.map((z) => (z.zone_id === zoneId ? { ...z, ...updatedZone } : z)));
+      }
       showToast('Cadru de referință curat salvat cu succes.');
     } catch (error) {
       showToast(`Cadrul de referință a eșuat: ${error.message}`);
@@ -442,6 +445,65 @@ export function SecurityProvider({ children }) {
       });
     } catch (error) {
       showToast(`Salvarea zonei a eșuat: ${error.message}`);
+    }
+  };
+    }
+  };
+
+  // 7. Salvare Zonă Poligon
+  const saveZone = async (zoneId, zoneData) => {
+    setZones((prev) => {
+      const idx = prev.findIndex((z) => z.zone_id === zoneId);
+      if (idx >= 0) {
+        const updated = [...prev];
+        updated[idx] = { ...updated[idx], ...zoneData };
+        return updated;
+      }
+      return [...prev, zoneData];
+    });
+    showToast(`Zona ${zoneId} salvată. Rețeaua AI o aplică fără restart.`);
+    try {
+  // 6. Cadru de referință FOD (upload JPEG deja blurat)
+  const captureReferenceFrame = async (zoneId, file) => {
+    showToast(`Salvare cadru de referință pentru zona ${zoneId}...`);
+    try {
+      const updatedZone = await safeSightApi.captureReferenceFrame(zoneId, file);
+      if (updatedZone) {
+        setZones((prev) => prev.map((z) => (z.zone_id === zoneId ? { ...z, ...updatedZone } : z)));
+      }
+      showToast('Cadru de referință curat salvat cu succes.');
+    } catch (error) {
+      showToast(`Cadrul de referință a eșuat: ${error.message}`);
+    }
+  };
+
+  // 7. Salvare Zonă Poligon
+  const saveZone = async (zoneId, zoneData) => {
+    setZones((prev) => {
+      const idx = prev.findIndex((z) => z.zone_id === zoneId);
+      if (idx >= 0) {
+        const updated = [...prev];
+        updated[idx] = { ...updated[idx], ...zoneData };
+        return updated;
+      }
+      return [...prev, zoneData];
+    });
+    showToast(`Zona ${zoneId} salvată. Rețeaua AI o aplică fără restart.`);
+    try {
+      const updated = await safeSightApi.saveZone(zoneId, zoneData);
+      setZones((prev) => {
+        const index = prev.findIndex((zone) => zone.zone_id === zoneId);
+        if (index >= 0) {
+          const next = [...prev];
+          next[index] = { ...next[index], ...updated, zone_id: zoneId };
+          return next;
+        }
+        return [...prev, { ...updated, zone_id: zoneId }];
+      });
+    } catch (error) {
+      showToast(`Salvarea zonei a eșuat: ${error.message}`);
+    }
+  };
     }
   };
 

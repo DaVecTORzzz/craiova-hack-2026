@@ -160,7 +160,7 @@ export const INITIAL_EVENTS = [
   },
   {
     event_id: "evt_runway08_1730284520110_44",
-    type: "FOD_DETECTED",
+    type: "FOD",
     severity: "CRITICAL",
     camera_id: "runway08",
     zone_id: "runway-center",
@@ -189,7 +189,7 @@ export const INITIAL_EVENTS = [
   },
   {
     event_id: "evt_stand12_1730283921004_12",
-    type: "PPE_VIOLATION",
+    type: "NO_PPE",
     severity: "WARNING",
     camera_id: "stand12",
     zone_id: "engine-left",
@@ -280,12 +280,12 @@ export const INITIAL_ZONES = [
   {
     zone_id: "engine-left",
     camera_id: "stand12",
-    rule_type: "RESTRICTED_ZONE",
+    rule_type: "RESTRICTED",
     active_when: "engine_on",
     required_ppe: ["ear_protection", "high_vis_vest"],
     severity: "CRITICAL",
     debounce_s: 1.4,
-    notify_channel: "slack_safety_ops",
+    notify_channel: "slack",
     escalate_after_s: 30,
     polygon: [
       { x: 0.45, y: 0.2 },
@@ -297,12 +297,12 @@ export const INITIAL_ZONES = [
   {
     zone_id: "runway-center",
     camera_id: "runway08",
-    rule_type: "FOD_DETECTED",
+    rule_type: "FOD_WATCH",
     active_when: "always",
     required_ppe: [],
     severity: "CRITICAL",
     debounce_s: 3.0,
-    notify_channel: "slack_tower_ops",
+    notify_channel: "slack",
     escalate_after_s: 30,
     polygon: [
       { x: 0.15, y: 0.4 },
@@ -332,9 +332,9 @@ export const INITIAL_SHIFT_REPORT = {
   },
   summary: "Tura de dimineață a decurs conform normelor ICAO, cu un nivel de conformitate PPE de 94.2%. A fost neutralizat rapid un fragment FOD pe Pista 08R în mai puțin de 4 minute, prevenind întârzieri pe fluxul de decolare.",
   by_type: [
-    { type: "PPE_VIOLATION", count: 9, label: "Echipament Lipsă" },
+    { type: "NO_PPE", count: 9, label: "Echipament Lipsă" },
     { type: "RESTRICTED_ZONE", count: 4, label: "Zonă Restricționată" },
-    { type: "FOD_DETECTED", count: 2, label: "FOD Runway" },
+    { type: "FOD", count: 2, label: "FOD Runway" },
     { type: "UNATTENDED_BAGGAGE", count: 2, label: "Bagaje Abandonate" },
     { type: "CAMERA_OFFLINE", count: 1, label: "Camere Offline" }
   ],

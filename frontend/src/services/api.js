@@ -31,9 +31,36 @@ const SHIFT_LABELS = {
 const TYPE_LABELS = {
   RESTRICTED_ZONE: 'Zonă restricționată',
   NO_PPE: 'Echipament lipsă',
+  PPE_VIOLATION: 'Echipament lipsă',
   FOD: 'FOD',
+  FOD_DETECTED: 'FOD',
   SMOKING: 'Fumat',
   CAMERA_OFFLINE: 'Cameră offline',
+  UNATTENDED_BAGGAGE: 'Bagaj abandonat',
+};
+
+const CAMERA_METADATA = {
+  stand12: {
+    code: 'CAM-01',
+    name: 'CAM-01 • Stand 12 Avion B777',
+    subtitle: 'Alimentare & Întreținere (Zonă Motor Apron)',
+    category: 'Alimentare & Rampă',
+    zone_id: 'engine-left',
+  },
+  'taxiway-b': {
+    code: 'CAM-02',
+    name: 'CAM-02 • Taxiway B Cale Rulare',
+    subtitle: 'Cale de Rulare & Axa Intersecție Pistă',
+    category: 'Pistă & Căi Rulare',
+    zone_id: 'taxiway-b',
+  },
+  'baggage-area': {
+    code: 'CAM-03',
+    name: 'CAM-03 • Triere & Încărcare Bagaje',
+    subtitle: 'Rampa Sud & Bandă Conveior Cală',
+    category: 'Terminal & Porți',
+    zone_id: 'baggage-area',
+  },
 };
 
 function apiPath(path) {
@@ -99,8 +126,14 @@ async function http(path, options = {}) {
 }
 
 function mapCamera(camera, index = 0) {
+  const meta = CAMERA_METADATA[camera.id] || {};
   return {
     ...camera,
+    code: meta.code || `CAM-0${index + 1}`,
+    name: camera.name || meta.name || `CAM-${camera.id}`,
+    subtitle: meta.subtitle || (camera.name ? `Zonă ${camera.name}` : 'Flux Video Monitorizat'),
+    category: meta.category || 'Alimentare & Rampă',
+    zone_id: meta.zone_id || camera.id,
     status: camera.online ? 'online' : 'offline',
     engine_on: Boolean(camera.engine_on),
     zone: '',
@@ -125,18 +158,28 @@ function mapZone(zone) {
 }
 
 function toZonePayload(zoneId, zoneData) {
+  const escalateAfter =
+    zoneData.escalate_after_s != null &&
+    zoneData.escalate_after_s !== '' &&
+    Number(zoneData.escalate_after_s) >= 1
+      ? Math.round(Number(zoneData.escalate_after_s))
+      : null;
+
   return {
     id: zoneId,
     camera_id: zoneData.camera_id,
     name: zoneData.name || zoneData.zone_id || zoneId,
     rule_type: zoneData.rule_type,
-    active_when: zoneData.active_when,
+    active_when: String(zoneData.active_when || 'always').toLowerCase() === 'engine_on' ? 'engine_on' : 'always',
     required_ppe: zoneData.required_ppe || [],
     severity: zoneData.severity,
-    debounce_s: Number(zoneData.debounce_s),
-    escalate_after_s: zoneData.escalate_after_s == null ? null : Number(zoneData.escalate_after_s),
+    debounce_s: Number(zoneData.debounce_s) || 0,
+    escalate_after_s: escalateAfter,
     notify_channel: 'slack',
-    polygon: (zoneData.polygon || []).map((point) => [Number(point.x), Number(point.y)]),
+    polygon: (zoneData.polygon || []).map((point) => [
+      Math.max(0, Math.min(1, Number(point.x != null ? point.x : (Array.isArray(point) ? point[0] : 0)))),
+      Math.max(0, Math.min(1, Number(point.y != null ? point.y : (Array.isArray(point) ? point[1] : 0)))),
+    ]),
     reference_frame: zoneData.reference_frame || null,
   };
 }

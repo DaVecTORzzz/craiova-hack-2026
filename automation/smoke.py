@@ -39,7 +39,10 @@ def main() -> None:
     assert "2 evenimente" in summary
     assert "1 critic și 1 de avertizare" in summary
 
-    print("smoke OK:", report["what"])
+    try:
+        print("smoke OK:", report["what"])
+    except UnicodeEncodeError:
+        print("smoke OK:", report["what"].encode("ascii", errors="replace").decode("ascii"))
 
 
 if __name__ == "__main__":

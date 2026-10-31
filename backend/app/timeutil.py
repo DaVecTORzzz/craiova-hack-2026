@@ -1,7 +1,11 @@
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
-LOCAL_TZ = ZoneInfo("Europe/Bucharest")
+try:
+    LOCAL_TZ = ZoneInfo("Europe/Bucharest")
+except Exception:
+    from datetime import timedelta
+    LOCAL_TZ = timezone(timedelta(hours=2))
 
 
 def utcnow() -> datetime:
