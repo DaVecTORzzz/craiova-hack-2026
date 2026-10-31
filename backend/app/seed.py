@@ -55,15 +55,16 @@ def seed_zones(session: Session) -> None:
         Zone(
             id="engine-left",
             camera_id="stand12",
-            name="Motor stâng",
+            name="Motor stâng + zona de siguranță până la roata din față",
             rule_type="RESTRICTED",
             active_when="engine_on",
             required_ppe=[],
             severity="CRITICAL",
-            debounce_s=1.0,
+            debounce_s=0.5,
             escalate_after_s=30,
             notify_channel="slack",
-            polygon=[[0.46, 0.16], [0.76, 0.16], [0.76, 0.68], [0.46, 0.68]],
+            # Same as ml/fixtures/zones.stand12.json, calibrated on the cam01 demo clip.
+            polygon=[[0.02, 0.48], [0.40, 0.48], [0.62, 0.60], [0.64, 0.86], [0.20, 0.86], [0.02, 0.70]],
             reference_frame=None,
         ),
         Zone(
