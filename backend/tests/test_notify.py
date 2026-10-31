@@ -104,3 +104,20 @@ def test_notified_logs_detection_to_alert(client, monkeypatch, caplog):
         client.post("/edge/events", json=payload, headers=HEADERS)
         assert _wait_for(lambda: len(sent) == 1)
         assert _wait_for(lambda: f"notified event_id={ev_id} detection_to_alert_ms=" in caplog.text)
+
+
+def test_webhook_url_is_not_logged(client, monkeypatch, caplog):
+    import httpx
+    from app.config import get_settings
+
+    secret = "https://hooks.slack.com/services/TEST/SECRET/token"
+    monkeypatch.setattr(get_settings(), "slack_webhook_url", secret)
+    transport = httpx.MockTransport(lambda request: httpx.Response(200))
+    real_client = httpx.AsyncClient
+    monkeypatch.setattr(notify.httpx, "AsyncClient", lambda **kw: real_client(transport=transport, **kw))
+
+    payload = edge_event()
+    with caplog.at_level("DEBUG"):
+        client.post("/edge/events", json=payload, headers=HEADERS)
+        assert _wait_for(lambda: client.get(f"/events/{payload['event_id']}").json()["notified_at"] is not None)
+    assert secret not in caplog.text

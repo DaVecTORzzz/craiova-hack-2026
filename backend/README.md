@@ -1,4 +1,4 @@
-# backend/ — API, rule engine, stream, stocare
+# backend/ — API, stream, stocare
 
 Responsabil: **Max**
 
@@ -6,7 +6,7 @@ Brief intern: `safesight-docs/02_B_backend.typ` (repo privat).
 
 - FastAPI + Uvicorn, Pydantic v2, SQLite prin SQLModel. Postgres doar plan B, cu aceeași schemă.
 - Ingestie edge: `POST /edge/events` idempotent după `event_id`; `POST /edge/snapshots`; `GET /edge/zones` cu `X-Edge-Token`.
-- Rule engine: debounce per `(track_id, zone_id, type)`, un singur eveniment per track, cooldown, context `engine_on`, severitate.
+- Rule engine-ul (debounce, fereastră temporală, cooldown, un eveniment per prezență) rulează pe edge, în `ml/`. Backend-ul primește evenimente deja confirmate și le validează după contract.
 - Stream MJPEG pe `/stream/{camera_id}.mjpg`, WebSocket pe `/ws/events` doar cu `event.created` și `event.updated`.
 - Acțiuni operator: ack, fals pozitiv, reopen; fiecare intră în `event_actions` cu operator și momentul acțiunii.
 - Planul de implementare pas cu pas: [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md).
