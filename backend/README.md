@@ -38,3 +38,15 @@ curl localhost:8000/health
 ```
 
 The image includes `backend/` and `automation/`. The DB and snapshots live in `backend/data/` on the host (ignored by git). `.env` at the repo root is optional; without it the defaults from `app/config.py` apply.
+
+## Demo fallback
+
+If the edge, the camera or the model fails during the demo, send the demo event by hand. It uses the same routes as the edge, so Live, the incident page, Slack and escalation work as usual.
+
+```bash
+cd backend
+uv run python scripts/demo_event.py                 # RESTRICTED_ZONE on stand12 / engine-left, engine turned on first
+uv run python scripts/demo_event.py --type FOD      # or NO_PPE
+```
+
+`--api-url` and `--edge-token` default to `API_URL` / `EDGE_TOKEN` or `http://localhost:8000` / `dev-edge-token`. Without `--snapshot` it uploads a synthetic gray frame; with `--snapshot` pass only an already-blurred JPEG.
