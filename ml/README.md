@@ -46,7 +46,7 @@ uv run python -m safesight_ml --source ../data/videos/2026-10-30_restricted-zone
 
 Fiecare cadru e blurat și adnotat; la un eveniment apare 2 s un banner `ALERTA RESTRICTED_ZONE`. Randarea e mai lentă decât live-ul (~4 FPS pe 1080p, ~1 FPS pe 4K), pentru că blur-ul rulează pe fiecare cadru.
 
-Vesta (`ppe.py`) e detectată după culoare (portocaliu / galben-verde fluorescent pe trunchi, inclusiv galben-verdele pal de pe vreme înnorată), fără model antrenat, și e doar afișată. Fiecare persoană are una din trei stări:
+Vesta (`ppe.py`) e detectată după culoare (portocaliu / galben-verde fluorescent pe trunchi, inclusiv galben-verdele pal de pe vreme înnorată), fără model antrenat. Fiecare persoană are una din trei stări, iar starea `fără vestă` ridică `NO_PPE` într-o zonă `PPE_REQUIRED` care cere `hi_vis_vest`:
 
 | Stare | Etichetă | Când |
 |---|---|---|
@@ -54,7 +54,21 @@ Vesta (`ppe.py`) e detectată după culoare (portocaliu / galben-verde fluoresce
 | fără vestă | `FARA VESTA` (casetă portocalie dacă nu e și în zonă) | în ultimele 30 de cadre bune, 90% din scoruri < 0,03, persoana are ≥ 150 px și detecția e sigură (≥ 0,5) |
 | nesigur | `vesta ?` | sub 5 cadre bune sau orice altceva |
 
-Un cadru e „bun” doar dacă persoana are ≥ 80 px și caseta nu e tăiată de marginea cadrului. Regula pentru „fără vestă” e prudentă intenționat: pe clipurile noastre, scorurile mici veneau din casete parțiale, din obiecte luate drept persoane (barieră, echipament de bandă) și dintr-un marshaller mic, cu spatele, la care vesta se vede doar ca o fâșie la umeri, nu din oameni fără vestă. Măsurat pe 31 octombrie 2026: pe cele 6 clipuri, 0 cadre „fără vestă” (35 de persoane `vesta`, 16 `vesta ?`); pe imaginile etichetate, `vesta` (0,53) cu vestă și `FARA VESTA` (0,00) fără. Nu emitem `NO_PPE` până nu avem un clip cu o încălcare reală pe care să validăm regula.
+Un cadru e „bun” doar dacă persoana are ≥ 80 px și caseta nu e tăiată de marginea cadrului. Regula pentru „fără vestă” e prudentă intenționat: pe clipurile noastre, scorurile mici veneau din casete parțiale, din obiecte luate drept persoane (barieră, echipament de bandă) și dintr-un marshaller mic, cu spatele, la care vesta se vede doar ca o fâșie la umeri, nu din oameni fără vestă. Măsurat pe 31 octombrie 2026: pe cele 6 clipuri, 0 cadre „fără vestă” (35 de persoane `vesta`, 16 `vesta ?`); pe imaginile etichetate, `vesta` (0,53) cu vestă și `FARA VESTA` (0,00) fără.
+
+`no_vest` ridică `NO_PPE`, `unknown` nu ridică nimic — o persoană mică sau parțial ascunsă nu e raportată ca încălcare. Pe cele 6 clipuri, regula n-a produs niciun eveniment (886 cadre verificate pe `broll_cam03`), pentru că toți oamenii poartă vestă.
+
+Asta **schimbă o decizie anterioară**: până acum vesta era doar afișată, iar `NO_PPE` se amâna până la un clip cu o încălcare reală. Acum evenimentul se emite din heuristică. Când modelul antrenat PPE ajunge în pipeline, starea `no_vest` se ia din detector, nu din culoare.
+
+Ce `rule_type` produce ce eveniment:
+
+| `rule_type` | Eveniment | Când |
+|---|---|---|
+| `RESTRICTED` | `RESTRICTED_ZONE` | oricine e în zonă, dacă zona e activă (`engine_on` sau `always`) |
+| `PPE_REQUIRED` | `NO_PPE` | doar dacă un element din `required_ppe` e dovedit lipsă |
+| `FOD_WATCH`, `NO_SMOKING`, `CROWD_WATCH` | — | nemapate: nu există detector, deci nu pot dovedi nimic |
+
+`required_ppe` se verifică azi doar pentru `hi_vis_vest`. `hard_hat` și `ear_defenders` sunt în seed, dar nu au detector — o zonă care le cere nu ridică nimic pentru ele și nu le consideră niciodată îndeplinite. Persoana care poartă vestă într-o zonă PPE **nu** e evidențiată în overlay: caseta roșie înseamnă încălcare, nu prezență.
 
 Integrare cu backend-ul:
 
@@ -216,7 +230,7 @@ safesight_ml/
   sink.py      # JsonlSink (dry-run) și HttpSink (/edge/snapshots, /edge/events)
   live.py      # ultimul cadru blurat + adnotat pentru /stream MJPEG; video MP4 adnotat
   overlay.py   # desenează zone, casete, vestă, stare și banner de alertă peste cadrul deja blurat
-  ppe.py       # scor de vestă reflectorizantă după culoare (doar afișare)
+  ppe.py       # stare vestă după culoare (vest / no_vest / unknown); no_vest ridică NO_PPE
   pipeline.py  # cadru -> detecții -> reguli -> eveniment
   remote.py    # GET /edge/zones (zone + engine_on)
   align.py     # zona urmărește camera care se mișcă (ORB + omografie față de cadrul de referință)

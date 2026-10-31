@@ -21,8 +21,33 @@ from .zones import RuleEngine, Zone, ZoneMembership
 
 EVENT_TYPE_BY_RULE = {
     "RESTRICTED": "RESTRICTED_ZONE",
+    "PPE_REQUIRED": "NO_PPE",
 }
 ALERT_BANNER_S = 2.0
+
+# Zone rule -> the vest state that counts as a violation. Only hi-vis is checked today:
+# there is no detector for hard hats or ear defenders, so a zone that requires them
+# raises nothing for them. They are also never treated as satisfied.
+PPE_VIOLATION_STATE = {"hi_vis_vest": "no_vest"}
+
+
+def triggers_event(zone: Zone, vest_state: str | None) -> bool:
+    """Does this zone raise an event for a person in the given PPE state?
+
+    ``RESTRICTED`` fires for anyone inside. ``PPE_REQUIRED`` fires only when a
+    required item is provably missing, so an ``unknown`` vest state is silent:
+    a low colour score on a small or partly hidden person is not a violation.
+    Any other rule type is silent by default — mapped or not, it must not start
+    raising person-in-zone events just because the type exists.
+    """
+    if zone.rule_type == "RESTRICTED":
+        return True
+    if zone.rule_type != "PPE_REQUIRED":
+        return False
+    return any(
+        item in zone.required_ppe and vest_state == violation
+        for item, violation in PPE_VIOLATION_STATE.items()
+    )
 
 
 class StageTimer:
@@ -123,12 +148,6 @@ class Pipeline:
             for zone in zones
             if zone.rule_type in EVENT_TYPE_BY_RULE
         }
-        inside = {
-            item.track_id
-            for item in detections
-            for zone in zones
-            if zone_active(zone, self.engine_on) and in_zone.get((item.track_id, zone.id), False)
-        }
         # Colour is read from the raw frame, before blur; it never leaves this process.
         vest = {
             item.track_id: self.vests.update(
@@ -139,6 +158,16 @@ class Pipeline:
                 person_px=(item.bbox[3] - item.bbox[1]) * frame.shape[0],
             )
             for item in detections
+        }
+        # Highlighted, not just present: a compliant person in a PPE zone is left alone,
+        # otherwise the operator sees red boxes and no incident to go with them.
+        inside = {
+            item.track_id
+            for item in detections
+            for zone in zones
+            if zone_active(zone, self.engine_on)
+            and in_zone.get((item.track_id, zone.id), False)
+            and triggers_event(zone, vest.get(item.track_id))
         }
         live_frame: np.ndarray | None = None
 
@@ -165,7 +194,11 @@ class Pipeline:
                 decision = self.rules.observe(
                     track_id=detection.track_id,
                     zone=zone,
-                    in_zone=in_zone[(detection.track_id, zone.id)],
+                    # A PPE zone only counts while the requirement is actually broken:
+                    # a person who puts the vest on stops accumulating, and one who takes
+                    # it off starts fresh after the cooldown.
+                    in_zone=in_zone[(detection.track_id, zone.id)]
+                    and triggers_event(zone, vest.get(detection.track_id)),
                     now=now_s,
                     engine_on=self.engine_on,
                 )
