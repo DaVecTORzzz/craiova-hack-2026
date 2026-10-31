@@ -6,10 +6,14 @@ from fastapi.responses import StreamingResponse
 from sqlmodel import Session
 
 from app.config import get_settings
+from app.services.live_rate import LiveRate
 from app.db import get_session
 from app.models import Camera
 
 router = APIRouter(tags=["stream"])
+
+# One shared meter: every viewer of the same camera feeds the same counter.
+live_rate = LiveRate()
 
 FRAME_INTERVAL_S = 0.5
 POLL_INTERVAL_S = 0.01
@@ -58,6 +62,7 @@ async def mjpeg_frames(camera_id: str) -> AsyncIterator[bytes]:
         if last_watch is None or now - last_watch >= WATCH_TOUCH_S:
             _touch_watch(camera_id)
             last_watch = now
+        live_rate.observe(camera_id, version)
         if last_sent is None or version != last_version or now - last_sent >= FRAME_INTERVAL_S:
             frame = current_frame(camera_id)
             last_version, last_sent = version, now

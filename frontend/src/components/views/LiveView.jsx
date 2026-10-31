@@ -64,6 +64,9 @@ export default function LiveView() {
     .join(', ');
   const noLiveForCamera = Boolean(demoCameras.length && activeCamera?.id && !demoCameras.includes(activeCamera.id));
   const showStream = Boolean(activeCamera?.stream_url && !streamFailed && !isOffline && !noLiveForCamera);
+  // FPS măsurat de backend din cadența cadrului live; absent = nu se poate măsura,
+  // nu 0. Vezi backend/app/services/live_rate.py.
+  const liveFps = activeCamera?.id ? health?.live_fps?.[activeCamera.id] : null;
   const edgeSeen = health?.edge_last_seen_s;
   const edgeActive = Boolean(health?.db && edgeSeen != null && edgeSeen < 60);
 
@@ -449,8 +452,8 @@ export default function LiveView() {
               <div>
                 <span className="text-[9px] text-slate-400 block font-semibold leading-tight">Stare Pipeline</span>
                 <span className="font-mono font-bold text-emerald-500 text-[11px] flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  30 FPS • Live
+                  <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${liveFps ? 'bg-emerald-500' : 'bg-slate-500'}`} />
+                  {liveFps ? `${liveFps} FPS • Live` : 'FPS necunoscut'}
                 </span>
               </div>
             </div>

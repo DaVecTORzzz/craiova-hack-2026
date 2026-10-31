@@ -5,6 +5,7 @@ from sqlmodel import Session
 
 from app.config import get_settings
 from app.db import get_engine
+from app.routers.stream import live_rate
 
 router = APIRouter(tags=["health"])
 
@@ -46,6 +47,7 @@ async def health(response: Response):
             "db": False,
             "edge_last_seen_s": edge_last_seen_s,
             "mock": mock,
+            "live_fps": live_rate.snapshot(),
         }
 
     if (edge_last_seen_s is None or edge_last_seen_s > 60) and not mock:
@@ -58,4 +60,5 @@ async def health(response: Response):
         "db": True,
         "edge_last_seen_s": edge_last_seen_s,
         "mock": mock,
+        "live_fps": live_rate.snapshot(),
     }
