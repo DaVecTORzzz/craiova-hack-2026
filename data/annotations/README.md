@@ -38,7 +38,7 @@ Etichetele de mai jos sunt făcute de Andrei pe cele 4 cadre din `reference_fram
 | `2026-10-30_fod_cam01_asfalt-curat.jpeg` | `2026-10-30_fod_cam01_asfalt-curat.txt` | fișier gol, exemplu negativ |
 | `2026-10-30_fod_cam01_sticla-pe-asfalt.jpeg` | `2026-10-30_fod_cam01_sticla-pe-asfalt.txt` | `fod_object` pe sticlă |
 
-Overlay-urile de verificare sunt în `review/` și nu intră în git.
+Overlay-urile de verificare sunt în `review/` și nu intră în git. Fluxul complet, cu exact pașii și snippet-urile folosite, este în [`docs/agentic-annotation-workflow.md`](../../docs/agentic-annotation-workflow.md).
 
 ## Fișiere
 
