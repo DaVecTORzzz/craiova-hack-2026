@@ -102,7 +102,7 @@ uv run python -m safesight_ml.privacy_audit --dir ../backend/snapshots --json
 # cu Docker: --dir ../backend/data/snapshots
 ```
 
-Exit code: `0` curat, `1` fețe detectate, `2` director/model lipsă sau imagine necitibilă. Tool-ul scanează recursiv `.jpg`, `.jpeg` și `.png`; nu blurează nimic, doar semnalează ce a scăpat. Pentru un singur fișier, dă calea direct la `--dir`.
+Exit code: `0` curat, `1` fețe detectate, `2` director/model lipsă, niciun snapshot sau imagine necitibilă. Tool-ul scanează recursiv `.jpg`, `.jpeg` și `.png`; nu blurează nimic, doar semnalează ce a scăpat. Pentru un singur fișier, dă calea direct la `--dir`.
 
 ## Ce produce
 

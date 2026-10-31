@@ -3,7 +3,7 @@
     uv run python -m safesight_ml.privacy_audit --dir ../backend/snapshots
     uv run python -m safesight_ml.privacy_audit --dir out/snapshots --json
 
-Exit codes: 0 = clean, 1 = faces found, 2 = missing model/dir or unreadable image.
+Exit codes: 0 = clean, 1 = faces found, 2 = missing model/dir, no images or unreadable image.
 The detector is the same YuNet model used by ``FaceBlurrer``; this is a check on
 already-blurred output, not a replacement for blurring at the edge.
 """
