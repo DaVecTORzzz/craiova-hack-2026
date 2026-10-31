@@ -4,7 +4,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useSecurity } from '../../context/SecurityContext';
 
 export default function CameraCarousel() {
-  const { themeStyles } = useTheme();
+  const { isDarkMode, themeStyles } = useTheme();
   const { cameras, activeCamera, setSelectedCameraId } = useSecurity();
 
   return (
@@ -13,17 +13,17 @@ export default function CameraCarousel() {
         backgroundColor: themeStyles.panelBg,
         borderColor: themeStyles.panelBorder
       }}
-      className="rounded-xl border p-3 shadow-md shrink-0"
+      className="rounded-xl border p-3 shadow-sm shrink-0 select-none"
     >
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
-          <Camera size={16} className="text-indigo-400" />
-          <span className="font-bold text-xs md:text-sm uppercase tracking-wide">
-            Rețeaua de Camere CCTV ({cameras.length})
+          <Camera size={16} className="text-blue-500" />
+          <span className="font-bold text-xs md:text-sm uppercase tracking-wide text-slate-800 dark:text-slate-200">
+            Rețea Camere Sol ({cameras.length})
           </span>
         </div>
         <span style={{ color: themeStyles.textMuted }} className="text-[11px]">
-          Click pe o miniatură pentru comutare feed
+          Comutare instantanee a fluxului video
         </span>
       </div>
 
@@ -39,19 +39,19 @@ export default function CameraCarousel() {
               onClick={() => setSelectedCameraId(cam.id)}
               style={{
                 borderColor: isSelected
-                  ? themeStyles.accentColor
-                  : themeStyles.panelBorder,
+                  ? '#1976D2'
+                  : (isDarkMode ? 'rgba(255,255,255,0.1)' : '#E2E8F0'),
                 backgroundColor: isSelected
-                  ? themeStyles.cardBg
-                  : 'rgba(0,0,0,0.15)'
+                  ? (isDarkMode ? '#1E2433' : '#EFF6FF')
+                  : (isDarkMode ? '#141A28' : '#FFFFFF')
               }}
-              className={`min-w-[150px] md:min-w-[170px] p-2 rounded-lg border-2 text-left transition-all relative shrink-0 hover:scale-[1.02] shadow-sm ${
-                isSelected ? 'ring-2 ring-indigo-400/50' : ''
+              className={`min-w-[170px] md:min-w-[190px] p-2.5 rounded-xl border-2 text-left transition-all relative shrink-0 hover:scale-[1.01] shadow-sm ${
+                isSelected ? 'ring-2 ring-blue-500/40' : ''
               }`}
             >
               {/* Mini-ecran previzualizare video */}
               <div
-                className={`h-16 rounded overflow-hidden relative flex items-center justify-center bg-gradient-to-br ${cam.previewBg} mb-1.5 border border-white/10`}
+                className={`h-16 rounded-lg overflow-hidden relative flex items-center justify-center bg-gradient-to-br ${cam.previewBg} mb-2 border border-white/10`}
               >
                 {isCamOffline ? (
                   <div className="text-center">
@@ -69,29 +69,23 @@ export default function CameraCarousel() {
                   </div>
                 )}
 
-                {/* Badge alerte active */}
-                {cam.incidentsCount > 0 && !isCamOffline && (
-                  <span className="absolute top-1 right-1 bg-red-600 text-white text-[9px] font-bold px-1.5 rounded-full shadow">
-                    {cam.incidentsCount}
-                  </span>
-                )}
-
                 {/* Indicator online/offline */}
                 <span
-                  className={`absolute top-1 left-1 w-2 h-2 rounded-full ${
-                    isCamOffline ? 'bg-red-500' : 'bg-emerald-400 animate-pulse'
+                  className={`absolute top-1.5 left-1.5 w-2 h-2 rounded-full ${
+                    isCamOffline ? 'bg-red-500' : 'bg-emerald-500 animate-pulse'
                   }`}
                 />
               </div>
 
-              {/* Detalii Cameră */}
-              <p className="font-bold text-xs truncate leading-tight">{cam.name}</p>
-              <p
-                style={{ color: themeStyles.textMuted }}
-                className="text-[10px] font-mono truncate"
-              >
-                {cam.id} • {cam.status.toUpperCase()}
-              </p>
+              {/* Detalii Cameră: Subtitlu elegant SUB denumire conform cerinței */}
+              <div className="space-y-0.5">
+                <p className="font-bold text-xs truncate leading-snug text-slate-900 dark:text-slate-100">
+                  {cam.name}
+                </p>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate leading-tight">
+                  {cam.subtitle || cam.id}
+                </p>
+              </div>
             </button>
           );
         })}

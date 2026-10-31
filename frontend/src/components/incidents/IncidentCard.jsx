@@ -20,12 +20,12 @@ export default function IncidentCard({ incident }) {
   return (
     <div
       style={{
-        backgroundColor: themeStyles.cardBg,
+        backgroundColor: isDarkMode ? '#1E2433' : '#FFFFFF',
         borderColor: isCritical
-          ? 'rgba(239, 68, 68, 0.45)'
+          ? 'rgba(211, 47, 47, 0.45)'
           : isWarning
-          ? 'rgba(245, 158, 11, 0.45)'
-          : 'rgba(16, 185, 129, 0.45)'
+          ? 'rgba(255, 193, 7, 0.45)'
+          : 'rgba(56, 142, 60, 0.45)'
       }}
       className="rounded-xl border p-3 shadow-sm space-y-2.5 transition-all hover:scale-[1.01] hover:shadow-md relative overflow-hidden"
     >
@@ -34,28 +34,28 @@ export default function IncidentCard({ incident }) {
         <div>
           <div className="flex items-center gap-1.5">
             {isCritical && (
-              <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
+              <span className="w-2 h-2 rounded-full bg-red-600 animate-ping" />
             )}
             <span
               className={`text-[10px] font-black uppercase px-2 py-0.5 rounded tracking-wider ${
                 isCritical
                   ? 'bg-red-600 text-white'
                   : isWarning
-                  ? 'bg-amber-500 text-slate-900'
+                  ? 'bg-amber-500 text-slate-950 font-bold'
                   : 'bg-emerald-600 text-white'
               }`}
             >
               {isCritical
-                ? 'PERICOL IMINENT'
+                ? 'CRITICAL / PERICOL'
                 : isWarning
-                ? 'AVERTISMENT'
-                : 'REMEDIAT / CONFORM'}
+                ? 'WARNING / ATENȚIE'
+                : 'CONDIȚIE SIGURĂ'}
             </span>
-            <span className="text-[10px] font-mono opacity-70">
+            <span className="text-[10px] font-mono text-slate-400">
               {incident.id}
             </span>
           </div>
-          <h3 className="font-bold text-xs md:text-sm mt-1 leading-tight">
+          <h3 className="font-bold text-xs md:text-sm mt-1 leading-tight text-slate-900 dark:text-slate-100">
             {incident.title}
           </h3>
         </div>
@@ -63,13 +63,11 @@ export default function IncidentCard({ incident }) {
         {/* Buton să comute camera la camera acestui incident */}
         <button
           onClick={() => setSelectedCameraId(incident.cameraId)}
-          style={{
-            backgroundColor:
-              activeCamera.id === incident.cameraId
-                ? themeStyles.accentColor
-                : 'transparent'
-          }}
-          className="p-1 rounded text-[10px] font-mono flex items-center gap-1 border border-white/10 hover:bg-white/10 shrink-0"
+          className={`p-1 rounded-lg text-[10px] font-mono flex items-center gap-1 border transition-colors shrink-0 ${
+            activeCamera.id === incident.cameraId
+              ? 'bg-blue-600 text-white border-blue-500 font-bold'
+              : 'border-slate-500/20 hover:bg-slate-500/10 text-slate-700 dark:text-slate-300'
+          }`}
           title={`Comută vizualizarea pe ${incident.cameraId}`}
         >
           <Eye size={12} />
@@ -79,8 +77,7 @@ export default function IncidentCard({ incident }) {
 
       {/* Locație & Timestamp */}
       <div
-        style={{ color: themeStyles.textMuted }}
-        className="flex items-center justify-between text-[10px] font-mono"
+        className="flex items-center justify-between text-[10px] font-mono text-slate-500 dark:text-slate-400"
       >
         <span>{incident.cameraName}</span>
         <span>{incident.detectedAt}</span>
@@ -94,24 +91,24 @@ export default function IncidentCard({ incident }) {
         style={{
           backgroundColor: isDarkMode
             ? 'rgba(0, 0, 0, 0.3)'
-            : 'rgba(255, 255, 255, 0.7)'
+            : 'rgba(241, 245, 249, 0.7)'
         }}
-        className="p-2.5 rounded-lg border border-white/5 space-y-1 text-xs"
+        className="p-2.5 rounded-lg border border-slate-500/15 space-y-1 text-xs"
       >
-        <div className="flex items-center gap-1 text-[11px] font-bold text-indigo-400">
+        <div className="flex items-center gap-1 text-[11px] font-bold text-blue-600 dark:text-blue-400">
           <Info size={12} />
           <span>AI Reasoning & Cauză:</span>
         </div>
-        <p style={{ color: themeStyles.textMuted }} className="text-[11px] leading-relaxed">
+        <p className="text-[11px] leading-relaxed text-slate-600 dark:text-slate-300">
           {incident.reasoning}
         </p>
-        <div className="pt-1 text-[10px] text-amber-400 font-medium">
+        <div className="pt-1 text-[10px] text-amber-600 dark:text-amber-400 font-medium">
           <span className="font-bold">Măsură sugerată:</span> {incident.actionSuggested}
         </div>
       </div>
 
-      {/* Acțiuni: Vizualizare Captură & Acknowledge */}
-      <div className="pt-1 flex items-center justify-between gap-2">
+      {/* Acțiuni: Vizualizare Captură & Acknowledge (Verde industrial) */}
+      <div className="pt-1 flex items-center justify-between gap-2 border-t border-slate-500/10">
         <button
           onClick={() => {
             setActiveSnapshot({
@@ -123,21 +120,18 @@ export default function IncidentCard({ incident }) {
             });
             setShowSnapshotModal(true);
           }}
-          className="text-[10px] font-semibold text-slate-300 hover:text-white flex items-center gap-1 underline"
+          className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
         >
           <Camera size={12} /> Vezi Captura Auto
         </button>
 
         <button
           onClick={(e) => acknowledgeIncident(incident.id, e)}
-          style={{
-            backgroundColor: isDarkMode ? '#4034AD' : '#70ED6E',
-            color: isDarkMode ? '#FFFFFF' : '#0F172A'
-          }}
-          className="px-3 py-1.5 rounded-lg font-bold text-xs flex items-center gap-1.5 hover:opacity-90 transition-opacity shadow-sm"
+          className="px-3 py-1.5 rounded-lg font-bold text-xs flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-colors"
+          title="Confirmare remediere / verificare completă"
         >
           <Check size={14} />
-          <span>Marchează Rezolvat</span>
+          <span>Confirmă (Rezolvat)</span>
         </button>
       </div>
     </div>
