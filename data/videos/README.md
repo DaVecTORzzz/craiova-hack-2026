@@ -23,8 +23,9 @@ Câte un clip pentru fiecare caz din demo. Clipurile `.mp4` nu intră în git; l
 
 Sunt 4 clipuri B-roll și 2 clipuri `restricted-zone`. Lipsește încă:
 
-- PPE lipsă;
-- FOD: cadru de referință + clip cu obiect;
-- `reference_frames/` și `annotations/` sunt goale.
+- clip video pentru PPE lipsă;
+- clip video pentru FOD, din același unghi cu cadrul de referință.
+
+`reference_frames/` are 4 cadre, iar `annotations/` are 4 etichete YOLO preliminare pentru PPE/FOD; ambele trebuie confirmate de A înainte de antrenare.
 
 Numele `...pushback-motor..mp4` are două puncte; de corectat la următorul upload.
