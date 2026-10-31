@@ -77,6 +77,39 @@ def base_env() -> dict[str, str]:
     return env
 
 
+def dotenv_value(key: str) -> str | None:
+    """Read one key from the root .env without loading secrets into the frontend."""
+    path = ROOT / ".env"
+    if not path.is_file():
+        return None
+    for raw in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("export "):
+            line = line[7:].lstrip()
+        if "=" not in line:
+            continue
+        name, value = line.split("=", 1)
+        if name.strip() != key:
+            continue
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+            value = value[1:-1]
+        return value
+    return None
+
+
+def resolve_edge_token(cli_value: str | None) -> str:
+    return cli_value or os.environ.get("EDGE_TOKEN") or dotenv_value("EDGE_TOKEN") or "dev-edge-token"
+
+
+def resolve_snapshot_dir() -> Path:
+    raw = os.environ.get("SNAPSHOT_DIR") or dotenv_value("SNAPSHOT_DIR") or "./snapshots"
+    path = Path(raw).expanduser()
+    return path if path.is_absolute() else (BACKEND / path)
+
+
 def app_env(*, mock: bool, api_url: str, frontend_url: str, frontend_port: int) -> dict[str, str]:
     env = base_env()
     env["USE_MOCK"] = "true" if mock else "false"
@@ -86,8 +119,9 @@ def app_env(*, mock: bool, api_url: str, frontend_url: str, frontend_port: int) 
     env["VITE_USE_MOCK"] = "false"
     if frontend_port != 5173:
         origins = f"http://localhost:{frontend_port},http://127.0.0.1:{frontend_port}"
-        if env.get("CORS_ORIGINS"):
-            origins = f"{origins},{env['CORS_ORIGINS']}"
+        existing = env.get("CORS_ORIGINS") or dotenv_value("CORS_ORIGINS")
+        if existing:
+            origins = f"{origins},{existing}"
         env["CORS_ORIGINS"] = origins
     return env
 
@@ -286,7 +320,10 @@ def run_all(args: argparse.Namespace) -> int:
 
 def run_demo(args: argparse.Namespace) -> int:
     clip = Path(args.clip).expanduser().resolve() if args.clip else DEFAULT_CLIP
+    token = resolve_edge_token(args.edge_token)
+    live_dir = resolve_snapshot_dir() / "live"
     env = app_env(mock=args.mock, api_url=api_url(args), frontend_url=web_url(args), frontend_port=args.frontend_port)
+    env["EDGE_TOKEN"] = token
     backend = popen(backend_command(args), cwd=BACKEND, env=env)
     try:
         frontend = popen(frontend_command(args), cwd=FRONTEND, env=env)
@@ -330,9 +367,9 @@ def run_demo(args: argparse.Namespace) -> int:
                     "--api-url",
                     api_url(args),
                     "--edge-token",
-                    args.edge_token,
+                    token,
                     "--live-dir",
-                    str(BACKEND / "snapshots" / "live"),
+                    str(live_dir),
                 ],
             )
             # Edge-ul procesează clipul și se oprește; serverele rămân pornite.
@@ -377,7 +414,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_common(p_demo)
     p_demo.add_argument("--clip", type=Path, help="clipul folosit de edge")
     p_demo.add_argument("--no-ml", action="store_true", help="nu porni edge-ul")
-    p_demo.add_argument("--edge-token", default=os.getenv("EDGE_TOKEN", "dev-edge-token"))
+    p_demo.add_argument("--edge-token", default=None, help="token edge; implicit EDGE_TOKEN din mediu sau .env")
     p_demo.set_defaults(func=run_demo)
 
     p_ml = sub.add_parser("ml", help="pornește edge-ul; argumentele după -- merg la run.py")
