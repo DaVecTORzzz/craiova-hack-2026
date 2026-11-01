@@ -425,7 +425,9 @@ def main(argv: list[str] | None = None) -> int:
                 if not ok:
                     if args.loop and reader is None:
                         capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
-                        paced_start, frame_index = time.monotonic(), 0
+                        # frame_index keeps counting: it is the pipeline's clock (cooldowns,
+                        # dwell, track expiry) and must not jump back to 0 on every pass.
+                        paced_start = time.monotonic() - frame_index / fps
                         # Each pass replays the same scene; without this the demo raises
                         # (and notifies) the same incident every few seconds.
                         pipeline.emit_events = (
