@@ -19,6 +19,11 @@ class Settings(BaseSettings):
     ppe_observations_per_shift: int = 200   # see OPEN QUESTION Q3
     seed_demo_events: bool = False          # true = insert past events so the shift report is not empty
 
+    # Outbox: o alertă se reîncearcă până e livrată sau până se dovedește că nu se poate.
+    outbox_interval_s: float = 0.25
+    outbox_backoff_s: str = "1,2,4,8,15,30,60"
+    outbox_max_attempts: int = 8
+
 
 @lru_cache
 def get_settings() -> Settings:

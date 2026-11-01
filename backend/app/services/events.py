@@ -16,8 +16,9 @@ from app.schemas import (
     Status,
     Temporal,
 )
+from app.services import outbox
 from app.services.escalation import cancel_escalation, schedule_escalation
-from app.services.notify import notify_new_event
+from app.services.notify import slack_text
 from app.services.report import generate_and_store_report
 from app.timeutil import iso, to_naive_utc, utcnow
 from app.ws import manager
@@ -100,9 +101,14 @@ async def ingest(session: Session, payload: EdgeEventIn) -> tuple[EventOut, bool
                 detail="zone does not belong to camera",
             )
 
-    # 4. Idempotency check
+    # 4. Idempotency check. A replay also heals a notification row lost before
+    # its commit; enqueue is idempotent per (event_id, kind).
     existing = session.get(Event, payload.event_id)
     if existing is not None:
+        if existing.notified_at is None:
+            out = event_out(session, existing)
+            if outbox.enqueue(existing.event_id, "new", slack_text(out, escalated=False), session=session):
+                session.commit()
         return event_out(session, existing), False
 
     # 5. Insert new event
@@ -141,7 +147,11 @@ async def ingest(session: Session, payload: EdgeEventIn) -> tuple[EventOut, bool
     camera.updated_at = now
     session.add(camera)
 
-    # 5.2 Commit
+    # 5.2 One transaction: the event and its alert row are committed together, so
+    # an event whose notification was never queued is not a state that can exist.
+    session.flush()
+    pending_out = event_out(session, event)
+    outbox.enqueue(event.event_id, "new", slack_text(pending_out, escalated=False), session=session)
     session.commit()
     session.refresh(event)
     out = event_out(session, event)
@@ -149,8 +159,8 @@ async def ingest(session: Session, payload: EdgeEventIn) -> tuple[EventOut, bool
     # 5.3 Broadcast event.created
     await manager.broadcast("event.created", out.model_dump(mode="json"))
 
-    # 5.4 Notify new event via Slack
-    _spawn(notify_new_event(event.event_id))
+    # 5.4 The alert row was written in the same transaction as the event (5.2); the
+    # outbox worker sends it. Nothing to spawn here, so a send can never outlive its event.
 
     # 5.5 Generate and store report
     _spawn(generate_and_store_report(event.event_id))
