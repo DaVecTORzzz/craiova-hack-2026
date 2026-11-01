@@ -131,6 +131,11 @@ class EngineIn(BaseModel):
     on: bool
 
 
+class HeartbeatIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    camera_id: str = Field(min_length=1, max_length=64)
+
+
 class CameraOut(BaseModel):
     id: str
     name: str
@@ -212,3 +217,5 @@ class ShiftReport(BaseModel):
     # să nu raporteze un fals pozitiv drept incident.
     total_events: int = 0
     false_positives: int = 0
+    # Minutele în care camerele nu au transmis (CAMERA_OFFLINE nu e incident de operator).
+    coverage: dict = Field(default_factory=dict)
