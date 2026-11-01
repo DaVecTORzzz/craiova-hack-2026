@@ -4,6 +4,17 @@ Inspector automat de siguranță pentru platforma aeroportului. Camerele existen
 
 Video-ul nu iese din aeroport. Fețele sunt blurate înainte de orice salvare.
 
+## Demo
+
+Aplicația în funcțiune, în două clipuri scurte. În README se joacă o secvență din fiecare (10 s, fără sunet, 640 px); fișierele complete sunt în [folderul SafeSight de pe Google Drive](https://drive.google.com/drive/folders/1OTXiPjvX7PCAGDeXVKPa702PyQQZgzhA?usp=sharing), pentru că `.mp4` nu intră în git.
+
+| `DemoSafeSight.mp4` · 0:38 | `Demo_Max.mp4` · 1:34 |
+|---|---|
+| [![Platforma: avion la poartă, muncitori cu veste, zonă restricționată încadrată pe imagine, incident în listă](docs/assets/demo-apron.webp)](https://drive.google.com/file/d/1EgnWY80N8CDgNlwvrp3tbbkmiXWpPlEi/view) | [![Aplicația SafeSight: Live Monitor, detecție de echipament de protecție, incidente confirmate și escalate](docs/assets/demo-app.webp)](https://drive.google.com/file/d/1IsnC-LNpnaLKBT8i92MNsUoe0vYuK8Xk/view) |
+| Platforma reală: avion la poartă, muncitori cu veste, apoi aplicația — zonele desenate pe imagine, incidentele în listă, detaliul incidentului și editorul de zone. | Live Monitor filmat continuu cu webcam-ul (fața blurată): detecțiile cadru cu cadru și incidentele care apar, se confirmă și escaladează în lista din dreapta. |
+
+Ce e real: detecția rulează pe clipurile din `data/videos/` sau pe camera locală, nu pe o animație. Ce nu e: secvențele din README sunt tăiate și fără sunet, ca să se încarce repede.
+
 ## Structura
 
 | Folder | Ce conține | Responsabil |
@@ -38,7 +49,7 @@ sau `./run.sh demo` / `run.cmd demo`. Detalii, cerințe și variante: [`RUNNING.
 
 ## Date care nu intră în git
 
-Video-urile de test (`.mp4`), modelele antrenate (`.pt`, `.onnx`) și baza de date locală sunt ignorate de git. Le țineți în folderul comun din Google Drive: `[link Drive]`. README-urile din `data/videos/` și `data/annotations/` rămân versionate, ca să știm sursa și licența fiecărui clip.
+Video-urile de test (`.mp4`), modelele antrenate (`.pt`, `.onnx`) și baza de date locală sunt ignorate de git. Le țineți în folderul comun din Google Drive, [SafeSight](https://drive.google.com/drive/folders/1OTXiPjvX7PCAGDeXVKPa702PyQQZgzhA?usp=sharing). README-urile din `data/videos/` și `data/annotations/` rămân versionate, ca să știm sursa și licența fiecărui clip.
 
 ## Reguli de lucru
 
