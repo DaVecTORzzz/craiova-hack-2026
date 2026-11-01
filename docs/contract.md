@@ -139,7 +139,7 @@ Mesajele WebSocket: `{"type": "event.created" | "event.updated", "data": { ...ev
 
 - `rule_type`: `RESTRICTED`, `PPE_REQUIRED`, `FOD_WATCH`, `NO_SMOKING`; `CROWD_WATCH` rezervat.
 - `active_when`: `always`, `engine_on`; `schedule` rămâne roadmap.
-- `polygon`: coordonate normalizate 0–1 față de cadru, nu pixeli.
+- `polygon`: coordonate normalizate 0–1 față de cadru, nu pixeli, în ordine pe contur. Laturile nu se pot intersecta (fără „clepsidre”); `PUT /zones/{id}` răspunde `422` altfel.
 - `debounce_s`: durata minimă în zonă. FOD: `3` în demo, `10` în producție.
 - `escalate_after_s`: per zonă; `null` = fără escaladare. Seed demo `30`, producție `120`.
 - `notify_channel`: `slack` în demo; Teams/SMS/radio rămân roadmap.
