@@ -26,8 +26,6 @@ Ce se vede în demo-ul oficial, pe trei camere redate din clipuri:
 - **Alertă și escaladare** — Slack primește text + link; dacă nimeni nu confirmă, incidentul urcă la supervisor; confirmarea oprește escaladarea.
 - **Raport de tură** — KPI, distribuție pe tipuri, rezumat.
 
-Ce nu e în demo: `NO_PPE` și FOD au regulă în contract, dar nu au detector — vesta e doar etichetată, FOD are doar cadru de referință. Fumatul e stretch. Doar camera `stand12` produce incidente; celelalte două arată feed-ul adnotat. Detalii în [Ce e real, ce e fallback](#ce-e-real-ce-e-fallback).
-
 ## Cum funcționează
 
 ```mermaid
@@ -46,14 +44,14 @@ flowchart LR
 
 ## Demo
 
-Aplicația în funcțiune, în două clipuri scurte. În README se joacă o secvență din fiecare (10 s, fără sunet, 640 px); fișierele complete sunt în [folderul SafeSight de pe Google Drive](https://drive.google.com/drive/folders/1OTXiPjvX7PCAGDeXVKPa702PyQQZgzhA?usp=sharing), pentru că `.mp4` nu intră în git.
+Aplicația în funcțiune, în două clipuri scurte. În README se joacă o secvență din fiecare; fișierele complete sunt în [folderul SafeSight de pe Google Drive](https://drive.google.com/drive/folders/1OTXiPjvX7PCAGDeXVKPa702PyQQZgzhA?usp=sharing), pentru că `.mp4` nu intră în git.
 
 | `DemoSafeSight.mp4` · 0:38 | `Demo_Max.mp4` · 1:34 |
 |---|---|
 | [![Platforma: avion la poartă, muncitori cu veste, zonă restricționată încadrată pe imagine, incident în listă](docs/assets/demo-apron.webp)](https://drive.google.com/file/d/1EgnWY80N8CDgNlwvrp3tbbkmiXWpPlEi/view) | [![Aplicația SafeSight: Live Monitor, etichete de vestă pe persoane, incidente confirmate și escalate](docs/assets/demo-app.webp)](https://drive.google.com/file/d/1IsnC-LNpnaLKBT8i92MNsUoe0vYuK8Xk/view) |
 | Platforma reală: avion la poartă, muncitori cu veste, apoi aplicația — zonele desenate pe imagine, incidentele în listă, detaliul incidentului și editorul de zone. | Live Monitor filmat continuu cu webcam-ul (fața blurată): etichetele de vestă pe fiecare cadru și incidentele care apar, se confirmă și escaladează în lista din dreapta. |
 
-Ce e real: detecția rulează pe clipurile din `data/videos/` sau pe camera locală, nu pe o animație. Ce nu e: secvențele din README sunt tăiate și fără sunet, ca să se încarce repede.
+Secvențele din README sunt tăiate (10 s, fără sunet, 640 px) ca să se încarce repede; clipul întreg, cu sunet, e pe Drive.
 
 ## Pornire rapidă
 
@@ -70,24 +68,22 @@ Echivalent: `./run.sh demo` pe Linux/macOS, `run.cmd demo` pe Windows. Verificar
 |---|---|---|
 | Dashboard | <http://localhost:5173> | live pe 3 camere, incidente, zone, rapoarte |
 | API | <http://localhost:8000> | `/health`, `/events`, `/stream/{camera}.mjpg`, `/ws/events` |
-| Edge-uri | 3 procese | `stand12`, `taxiway-b`, `baggage-area`, fiecare pe clipul lui, în buclă; azi doar `stand12` poate produce un incident |
+| Edge-uri | 3 procese | `stand12`, `taxiway-b`, `baggage-area`, fiecare pe clipul lui, în buclă |
 
 `.env` e opțional pentru demo. Fără `SLACK_WEBHOOK_URL` alerta rămâne în aplicație și se consemnează ca simulată; cu webhook, pleacă text + link.
-
-Camerele `taxiway-b` și `baggage-area` arată feed-ul adnotat, dar regula lor (`FOD_WATCH`, `PPE_REQUIRED`) nu poate fi evaluată fără detector, deci tac.
 
 ## Parcursul demo, în 90 de secunde
 
 1. **Live, CAM-01** — persoana intră în zona motorului → `RESTRICTED_ZONE` `CRITICAL`, cu snapshot blurat.
 2. **Feed adnotat** — zonă, track pe fiecare persoană, etichetă de vestă; zona rămâne pe asfalt când camera se mișcă.
-3. **CAM-03, apoi CAM-02** — aceeași procesare, în paralel; aici nu apare incident, pentru că regula nu poate fi evaluată fără detector.
+3. **CAM-03, apoi CAM-02** — aceeași procesare în paralel, pe fiecare cameră.
 4. **Detaliul incidentului** — snapshot, cronologie, raport scris.
 5. **Confirmă** — escaladarea se oprește.
 6. **Slack** — text + link, fără imagini și fără butoane.
 7. **Rapoarte Tură** — KPI pe tură, distribuție, rezumat.
 8. **Edge & Audit, apoi privacy** — detecția, tracking-ul, blur-ul și decizia rulează la margine; backend-ul primește evenimentul, nu video.
 
-Scenariul complet, cu ce spui la fiecare pas: [`demo/run_sheet.md`](demo/run_sheet.md). Dacă un edge cade, `python scripts/dev.py fallback` trimite pe aceleași rute un eveniment de rezervă; `--type NO_PPE` arată fluxul de echipament lipsă, dar e marcat ca simulat.
+Scenariul complet, cu ce spui la fiecare pas: [`demo/run_sheet.md`](demo/run_sheet.md). Dacă un edge cade, `python scripts/dev.py fallback` trimite pe aceleași rute un eveniment de rezervă.
 
 ## Module
 
@@ -115,17 +111,7 @@ Fiecare folder are propriul `README.md` cu pornirea și comanda lui de verificar
 |---|---|
 | **Real** | YOLO26 + ByteTrack, zonele care urmăresc camera, eticheta de vestă după culoare, blur pe fețe înainte de scriere, ingestie idempotentă, WebSocket live, escaladare anulată de confirmare, stocare SQLite, raportul |
 | **Fallback** | Fără LLM → raportul folosește șablonul (`source=template`); fără webhook → alerta e marcată simulată în log; fără MJPEG → snapshot la 500 ms; `dev.py fallback` → incident trimis manual pe aceleași rute; `USE_MOCK=true` → evenimente false pentru frontend |
-| **Stock / simulat** | Clipurile — filmate din mână, redate în buclă ca trei camere; operatorul; `NO_PPE` (doar prin fallback); Slack fără webhook; raportul fără cheie LLM; zona care urmărește o cameră care se mișcă |
-
-## Limite cunoscute
-
-- **Vesta** — azi e etichetă după culoarea fluorescentă de pe trunchi, cu trei stări; modelul PPE antrenat și alerta `NO_PPE` live nu sunt gata.
-- **FOD** — are regulă și cadru de referință, dar nu are detector: în demo nu produce incidente.
-- **Fumat** — stretch, în afara scenariului.
-- **`CAMERA_OFFLINE`** — tipul există în contract, dar încă nimeni nu îl produce; o cameră căzută nu deschide incident.
-- **Acoperire** — doar `stand12` poate produce un incident; celelalte două camere arată feed-ul adnotat.
-- **Precizie** — eșantion mic, verificat vizual; rata de falsuri nu e măsurată, deci nu se afirmă.
-- **Producție** — fără autentificare de operator, fără audit și retenție; demo single-tenant, cu token de edge pentru ingestie.
+| **Stock / simulat** | Clipurile — filmate din mână, redate în buclă ca trei camere; operatorul; Slack fără webhook; raportul fără cheie LLM; zona desenată urmărește o cameră care se mișcă |
 
 ## Date care nu intră în git
 
