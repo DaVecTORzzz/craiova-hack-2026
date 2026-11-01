@@ -252,3 +252,20 @@ def test_live_writer_renders_only_while_the_camera_is_watched(tmp_path):
     time.sleep(0.1)
     writer.close()
     assert rendered == [1]
+
+def test_a_reference_request_writes_one_clean_frame_and_clears_the_flag(tmp_path):
+    """The zone editor asks for a frame without the operator overlay."""
+    from safesight_ml.live import LiveFrameWriter
+
+    writer = LiveFrameWriter(tmp_path, "stand12")
+    assert writer.clean_requested() is False
+
+    writer.clean_request.touch()
+    assert writer.clean_requested() is True
+
+    frame = np.full((120, 160, 3), 90, dtype=np.uint8)
+    assert writer.write_clean(frame) is True
+
+    assert writer.clean_path.is_file()
+    assert writer.clean_requested() is False  # flag consumed
+    assert not writer.path.exists()  # the annotated frame was not touched

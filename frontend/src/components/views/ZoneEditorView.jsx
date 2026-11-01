@@ -7,6 +7,7 @@ import {
   Layers,
   PenTool,
   Plus,
+  Radio,
   Redo2,
   Save,
   Trash2,
@@ -83,6 +84,7 @@ export default function ZoneEditorView() {
     saveZone,
     deleteZone,
     captureReferenceFrame,
+    captureReferenceFromLive,
     clearReferenceFrame,
     showToast,
   } = useSecurity();
@@ -110,6 +112,8 @@ export default function ZoneEditorView() {
   const [jsonInput, setJsonInput] = useState('[]');
   const [referenceAspect, setReferenceAspect] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [capturing, setCapturing] = useState(false);
+  const [capturedAt, setCapturedAt] = useState(null);
 
   const canvasRef = useRef(null);
   const referenceInputRef = useRef(null);
@@ -406,8 +410,20 @@ export default function ZoneEditorView() {
       await captureReferenceFrame(zoneId, new File([blob], 'referinta.jpg', { type: 'image/jpeg' }));
     } catch (error) {
       showToast(`Încărcarea referinței a eșuat: ${error.message}`);
+      setCapturedAt(new Date().toLocaleTimeString('ro-RO'));
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleCaptureFromLive = async () => {
+    if (!zoneId) return;
+    setCapturing(true);
+    try {
+      await captureReferenceFromLive(zoneId);
+      setCapturedAt(new Date().toLocaleTimeString('ro-RO'));
+    } finally {
+      setCapturing(false);
     }
   };
 
@@ -820,36 +836,59 @@ export default function ZoneEditorView() {
             {hasReference ? (
               <div className="space-y-2">
                 <img
+                  key={zone.reference_frame_url}
                   src={zone.reference_frame_url}
                   alt="Referință"
                   className="w-full rounded-lg border border-white/10"
                 />
-                <div className="flex gap-2">
+                {capturedAt && (
+                  <p className="text-[10px] font-mono opacity-60">actualizat la {capturedAt}</p>
+                )}
+                <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={() => referenceInputRef.current?.click()}
-                    disabled={uploading || !zone}
-                    className="flex-1 py-1.5 rounded bg-indigo-700 hover:bg-indigo-600 disabled:opacity-50 text-white text-[11px] font-bold"
+                    disabled={uploading || capturing || !zone}
+                    className="py-1.5 rounded bg-indigo-700 hover:bg-indigo-600 disabled:opacity-50 text-white text-[11px] font-bold"
                   >
                     {uploading ? 'Se încarcă…' : 'Înlocuiește'}
                   </button>
                   <button
+                    data-testid="reference-from-live"
+                    onClick={handleCaptureFromLive}
+                    disabled={uploading || capturing || !zone}
+                    className="py-1.5 rounded bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-white text-[11px] font-bold flex items-center justify-center gap-1"
+                  >
+                    <Radio size={12} /> {capturing ? 'se preia…' : 'Din live'}
+                  </button>
+                  <button
                     onClick={() => clearReferenceFrame(zoneId)}
-                    disabled={!zone}
-                    className="px-2 py-1.5 rounded border border-red-500/40 text-red-300 hover:bg-red-900/40 text-[11px] font-bold flex items-center gap-1"
+                    disabled={!zone || capturing}
+                    className="col-span-2 py-1.5 rounded border border-red-500/40 text-red-300 hover:bg-red-900/40 text-[11px] font-bold flex items-center justify-center gap-1"
                   >
                     <ImageOff size={12} /> Șterge
                   </button>
                 </div>
               </div>
             ) : (
-              <button
-                onClick={() => referenceInputRef.current?.click()}
-                disabled={!zone || uploading}
-                className="w-full py-6 rounded-lg border-2 border-dashed border-white/20 hover:border-indigo-400/60 text-slate-300 text-[11px] font-mono flex flex-col items-center gap-1 disabled:opacity-40"
-              >
-                <Camera size={18} />
-                {uploading ? 'se încarcă…' : zone ? 'încarcă imagine (JPG/PNG)' : 'salvează zona întâi'}
-              </button>
+              <div className="space-y-2">
+                <button
+                  onClick={() => referenceInputRef.current?.click()}
+                  disabled={!zone || uploading || capturing}
+                  className="w-full py-5 rounded-lg border-2 border-dashed border-white/20 hover:border-indigo-400/60 text-slate-300 text-[11px] font-mono flex flex-col items-center gap-1 disabled:opacity-40"
+                >
+                  <Camera size={18} />
+                  {uploading ? 'se încarcă…' : zone ? 'încarcă imagine (JPG/PNG)' : 'salvează zona întâi'}
+                </button>
+                <button
+                  data-testid="reference-from-live"
+                  onClick={handleCaptureFromLive}
+                  disabled={!zone || uploading || capturing}
+                  className="w-full py-2 rounded-lg bg-emerald-700 hover:bg-emerald-600 disabled:opacity-40 text-white text-[11px] font-bold flex items-center justify-center gap-1.5"
+                  title="Ia ultimul cadru din live; fețele sunt deja blurate la edge"
+                >
+                  <Radio size={13} /> {capturing ? 'se preia din live…' : 'Captură din live'}
+                </button>
+              </div>
             )}
           </div>
         </div>
