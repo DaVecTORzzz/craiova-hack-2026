@@ -53,9 +53,11 @@ export default function Header() {
         >
           <Menu size={18} />
         </button>
-        <div className="w-10 h-10 rounded-xl bg-[#7EDEED] flex items-center justify-center text-[#1F1F1F] shadow-md border border-white/20 shrink-0 font-black">
-          <Shield size={22} className="text-[#1F1F1F]" />
-        </div>
+        <img
+          src="/logo.png"
+          alt="SafeSight Logo"
+          className="w-10 h-10 rounded-full object-cover shadow-md border border-white/20 shrink-0"
+        />
         <div>
           <h1 className="font-black text-xl tracking-tight leading-none uppercase drop-shadow-sm">
             SafeSight
@@ -93,7 +95,7 @@ export default function Header() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Cauta incidente"
-            className="w-full pl-10 pr-4 py-2 text-xs rounded-xl bg-white/5 hover:bg-white/10 focus:bg-white/15 border border-white/10 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#7EDEED] transition-all shadow-inner"
+            className="w-full pl-10 pr-4 py-2 text-xs rounded-xl bg-white/5 hover:bg-white/10 focus:bg-white/15 border border-white/10 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#FFEB33] transition-all shadow-inner"
           />
           {searchQuery && (
             <button
@@ -219,7 +221,7 @@ export default function Header() {
             className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 transition-all shadow-sm"
             title="Schimbă operatorul activ"
           >
-            <div className="w-7 h-7 rounded-lg bg-[#7EDEED] text-[#1F1F1F] font-bold text-xs flex items-center justify-center shadow-inner">
+            <div style={{ backgroundColor: isDarkMode ? '#D73833' : '#7EDEED', color: isDarkMode ? '#FFFFFF' : '#1F1F1F' }} className="w-7 h-7 rounded-lg font-bold text-xs flex items-center justify-center shadow-inner">
               {operatorName?.[0]?.toUpperCase() || 'O'}
             </div>
             <div className="hidden lg:block text-left text-xs leading-tight">
@@ -254,19 +256,27 @@ export default function Header() {
                       switchOperator(op.id);
                       setShowUserMenu(false);
                     }}
+                    style={{
+                      backgroundColor: isSelected
+                        ? (isDarkMode ? '#D73833' : '#7EDEED')
+                        : 'transparent',
+                      color: isSelected
+                        ? (isDarkMode ? '#FFFFFF' : '#1F1F1F')
+                        : (isDarkMode ? '#F5F5F5' : '#1F1F1F')
+                    }}
                     className={`w-full text-left px-2.5 py-2 rounded-lg flex items-center justify-between transition-colors ${
                       isSelected
-                        ? 'bg-[#7EDEED] text-[#1F1F1F] font-bold'
-                        : 'hover:bg-white/5'
+                        ? 'font-bold shadow-sm'
+                        : (isDarkMode ? 'hover:bg-white/5' : 'hover:bg-slate-100')
                     }`}
                   >
                     <div>
                       <p className="font-semibold text-xs leading-none">{op.name}</p>
-                      <p className={`text-[10px] mt-0.5 ${isSelected ? 'text-[#1F1F1F]/80' : 'text-slate-400'}`}>
+                      <p className={`text-[10px] mt-0.5 ${isSelected ? 'text-white/80' : 'text-slate-400'}`}>
                         {op.role}
                       </p>
                     </div>
-                    {isSelected && <Check size={14} className="text-[#1F1F1F] shrink-0" />}
+                    {isSelected && <Check size={14} className={isDarkMode ? 'text-white shrink-0' : 'text-[#1F1F1F] shrink-0 font-bold'} />}
                   </button>
                 );
               })}
@@ -286,7 +296,7 @@ export default function Header() {
                       setShowUserMenu(false);
                     }
                   }}
-                  className="w-full px-2.5 py-1 rounded text-xs bg-black/20 border border-white/20 focus:outline-none focus:ring-1 focus:ring-[#7EDEED]"
+                  className="w-full px-2.5 py-1 rounded text-xs bg-black/20 border border-white/20 focus:outline-none focus:ring-1 focus:ring-[#FFEB33]"
                   placeholder="Ex: I. Popescu"
                 />
               </div>

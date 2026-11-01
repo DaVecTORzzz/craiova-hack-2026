@@ -10,10 +10,10 @@ const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8000').r
 export const USE_MOCK = String(import.meta.env.VITE_USE_MOCK ?? 'false').toLowerCase() === 'true';
 
 const PALETTES = [
-  'from-blue-950 via-slate-900 to-indigo-950',
+  'from-[#1F1F1F] via-[#282828] to-[#181818]',
   'from-zinc-900 to-neutral-800',
-  'from-slate-900 to-indigo-950',
-  'from-slate-900 to-purple-950',
+  'from-[#1F1F1F] to-[#282828]',
+  'from-[#222222] to-[#181818]',
 ];
 
 const SHIFT_TO_API = {
@@ -165,7 +165,7 @@ function mapZone(zone) {
   return {
     ...zone,
     zone_id: zone.id,
-    polygon: (zone.polygon || []).map(([x, y]) => ({ x, y })),
+    polygon: (zone.polygon || []).map((p) => (Array.isArray(p) ? { x: p[0], y: p[1] } : { x: p.x, y: p.y })),
     // The edge uploads the (blurred) frame the zone is drawn on; the editor uses it as background.
     reference_frame_url: reference ? (/^https?:\/\//.test(reference) ? reference : `${API_BASE_URL}${reference}`) : null,
   };

@@ -13,7 +13,7 @@ export const INITIAL_CAMERAS = [
     engine_on: true,
     fps: 30,
     resolution: "4K (3840x2160)",
-    previewBg: "from-blue-950 via-slate-900 to-indigo-950",
+    previewBg: "from-[#1F1F1F] via-[#282828] to-[#181818]",
     boxes: [
       {
         id: "box-stand12-1",
@@ -69,7 +69,7 @@ export const INITIAL_CAMERAS = [
     engine_on: false,
     fps: 30,
     resolution: "1080p 30FPS",
-    previewBg: "from-slate-900 to-indigo-950",
+    previewBg: "from-[#1F1F1F] to-[#282828]",
     boxes: [
       {
         id: "box-gate4b-1",
@@ -93,7 +93,7 @@ export const INITIAL_CAMERAS = [
     engine_on: false,
     fps: 30,
     resolution: "4K (3840x2160)",
-    previewBg: "from-slate-900 to-purple-950",
+    previewBg: "from-[#222222] to-[#181818]",
     boxes: [
       {
         id: "box-checkin-1",

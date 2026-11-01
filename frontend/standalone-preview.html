@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/png" href="/favicon.png" />
   <title>SafeSight - Management condiții siguranță</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -272,11 +273,11 @@
       // Dark Mode: Fundal #121212, Panouri #1A1F2C, Bleumarin #0A1128
       // Light Mode: Fundal #F5F5F5, Panouri #FFFFFF, Bleumarin #0D47A1
       const theme = {
-        appBg: isDarkMode ? "#121212" : "#F5F5F5",
-        panelBg: isDarkMode ? "#1A1F2C" : "#FFFFFF",
+        appBg: isDarkMode ? "#1F1F1F" : "#FFFFFF",
+        panelBg: isDarkMode ? "#282828" : "#FFFFFF",
         panelBorder: isDarkMode ? "rgba(255, 255, 255, 0.08)" : "#E2E8F0",
-        navBg: isDarkMode ? "#0A1128" : "#0D47A1",
-        textColor: isDarkMode ? "#F8FAFC" : "#212121",
+        navBg: isDarkMode ? "#181818" : "#FFFFFF",
+        textColor: isDarkMode ? "#F5F5F5" : "#1F1F1F",
         textMuted: isDarkMode ? "#94A3B8" : "#616161",
         cardBg: isDarkMode ? "#1E2433" : "#FFFFFF"
       };
@@ -347,9 +348,11 @@
           {/* 1. HEADER (Bleumarin autoritar, Titlu SafeSight, fără iconiță Live lângă titlu) */}
           <header style={{ backgroundColor: theme.navBg }} className="h-16 px-4 md:px-6 flex items-center justify-between shadow-md z-30 shrink-0 text-white">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow border border-white/20">
-                <Icon name="shield" size={22} />
-              </div>
+              <img
+                src="/logo.png"
+                alt="SafeSight Logo"
+                className="w-10 h-10 rounded-full object-cover shadow border border-white/20 shrink-0"
+              />
               <div>
                 <h1 className="font-black text-xl tracking-tight leading-none uppercase">SafeSight</h1>
                 <p className="text-xs font-medium text-blue-100/90 tracking-wide mt-0.5">Management condiții siguranță</p>
@@ -459,8 +462,8 @@
                     <button
                       key={m.id}
                       style={{
-                        backgroundColor: m.active ? '#1976D2' : 'transparent',
-                        color: m.active ? '#FFFFFF' : (isDarkMode ? '#F8FAFC' : '#212121')
+                        backgroundColor: m.active ? (isDarkMode ? '#D73833' : '#7EDEED') : 'transparent',
+                        color: m.active ? (isDarkMode ? '#FFFFFF' : '#1F1F1F') : (isDarkMode ? '#F5F5F5' : '#1F1F1F')
                       }}
                       className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs md:text-sm font-semibold transition-all hover:bg-slate-500/10 text-left"
                       title={m.label}
@@ -469,7 +472,7 @@
                       {!isSidebarCollapsed && (
                         <div className="truncate flex-1">
                           <span className="block leading-tight truncate">{m.label}</span>
-                          <span className={`text-[10px] truncate block ${m.active ? 'text-blue-100' : 'text-slate-400'}`}>{m.subtitle}</span>
+                          <span className={`text-[10px] truncate block ${m.active ? (isDarkMode ? 'text-white/80' : 'text-[#1F1F1F]/80') : (isDarkMode ? 'text-slate-400' : 'text-slate-500')}`}>{m.subtitle}</span>
                         </div>
                       )}
                     </button>
@@ -496,7 +499,7 @@
                                 onClick={() => setSelectedCameraId(c.id)}
                                 className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-all flex flex-col ${
                                   isCamActive
-                                    ? 'bg-blue-500/15 text-blue-600 dark:text-blue-400 font-bold border-l-2 border-blue-500'
+                                    ? 'isCamActive ? (isDarkMode ? 'bg-[#D73833]/15 text-[#D73833] font-bold border-l-2 border-[#D73833]' : 'bg-[#7EDEED]/20 text-[#1F1F1F] font-bold border-l-2 border-[#7EDEED]') : '''
                                     : 'hover:bg-slate-500/10 text-slate-700 dark:text-slate-300'
                                 }`}
                               >

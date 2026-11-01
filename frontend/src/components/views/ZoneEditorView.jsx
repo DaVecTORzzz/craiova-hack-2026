@@ -1,10 +1,21 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { PenTool, Save, Trash2, Camera, Info, Shield, Layers, Code } from 'lucide-react';
+import { PenTool, Save, Trash2, Camera, Shield, Layers, Code, Plus, Move, Edit3, CheckCircle2 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useSecurity } from '../../context/SecurityContext';
 
+function normalizePoint(p) {
+  if (Array.isArray(p)) {
+    return { x: Number(p[0] ?? 0), y: Number(p[1] ?? 0) };
+  }
+  return { x: Number(p?.x ?? 0), y: Number(p?.y ?? 0) };
+}
+
+function normalizePolygon(poly) {
+  return (poly || []).map(normalizePoint);
+}
+
 export default function ZoneEditorView() {
-  const { themeStyles } = useTheme();
+  const { isDarkMode, themeStyles } = useTheme();
   const {
     cameras,
     selectedCameraId,
@@ -21,93 +32,121 @@ export default function ZoneEditorView() {
     { x: 0.35, y: 0.25 },
     { x: 0.75, y: 0.25 },
     { x: 0.85, y: 0.75 },
-    { x: 0.3, y: 0.75 }
+    { x: 0.35, y: 0.75 }
   ]);
   const [isPolygonClosed, setIsPolygonClosed] = useState(true);
   const [showJsonFallback, setShowJsonFallback] = useState(false);
   const [jsonInput, setJsonInput] = useState(JSON.stringify(points, null, 2));
 
-  // Parametri zonă conform Schemei din B (Decizie N13)
+  // Mod de interacțiune: 'drag' (mutare vârfuri) sau 'draw' (desenare de la zero)
+  const [editMode, setEditMode] = useState('drag');
+  const [draggingIndex, setDraggingIndex] = useState(null);
+
+  // Parametri zonă conform Schemei oficiale backend (ZoneIO)
   const [zoneId, setZoneId] = useState('engine-left');
+  const [zoneName, setZoneName] = useState('Motor stâng');
   const [ruleType, setRuleType] = useState('RESTRICTED');
   const [activeWhen, setActiveWhen] = useState('engine_on');
   const [severity, setSeverity] = useState('CRITICAL');
   const [debounceSeconds, setDebounceSeconds] = useState(1.4);
   const [notifyChannel, setNotifyChannel] = useState('slack');
   const [escalateAfterS, setEscalateAfterS] = useState(30);
+  const [requiredPpe, setRequiredPpe] = useState(['hi_vis_vest', 'hard_hat']);
 
-  // Width / height of the reference frame, so the canvas has the camera's proportions.
+  // Aspect ratio cadru de referință
   const [referenceAspect, setReferenceAspect] = useState(null);
   const canvasContainerRef = useRef(null);
   const referenceFileRef = useRef(null);
   const previousCameraRef = useRef(selectedCameraId);
 
-  const activeZone = zones.find(
-    (zone) => zone.zone_id === zoneId && zone.camera_id === selectedCameraId
-  );
+  // Toate zonele camerei selectate
+  const cameraZones = zones.filter((z) => z.camera_id === selectedCameraId);
 
+  // Zona activă selectată curent
+  const activeZone = cameraZones.find((z) => (z.zone_id || z.id) === zoneId) || cameraZones[0];
+
+  // Sincronizare la schimbarea camerei sau a listei de zone
   useEffect(() => {
-    const cameraZones = zones.filter((zone) => zone.camera_id === selectedCameraId);
-    const cameraChanged = previousCameraRef.current !== selectedCameraId;
+    const camChanged = previousCameraRef.current !== selectedCameraId;
     previousCameraRef.current = selectedCameraId;
 
-    // Cameră fără zone: editorul se golește, ca Save să nu mute o zonă de pe altă cameră.
     if (cameraZones.length === 0) {
-      setZoneId('');
-      setPoints([]);
-      setIsPolygonClosed(false);
-      setJsonInput('[]');
+      setZoneId('zone-noua-1');
+      setZoneName('Zonă Nouă');
+      const defaultBox = [
+        { x: 0.25, y: 0.25 },
+        { x: 0.75, y: 0.25 },
+        { x: 0.75, y: 0.75 },
+        { x: 0.25, y: 0.75 }
+      ];
+      setPoints(defaultBox);
+      setIsPolygonClosed(true);
+      setJsonInput(JSON.stringify(defaultBox, null, 2));
       setRuleType('RESTRICTED');
       setActiveWhen('always');
       setSeverity('CRITICAL');
-      setDebounceSeconds(1);
-      setEscalateAfterS(null);
+      setDebounceSeconds(1.0);
+      setEscalateAfterS(30);
       return;
     }
 
-    // La schimbarea camerei preferăm zona motorului; altfel păstrăm zona editată curent.
-    const preferred = cameraChanged
-      ? null
-      : cameraZones.find((item) => item.zone_id === zoneId);
-    const zone = preferred
-      || cameraZones.find((item) => item.zone_id === 'engine-left')
+    // Dacă s-a schimbat camera sau zona curentă nu mai e validă
+    const targetZone = (camChanged ? null : cameraZones.find((z) => (z.zone_id || z.id) === zoneId))
+      || cameraZones.find((z) => (z.zone_id || z.id) === 'engine-left')
       || cameraZones[0];
 
-    setZoneId(zone.zone_id);
-    setPoints(zone.polygon || []);
-    setIsPolygonClosed(true);
-    setJsonInput(JSON.stringify(zone.polygon || [], null, 2));
+    if (targetZone) {
+      loadZoneIntoForm(targetZone);
+    }
+  }, [selectedCameraId, zones.length]);
+
+  const loadZoneIntoForm = (zone) => {
+    const zid = zone.zone_id || zone.id;
+    setZoneId(zid);
+    setZoneName(zone.name || zid);
+    const norm = normalizePolygon(zone.polygon);
+    setPoints(norm);
+    setIsPolygonClosed(norm.length >= 3);
+    setJsonInput(JSON.stringify(norm, null, 2));
     setRuleType(zone.rule_type || 'RESTRICTED');
     setActiveWhen(zone.active_when || 'always');
     setSeverity(zone.severity || 'CRITICAL');
-    setDebounceSeconds(zone.debounce_s ?? 1);
+    setDebounceSeconds(zone.debounce_s ?? 1.0);
     setNotifyChannel(zone.notify_channel || 'slack');
-    setEscalateAfterS(zone.escalate_after_s ?? null);
-  }, [selectedCameraId, zones]);
+    setEscalateAfterS(zone.escalate_after_s ?? 30);
+    setRequiredPpe(zone.required_ppe || ['hi_vis_vest', 'hard_hat']);
+    setEditMode('drag');
+  };
 
-  if (!activeCamera) {
-    return (
-      <div className="flex-1 flex items-center justify-center p-6">
-        <div
-          style={{ backgroundColor: themeStyles.panelBg, borderColor: themeStyles.panelBorder }}
-          className="max-w-md rounded-xl border p-5 text-center space-y-2"
-        >
-          <h2 className="font-bold text-sm uppercase">Nu există camere</h2>
-          <p style={{ color: themeStyles.textMuted }} className="text-xs">
-            Backend-ul nu a returnat camere. Pornește stack-ul cu ./run.sh demo.
-          </p>
-        </div>
-      </div>
-    );
-  }
+  const handleCreateNewZone = () => {
+    const newId = `zona-noua-${cameraZones.length + 1}`;
+    setZoneId(newId);
+    setZoneName(`Zonă Nouă ${cameraZones.length + 1}`);
+    const defaultBox = [
+      { x: 0.3, y: 0.3 },
+      { x: 0.7, y: 0.3 },
+      { x: 0.7, y: 0.7 },
+      { x: 0.3, y: 0.7 }
+    ];
+    setPoints(defaultBox);
+    setIsPolygonClosed(true);
+    setJsonInput(JSON.stringify(defaultBox, null, 2));
+    setRuleType('RESTRICTED');
+    setActiveWhen('always');
+    setSeverity('CRITICAL');
+    setDebounceSeconds(1.0);
+    setEscalateAfterS(30);
+    setEditMode('drag');
+    showToast(`Inițializat ${newId}. Trage punctele pe imagine și apasă Salvează.`);
+  };
 
-  // Click pe canvas pentru adăugare punct
+  // Click pe canvas pentru adăugare punct (doar în mod 'draw')
   const handleCanvasClick = (e) => {
-    if (isPolygonClosed) return;
+    if (editMode !== 'draw' || isPolygonClosed) return;
     const rect = canvasContainerRef.current.getBoundingClientRect();
-    const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    const y = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
-    const newPoints = [...points, { x: Number(x.toFixed(3)), y: Number(y.toFixed(3)) }];
+    const x = Math.max(0, Math.min(1, Number(((e.clientX - rect.left) / rect.width).toFixed(3))));
+    const y = Math.max(0, Math.min(1, Number(((e.clientY - rect.top) / rect.height).toFixed(3))));
+    const newPoints = [...points, { x, y }];
     setPoints(newPoints);
     setJsonInput(JSON.stringify(newPoints, null, 2));
   };
@@ -116,81 +155,137 @@ export default function ZoneEditorView() {
   const handleDoubleClick = () => {
     if (points.length >= 3) {
       setIsPolygonClosed(true);
-      showToast('Poligon închis. Punctele pot fi acum repoziționate.');
+      setEditMode('drag');
+      showToast('Poligon închis. Punctele pot fi acum repoziționate prin drag & drop.');
     } else {
-      showToast('Ai nevoie de cel puțin 3 puncte pentru un poligon valid.');
+      showToast('Ai nevoie de cel puțin 3 puncte pentru un perimetru valid.');
+    }
+  };
+
+  // Drag & drop pentru mutarea nodurilor
+  const handlePointPointerDown = (idx, e) => {
+    e.stopPropagation();
+    setDraggingIndex(idx);
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+  };
+
+  const handleCanvasPointerMove = (e) => {
+    if (draggingIndex === null || !canvasContainerRef.current) return;
+    const rect = canvasContainerRef.current.getBoundingClientRect();
+    const x = Math.max(0, Math.min(1, Number(((e.clientX - rect.left) / rect.width).toFixed(3))));
+    const y = Math.max(0, Math.min(1, Number(((e.clientY - rect.top) / rect.height).toFixed(3))));
+
+    setPoints((prev) => {
+      const next = [...prev];
+      next[draggingIndex] = { x, y };
+      return next;
+    });
+  };
+
+  const handleCanvasPointerUp = () => {
+    if (draggingIndex !== null) {
+      setDraggingIndex(null);
+      setJsonInput(JSON.stringify(points, null, 2));
     }
   };
 
   const handleResetPoints = () => {
     setPoints([]);
     setIsPolygonClosed(false);
+    setEditMode('draw');
     setJsonInput('[]');
+    showToast('Canvas golit. Fă click pe imagine pentru a plasa puncte noi.');
   };
 
   const handleApplyJson = () => {
     try {
       const parsed = JSON.parse(jsonInput);
       if (Array.isArray(parsed) && parsed.length >= 3) {
-        setPoints(parsed);
+        const norm = normalizePolygon(parsed);
+        setPoints(norm);
         setIsPolygonClosed(true);
+        setEditMode('drag');
         showToast('Coordonate JSON încărcate cu succes în poligon.');
       } else {
         showToast('Eroare: JSON-ul trebuie să fie un array de minimum 3 puncte {x, y}.');
       }
-    } catch (err) {
+    } catch {
       showToast('Eroare parsare JSON coordonate: format invalid.');
     }
   };
 
-  const canSave = Boolean(zoneId) && points.length >= 3;
+  const cleanZoneId = zoneId.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '') || 'zona-1';
 
   const handleSave = () => {
-    if (!zoneId) {
-      showToast('Completează un ID de zonă înainte de salvare.');
+    if (!cleanZoneId) {
+      showToast('Completează un ID valid de zonă înainte de salvare.');
       return;
     }
     if (points.length < 3) {
-      showToast('Eroare validare: Poligonul trebuie să aibă minimum 3 puncte.');
+      showToast('Eroare: Poligonul trebuie să aibă minimum 3 puncte.');
       return;
     }
     const zonePayload = {
-      zone_id: zoneId,
-      camera_id: activeCamera.id,
-      name: activeZone?.name || zoneId,
+      id: cleanZoneId,
+      zone_id: cleanZoneId,
+      camera_id: activeCamera?.id || selectedCameraId,
+      name: zoneName.trim() || cleanZoneId,
       rule_type: ruleType,
       active_when: activeWhen,
-      required_ppe: activeZone?.required_ppe || [],
+      required_ppe: ruleType === 'PPE_REQUIRED' ? requiredPpe : [],
       severity,
-      debounce_s: Number(debounceSeconds),
+      debounce_s: Number(debounceSeconds) || 1.0,
       notify_channel: 'slack',
-      escalate_after_s: escalateAfterS === null ? null : Number(escalateAfterS),
-      polygon: points,
+      escalate_after_s: escalateAfterS === null || escalateAfterS === 'null' ? null : Number(escalateAfterS),
+      polygon: points.map((p) => [
+        Number((p.x != null ? p.x : p[0]).toFixed(3)),
+        Number((p.y != null ? p.y : p[1]).toFixed(3))
+      ]),
       reference_frame: activeZone?.reference_frame || null
     };
-    saveZone(zoneId, zonePayload);
+
+    saveZone(cleanZoneId, zonePayload);
   };
 
+  if (!activeCamera && cameras.length === 0) {
+    return (
+      <div className="flex-1 flex items-center justify-center p-6 select-none">
+        <div
+          style={{ backgroundColor: themeStyles.panelBg, borderColor: themeStyles.panelBorder }}
+          className="max-w-md rounded-2xl border p-6 text-center space-y-3 shadow-lg"
+        >
+          <Shield size={36} className="mx-auto text-amber-500" />
+          <h2 className="font-bold text-sm uppercase">Se încarcă camerele...</h2>
+          <p style={{ color: themeStyles.textMuted }} className="text-xs">
+            Se sincronizează lista de camere și zone cu backend-ul SafeSight.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const liveStreamSrc = activeCamera?.stream_url || `http://127.0.0.1:8000/stream/${activeCamera?.id || selectedCameraId}.mjpg`;
+
   return (
-    <div className="flex-1 p-4 md:p-6 overflow-y-auto space-y-4 h-full select-none max-w-7xl mx-auto">
-      {/* Header Editor Zone */}
-      <div className="flex items-center justify-between border-b border-white/10 pb-3 flex-wrap gap-2">
+    <div className="flex-1 p-3 md:p-5 overflow-y-auto space-y-4 h-full select-none max-w-7xl mx-auto">
+      {/* 1. Header Editor Zone */}
+      <div className="flex items-center justify-between border-b border-slate-500/15 pb-3 flex-wrap gap-2">
         <div>
           <h2 className="font-black text-lg uppercase tracking-tight flex items-center gap-2">
-            <PenTool size={20} className="text-indigo-400" />
-            Editor Zone de Siguranță & Perimetre Tarmac
+            <PenTool size={20} className={isDarkMode ? 'text-[#D73833]' : 'text-[#D73833]'} />
+            Configurare Zone & Poligoane Perimetru
           </h2>
-          <p style={{ color: themeStyles.textMuted }} className="text-xs font-mono">
-            Definire poligoane pe cadru • Geofencing dinamic fără restart (§5.3)
+          <p style={{ color: themeStyles.textMuted }} className="text-xs">
+            Geofencing AI dinamic • Modificare coordonate și reguli de siguranță fără restart
           </p>
         </div>
 
-        {/* Buton Cadru de Referință FOD & Buton Plan B JSON */}
+        {/* Butoane Acțiuni Header */}
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowJsonFallback(!showJsonFallback)}
-            className="px-2.5 py-1.5 rounded-lg border border-white/20 hover:bg-white/10 text-xs font-mono font-bold flex items-center gap-1.5"
-            title="Activează Plan B: editare directă JSON coordonate"
+            className="px-2.5 py-1.5 rounded-lg border border-slate-400/30 hover:bg-slate-500/10 text-xs font-mono font-bold flex items-center gap-1.5 transition-colors shadow-sm"
+            title="Deschide editorul JSON de coordonate"
           >
             <Code size={14} /> Plan B (JSON)
           </button>
@@ -200,78 +295,185 @@ export default function ZoneEditorView() {
             type="file"
             accept="image/jpeg"
             className="hidden"
-            disabled={!zoneId}
+            disabled={!cleanZoneId}
             onChange={(event) => {
               const file = event.target.files?.[0];
-              if (file && zoneId) captureReferenceFrame(zoneId, file);
+              if (file && cleanZoneId) captureReferenceFrame(cleanZoneId, file);
               event.target.value = '';
             }}
           />
           <button
             onClick={() => referenceFileRef.current?.click()}
-            disabled={!zoneId}
-            className="px-3 py-1.5 rounded-lg bg-indigo-700 hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-mono text-xs font-bold flex items-center gap-1.5 shadow"
-            title="Încarcă un JPEG deja blurat ca referință FOD"
+            disabled={!cleanZoneId}
+            className="px-3 py-1.5 rounded-lg bg-[#D73833] hover:bg-[#b82e2a] disabled:opacity-50 disabled:cursor-not-allowed text-white font-mono text-xs font-bold flex items-center gap-1.5 shadow"
+            title="Încarcă un cadru JPEG de referință pentru această zonă"
           >
-            <Camera size={14} /> Încarcă referință FOD
+            <Camera size={14} /> Încarcă Cadru Referință
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* COLOANA 1 & 2: CADRUL VIDEO CU POLIGON INTERACTIV */}
-        <div className="lg:col-span-2 space-y-2">
-          {/* Selector Cameră */}
-          <div className="flex items-center gap-2 text-xs">
-            <span className="font-bold opacity-75">Selectează Camera:</span>
-            {cameras.map((c) => (
+      {/* 2. Bara Selector Cameră & Selector Zonă */}
+      <div
+        style={{ backgroundColor: themeStyles.panelBg, borderColor: themeStyles.panelBorder }}
+        className="p-3 rounded-xl border shadow-sm space-y-2.5"
+      >
+        {/* Selector Cameră */}
+        <div className="flex items-center gap-2 text-xs flex-wrap">
+          <span className="font-bold opacity-75 shrink-0">Cameră Activă:</span>
+          {cameras.map((c) => {
+            const isCamActive = c.id === selectedCameraId;
+            return (
               <button
                 key={c.id}
                 onClick={() => setSelectedCameraId(c.id)}
-                className={`px-2.5 py-1 rounded font-mono font-bold border ${
-                  c.id === selectedCameraId
-                    ? 'bg-indigo-600 text-white border-indigo-400'
-                    : 'bg-black/30 text-slate-300 border-white/10'
+                style={{
+                  backgroundColor: isCamActive ? (isDarkMode ? '#D73833' : '#7EDEED') : 'transparent',
+                  color: isCamActive ? (isDarkMode ? '#FFFFFF' : '#1F1F1F') : (isDarkMode ? '#F5F5F5' : '#1F1F1F')
+                }}
+                className={`px-3 py-1 rounded-lg font-mono font-bold border transition-all ${
+                  isCamActive
+                    ? 'border-transparent shadow-sm'
+                    : isDarkMode
+                    ? 'border-white/10 hover:bg-white/5'
+                    : 'border-slate-300 hover:bg-slate-100 text-slate-700'
                 }`}
               >
-                {c.id}
+                {c.code || c.id}
               </button>
-            ))}
+            );
+          })}
+        </div>
+
+        {/* Selector Zone pe această cameră */}
+        <div className="flex items-center gap-2 text-xs flex-wrap pt-2 border-t border-slate-500/10">
+          <span className="font-bold opacity-75 shrink-0">Zone Configurate:</span>
+          {cameraZones.map((z) => {
+            const zid = z.zone_id || z.id;
+            const isZoneSelected = zid === cleanZoneId;
+            return (
+              <button
+                key={zid}
+                onClick={() => loadZoneIntoForm(z)}
+                style={{
+                  backgroundColor: isZoneSelected ? (isDarkMode ? '#D73833' : '#7EDEED') : 'transparent',
+                  color: isZoneSelected ? (isDarkMode ? '#FFFFFF' : '#1F1F1F') : (isDarkMode ? '#F5F5F5' : '#1F1F1F')
+                }}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-all flex items-center gap-1.5 ${
+                  isZoneSelected
+                    ? 'border-transparent shadow-sm'
+                    : isDarkMode
+                    ? 'border-white/10 hover:bg-white/5'
+                    : 'border-slate-300 hover:bg-slate-100 text-slate-700'
+                }`}
+              >
+                <span>{z.name || zid}</span>
+                <span
+                  className={`text-[9px] px-1 py-0.2 rounded font-mono ${
+                    z.severity === 'CRITICAL' ? 'bg-[#D73833] text-white' : 'bg-[#FFEB33] text-[#1F1F1F]'
+                  }`}
+                >
+                  {z.rule_type}
+                </span>
+              </button>
+            );
+          })}
+
+          <button
+            onClick={handleCreateNewZone}
+            className="px-2.5 py-1 rounded-lg border border-dashed border-[#FFEB33] text-amber-500 dark:text-[#FFEB33] hover:bg-[#FFEB33]/15 text-xs font-bold flex items-center gap-1 transition-colors"
+            title="Adaugă o zonă nouă pe camera curentă"
+          >
+            <Plus size={13} /> Zonă nouă
+          </button>
+        </div>
+      </div>
+
+      {/* 3. Grila Principală: Canvas Video Interactiv (Stânga) + Parametri Zonă (Dreapta) */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* COLOANA 1 & 2: CANVAS VIDEO CU POLIGON INTERACTIV */}
+        <div className="lg:col-span-2 space-y-2">
+          {/* Bara de Controale Canvas (Mod desenare / repoziționare noduri) */}
+          <div className="flex items-center justify-between gap-2 px-1 text-xs">
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => {
+                  setEditMode('drag');
+                  setIsPolygonClosed(true);
+                  showToast('Mod activ: trage de punctele roșii pentru a ajusta forma perimetrului.');
+                }}
+                className={`px-2.5 py-1 rounded-lg font-bold flex items-center gap-1.5 text-xs transition-colors ${
+                  editMode === 'drag'
+                    ? 'bg-[#FFEB33] text-[#1F1F1F] shadow'
+                    : 'bg-slate-500/10 text-slate-400 hover:text-white'
+                }`}
+              >
+                <Move size={13} /> Ajustează Vârfuri
+              </button>
+
+              <button
+                onClick={() => {
+                  setEditMode('draw');
+                  setIsPolygonClosed(false);
+                  showToast('Mod activ: click pe imagine pentru a plasa vârfuri, dublu-click pentru a închide.');
+                }}
+                className={`px-2.5 py-1 rounded-lg font-bold flex items-center gap-1.5 text-xs transition-colors ${
+                  editMode === 'draw'
+                    ? 'bg-[#FFEB33] text-[#1F1F1F] shadow'
+                    : 'bg-slate-500/10 text-slate-400 hover:text-white'
+                }`}
+              >
+                <Edit3 size={13} /> Desenează Liber
+              </button>
+            </div>
+
+            <button
+              onClick={handleResetPoints}
+              className="px-2 py-1 rounded text-xs font-bold text-red-400 hover:text-red-300 hover:bg-red-500/10 flex items-center gap-1 transition-colors"
+            >
+              <Trash2 size={13} /> Resetează Poligon
+            </button>
           </div>
 
-          {/* Canvas Desenare Poligon */}
+          {/* Canvas Desenare & Drag Poligon */}
           <div
             ref={canvasContainerRef}
             onClick={handleCanvasClick}
             onDoubleClick={handleDoubleClick}
+            onPointerMove={handleCanvasPointerMove}
+            onPointerUp={handleCanvasPointerUp}
             style={activeZone?.reference_frame_url && referenceAspect ? { aspectRatio: referenceAspect } : undefined}
-            className={`relative rounded-xl overflow-hidden bg-black border-2 border-indigo-500/40 shadow-2xl flex items-center justify-center cursor-${
-              isPolygonClosed ? 'default' : 'crosshair'
-            } ${activeZone?.reference_frame_url && referenceAspect ? 'w-full max-h-[70vh] mx-auto' : 'min-h-[380px]'}`}
+            className={`relative rounded-2xl overflow-hidden bg-black border-2 border-[#FFEB33]/70 dark:border-[#FFEB33]/50 shadow-2xl flex items-center justify-center select-none ${
+              editMode === 'draw' && !isPolygonClosed ? 'cursor-crosshair' : 'cursor-default'
+            } min-h-[380px] md:min-h-[440px]`}
           >
-            {/* Fundal: cadrul de referință al camerei (blurat la edge); zona se desenează pe el și urmărește camera din el */}
+            {/* 1. Imagine de Fundal: Cadrul de referință sau Stream-ul Live al camerei */}
             {activeZone?.reference_frame_url ? (
               <img
                 src={activeZone.reference_frame_url}
-                alt={`Cadru de referință ${activeCamera?.code || activeCamera?.id}`}
-                className="absolute inset-0 w-full h-full object-fill select-none"
+                alt="Cadru de referință"
+                className="absolute inset-0 w-full h-full object-fill pointer-events-none select-none"
                 draggable={false}
-                onLoad={(event) => {
-                  const { naturalWidth, naturalHeight } = event.currentTarget;
+                onLoad={(e) => {
+                  const { naturalWidth, naturalHeight } = e.currentTarget;
                   if (naturalWidth && naturalHeight) setReferenceAspect(naturalWidth / naturalHeight);
                 }}
-                onError={() => setReferenceAspect(null)}
               />
             ) : (
               <>
-                <div className={`w-full h-full absolute inset-0 bg-gradient-to-br ${activeCamera.previewBg} opacity-50`} />
-                <p className="absolute bottom-3 left-3 right-3 text-center text-[11px] text-slate-300 pointer-events-none">
-                  Fără cadru de referință: pornește edge-ul (python scripts/dev.py demo) ca să apară imaginea camerei.
-                </p>
+                <img
+                  src={liveStreamSrc}
+                  alt={`Live feed ${activeCamera?.id}`}
+                  className="absolute inset-0 w-full h-full object-fill pointer-events-none select-none"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-br from-slate-900/80 via-black/70 to-slate-900/90 pointer-events-none" />
               </>
             )}
 
-            {/* SVG Poligon */}
+            {/* 2. Poligon SVG Vectorial cu umplere roșie transparentă */}
             <svg
               viewBox="0 0 1000 1000"
               preserveAspectRatio="none"
@@ -280,37 +482,36 @@ export default function ZoneEditorView() {
               {points.length > 1 && (
                 <polygon
                   points={points.map((p) => `${p.x * 1000},${p.y * 1000}`).join(' ')}
-                  fill="rgba(239, 68, 68, 0.25)"
-                  stroke="#EF4444"
-                  strokeWidth="2.5"
+                  fill="rgba(215, 56, 51, 0.28)"
+                  stroke="#D73833"
+                  strokeWidth="3"
                   vectorEffect="non-scaling-stroke"
-                  strokeDasharray={isPolygonClosed ? 'none' : '6,4'}
+                  strokeDasharray={isPolygonClosed ? 'none' : '8,5'}
                 />
               )}
             </svg>
 
-            {/* Noduri / Puncte Desenate */}
+            {/* 3. Vârfuri Interactive (Noduri mutabile prin drag & drop) */}
             {points.map((p, idx) => (
               <div
                 key={idx}
+                onPointerDown={(e) => handlePointPointerDown(idx, e)}
                 style={{ left: `${p.x * 100}%`, top: `${p.y * 100}%` }}
-                className="absolute w-3.5 h-3.5 -translate-x-1/2 -translate-y-1/2 bg-white border-2 border-red-600 rounded-full shadow-lg ring-2 ring-red-400/50 pointer-events-auto cursor-move"
-                title={`Punct ${idx + 1}: (${p.x.toFixed(2)}, ${p.y.toFixed(2)})`}
+                className="absolute w-4 h-4 -translate-x-1/2 -translate-y-1/2 bg-white border-2 border-[#D73833] rounded-full shadow-2xl ring-4 ring-[#D73833]/30 pointer-events-auto cursor-grab active:cursor-grabbing hover:scale-125 transition-transform"
+                title={`Vârf ${idx + 1}: (${p.x.toFixed(2)}, ${p.y.toFixed(2)}) - Trage pentru a repoziționa`}
               />
             ))}
 
-            {/* Instrucțiuni plutitoare */}
-            <div className="absolute top-3 left-3 bg-black/80 backdrop-blur-sm px-3 py-1.5 rounded-lg border border-white/10 text-white text-[11px] font-mono shadow">
-              <span>{isPolygonClosed ? '✓ Poligon Închis' : 'Mod Desenare: Click = Punct, Dublu-click = Închide'}</span>
-            </div>
-
-            <div className="absolute bottom-3 right-3 flex items-center gap-2">
-              <button
-                onClick={handleResetPoints}
-                className="px-2.5 py-1 bg-red-900/80 hover:bg-red-800 text-white rounded text-xs font-bold flex items-center gap-1 border border-red-500/40"
-              >
-                <Trash2 size={13} /> Resetează Poligon
-              </button>
+            {/* Notificare de ghidare Canvas */}
+            <div className="absolute top-3 left-3 bg-black/85 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/15 text-white text-[11px] font-mono shadow-md pointer-events-none flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+              <span>
+                {editMode === 'drag'
+                  ? `Mod Ajustare: ${points.length} vârfuri active (trage de oricare)`
+                  : isPolygonClosed
+                  ? '✓ Poligon Închis'
+                  : 'Mod Desenare: Click = Punct Nou, Dublu-click = Închide'}
+              </span>
             </div>
           </div>
 
@@ -318,13 +519,13 @@ export default function ZoneEditorView() {
           {showJsonFallback && (
             <div
               style={{ backgroundColor: themeStyles.panelBg, borderColor: themeStyles.panelBorder }}
-              className="p-3 rounded-xl border space-y-2 text-xs"
+              className="p-3 rounded-xl border space-y-2 text-xs shadow-sm"
             >
               <div className="flex items-center justify-between font-bold font-mono text-[11px]">
-                <span>Plan B: Coordonate Poligon Normalizate (JSON):</span>
+                <span style={{ color: themeStyles.textColor }}>Plan B: Coordonate Poligon Normalizate (JSON):</span>
                 <button
                   onClick={handleApplyJson}
-                  className="px-2 py-0.5 bg-indigo-600 text-white rounded text-[10px] hover:bg-indigo-500"
+                  className="px-2.5 py-1 bg-[#D73833] text-white rounded-lg text-[10px] hover:bg-[#b82e2a] font-bold shadow"
                 >
                   Aplică pe Cadru
                 </button>
@@ -332,8 +533,8 @@ export default function ZoneEditorView() {
               <textarea
                 value={jsonInput}
                 onChange={(e) => setJsonInput(e.target.value)}
-                rows={3}
-                className="w-full p-2 rounded bg-black/40 border border-white/10 font-mono text-[10px] text-emerald-400"
+                rows={4}
+                className="w-full p-2.5 rounded-lg bg-slate-100 dark:bg-black/50 border border-slate-300 dark:border-white/10 font-mono text-[10px] text-emerald-600 dark:text-emerald-400 focus:outline-none focus:ring-1 focus:ring-[#FFEB33]"
               />
             </div>
           )}
@@ -342,43 +543,71 @@ export default function ZoneEditorView() {
         {/* COLOANA 3: PARAMETRII REGULII ZONEI (FORMULAR) */}
         <div
           style={{ backgroundColor: themeStyles.panelBg, borderColor: themeStyles.panelBorder }}
-          className="rounded-xl border p-4 shadow-lg space-y-3.5 text-xs"
+          className="rounded-2xl border p-4 shadow-lg space-y-3.5 text-xs"
         >
-          <h3 className="font-bold text-sm uppercase tracking-wider flex items-center gap-2">
-            <Layers size={16} className="text-indigo-400" />
-            Parametri Regulă Zonă
-          </h3>
+          <div className="flex items-center justify-between border-b border-slate-500/10 pb-2">
+            <h3 className="font-black text-sm uppercase tracking-wider flex items-center gap-2">
+              <Layers size={16} className="text-[#D73833]" />
+              Parametri Zonă AI
+            </h3>
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-500/10 text-slate-400 font-bold">
+              {activeCamera?.code || selectedCameraId}
+            </span>
+          </div>
 
           <div>
-            <label className="font-bold block mb-1">ID Zonă (snake_case):</label>
+            <label className="font-bold block mb-1 text-slate-800 dark:text-slate-200">
+              Nume Zonă (afișat în alerte):
+            </label>
             <input
               type="text"
-              value={zoneId}
-              onChange={(e) => setZoneId(e.target.value)}
-              className="w-full p-2 rounded bg-black/30 border border-white/20 font-mono text-xs"
+              value={zoneName}
+              onChange={(e) => setZoneName(e.target.value)}
+              placeholder="Ex: Motor stâng Stand 12"
+              className="w-full p-2.5 rounded-lg bg-slate-50 dark:bg-black/40 border border-slate-300 dark:border-white/20 text-[#1F1F1F] dark:text-white text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#FFEB33] transition-all shadow-inner"
             />
           </div>
 
           <div>
-            <label className="font-bold block mb-1">Tip Regulă (rule_type):</label>
+            <label className="font-bold block mb-1 text-slate-800 dark:text-slate-200">
+              ID Zonă (kebab-case):
+            </label>
+            <input
+              type="text"
+              value={zoneId}
+              onChange={(e) => setZoneId(e.target.value)}
+              placeholder="Ex: engine-left"
+              className="w-full p-2.5 rounded-lg bg-slate-50 dark:bg-black/40 border border-slate-300 dark:border-white/20 text-[#1F1F1F] dark:text-white font-mono text-xs focus:outline-none focus:ring-2 focus:ring-[#FFEB33] transition-all shadow-inner"
+            />
+            <span className="text-[10px] text-slate-400 mt-0.5 block font-mono">
+              Salvat ca: <strong className="text-amber-500">{cleanZoneId}</strong>
+            </span>
+          </div>
+
+          <div>
+            <label className="font-bold block mb-1 text-slate-800 dark:text-slate-200">
+              Tip Regulă (rule_type):
+            </label>
             <select
               value={ruleType}
               onChange={(e) => setRuleType(e.target.value)}
-              className="w-full p-2 rounded bg-black/30 border border-white/20 text-xs text-white"
+              className="w-full p-2.5 rounded-lg bg-slate-50 dark:bg-black/40 border border-slate-300 dark:border-white/20 text-[#1F1F1F] dark:text-white text-xs font-bold focus:outline-none focus:ring-2 focus:ring-[#FFEB33] transition-all"
             >
               <option value="RESTRICTED">RESTRICTED (Zonă Interzisă)</option>
-              <option value="PPE_REQUIRED">PPE_REQUIRED (Echipament Obligatoriu)</option>
+              <option value="PPE_REQUIRED">PPE_REQUIRED (Echipament Obligatoriu EIP)</option>
               <option value="FOD_WATCH">FOD_WATCH (Foreign Object Debris)</option>
               <option value="NO_SMOKING">NO_SMOKING (Fumat Interzis)</option>
             </select>
           </div>
 
           <div>
-            <label className="font-bold block mb-1">Activă Când (active_when):</label>
+            <label className="font-bold block mb-1 text-slate-800 dark:text-slate-200">
+              Activă Când (active_when):
+            </label>
             <select
               value={activeWhen}
               onChange={(e) => setActiveWhen(e.target.value)}
-              className="w-full p-2 rounded bg-black/30 border border-white/20 text-xs text-white"
+              className="w-full p-2.5 rounded-lg bg-slate-50 dark:bg-black/40 border border-slate-300 dark:border-white/20 text-[#1F1F1F] dark:text-white text-xs font-bold focus:outline-none focus:ring-2 focus:ring-[#FFEB33] transition-all"
             >
               <option value="engine_on">engine_on (Doar când motorul e pornit)</option>
               <option value="always">always (Permanent activă)</option>
@@ -387,67 +616,54 @@ export default function ZoneEditorView() {
 
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="font-bold block mb-1">Severitate:</label>
+              <label className="font-bold block mb-1 text-slate-800 dark:text-slate-200">Severitate:</label>
               <select
                 value={severity}
                 onChange={(e) => setSeverity(e.target.value)}
-                className="w-full p-2 rounded bg-black/30 border border-white/20 text-xs text-white"
+                className="w-full p-2 rounded-lg bg-slate-50 dark:bg-black/40 border border-slate-300 dark:border-white/20 text-[#1F1F1F] dark:text-white text-xs font-bold focus:outline-none focus:ring-2 focus:ring-[#FFEB33] transition-all"
               >
                 <option value="CRITICAL">CRITICAL (Roșu)</option>
                 <option value="WARNING">WARNING (Galben)</option>
               </select>
             </div>
             <div>
-              <label className="font-bold block mb-1">Debounce (secunde):</label>
+              <label className="font-bold block mb-1 text-slate-800 dark:text-slate-200">Debounce (s):</label>
               <input
                 type="number"
                 step="0.1"
+                min="0"
                 value={debounceSeconds}
                 onChange={(e) => setDebounceSeconds(e.target.value)}
-                className="w-full p-2 rounded bg-black/30 border border-white/20 text-xs font-mono"
+                className="w-full p-2 rounded-lg bg-slate-50 dark:bg-black/40 border border-slate-300 dark:border-white/20 text-[#1F1F1F] dark:text-white text-xs font-mono font-bold focus:outline-none focus:ring-2 focus:ring-[#FFEB33] transition-all"
               />
             </div>
           </div>
 
           <div>
-            <label className="font-bold block mb-1">Escaladează după (secunde):</label>
+            <label className="font-bold block mb-1 text-slate-800 dark:text-slate-200">
+              Escaladare Operator:
+            </label>
             <select
               value={escalateAfterS ?? 'null'}
               onChange={(e) => setEscalateAfterS(e.target.value === 'null' ? null : Number(e.target.value))}
-              className="w-full p-2 rounded bg-black/30 border border-white/20 text-xs text-white font-mono"
+              className="w-full p-2 rounded-lg bg-slate-50 dark:bg-black/40 border border-slate-300 dark:border-white/20 text-[#1F1F1F] dark:text-white text-xs font-mono font-bold focus:outline-none focus:ring-2 focus:ring-[#FFEB33] transition-all"
             >
-              <option value="30">30 s (Demo Seed)</option>
-              <option value="60">60 s</option>
-              <option value="120">120 s (Producție)</option>
-              <option value="null">Never (Fără escaladare)</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="font-bold block mb-1">Canal Notificare:</label>
-            <select
-              value={notifyChannel}
-              onChange={(e) => setNotifyChannel(e.target.value)}
-              className="w-full p-2 rounded bg-black/30 border border-white/20 text-xs text-white font-mono"
-            >
-              <option value="slack">slack</option>
+              <option value="30">30 secunde (Demo Seed)</option>
+              <option value="60">60 secunde</option>
+              <option value="120">120 secunde (Producție)</option>
+              <option value="null">Fără escaladare automată</option>
             </select>
           </div>
 
           <div className="pt-2">
             <button
               onClick={handleSave}
-              disabled={!canSave}
-              className="w-full py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg transition-transform hover:scale-[1.02]"
+              disabled={points.length < 3 || !cleanZoneId}
+              className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-black text-xs flex items-center justify-center gap-2 shadow-lg transition-transform hover:scale-[1.01] uppercase tracking-wider"
             >
-              <Save size={15} />
-              <span>Salvează Zona ({points.length} puncte)</span>
+              <Save size={16} />
+              <span>Salvează Zona ({points.length} vârfuri)</span>
             </button>
-            {!zoneId && (
-              <p className="text-[11px] text-amber-300 font-mono">
-                Camera selectată nu are zone. Scrie un ID și desenează un poligon pentru a crea una nouă.
-              </p>
-            )}
           </div>
         </div>
       </div>

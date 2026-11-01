@@ -39,7 +39,7 @@ function MainAppLayout() {
         backgroundColor: themeStyles.appBg,
         color: themeStyles.textColor
       }}
-      className="h-screen w-screen flex flex-col overflow-hidden antialiased selection:bg-indigo-500 selection:text-white"
+      className="h-screen w-screen flex flex-col overflow-hidden antialiased selection:bg-[#FFEB33] selection:text-[#1F1F1F]"
     >
       {/* 1. Header (Bara de Sus cu Brand SafeSight AI) */}
       <Header />

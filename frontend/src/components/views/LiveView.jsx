@@ -78,7 +78,7 @@ export default function LiveView() {
           style={{ backgroundColor: themeStyles.panelBg, borderColor: themeStyles.panelBorder }}
           className="max-w-lg w-full rounded-2xl border p-6 shadow-lg space-y-3 text-center"
         >
-          <Video size={42} className="mx-auto text-[#7EDEED]" />
+          <Video size={42} className="mx-auto text-[#D73833]" />
           <h2 className="font-black text-lg uppercase tracking-tight">Nu există feed încă</h2>
           <p style={{ color: themeStyles.textMuted }} className="text-sm">
             {health?.db
@@ -92,7 +92,7 @@ export default function LiveView() {
           </div>
           <button
             onClick={() => window.location.reload()}
-            className="px-4 py-2 rounded-lg bg-[#7EDEED] hover:bg-[#5ccedc] text-[#1F1F1F] text-xs font-bold"
+            className="px-4 py-2 rounded-lg bg-[#D73833] hover:bg-[#b82e2a] text-white text-xs font-bold"
           >
             Reîncarcă
           </button>
@@ -123,7 +123,7 @@ export default function LiveView() {
               onClick={() => toggleEngine(activeCamera?.id)}
               className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold flex items-center gap-1.5 transition-all ${
                 activeCamera?.engine_on
-                  ? 'bg-[#FFEB33] text-[#1F1F1F] font-black'
+                  ? 'bg-[#FFEB33] text-[#1F1F1F] font-bold font-black'
                   : 'bg-slate-800 text-slate-300'
               }`}
             >
@@ -225,12 +225,12 @@ export default function LiveView() {
             <p style={{ color: themeStyles.textMuted }} className="text-[11px] font-semibold">
               Detecție → Alertă
             </p>
-            <p className="text-xl md:text-2xl font-black font-mono text-[#7EDEED]">
+            <p className="text-xl md:text-2xl font-black font-mono text-amber-500 dark:text-[#FFEB33]">
               {kpis.detection_to_alert_latency_s === '—' ? '—' : `${kpis.detection_to_alert_latency_s}s`}
             </p>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-[#7EDEED]/10 flex items-center justify-center">
-            <Clock size={22} className="text-[#7EDEED]" />
+          <div className="w-10 h-10 rounded-xl bg-[#FFEB33]/25 dark:bg-[#FFEB33]/15 flex items-center justify-center">
+            <Clock size={22} className="text-amber-500 dark:text-[#FFEB33]" />
           </div>
         </div>
 
@@ -284,7 +284,7 @@ export default function LiveView() {
                   borderColor: themeStyles.panelBorder,
                   color: isDarkMode ? '#F5F5F5' : '#1F1F1F'
                 }}
-                className="min-w-0 max-w-[16rem] px-2 py-1.5 rounded-lg text-xs font-semibold border focus:outline-none focus:ring-2 focus:ring-[#7EDEED]"
+                className="min-w-0 max-w-[16rem] px-2 py-1.5 rounded-lg text-xs font-semibold border focus:outline-none focus:ring-2 focus:ring-[#FFEB33]"
                 aria-labelledby="live-camera-label"
               >
                 {(cameras || []).map((c) => {
@@ -306,7 +306,7 @@ export default function LiveView() {
                 <button
                   onClick={() => setDisplayMode('standard')}
                   className={`px-2 py-1 rounded text-[11px] font-semibold flex items-center gap-1 transition-colors ${
-                    displayMode === 'standard' ? 'bg-[#7EDEED] text-[#1F1F1F] font-bold shadow-sm' : 'text-slate-400 hover:text-white'
+                    displayMode === 'standard' ? (isDarkMode ? 'bg-[#D73833] text-white font-bold shadow-sm' : 'bg-[#7EDEED] text-[#1F1F1F] font-bold shadow-sm') : (isDarkMode ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900')
                   }`}
                   title="Mod Standard: Feed Video 16:9 + Incidente laterale"
                 >
@@ -316,7 +316,7 @@ export default function LiveView() {
                 <button
                   onClick={() => setDisplayMode('split')}
                   className={`px-2 py-1 rounded text-[11px] font-semibold flex items-center gap-1 transition-colors ${
-                    displayMode === 'split' ? 'bg-[#7EDEED] text-[#1F1F1F] font-bold shadow-sm' : 'text-slate-400 hover:text-white'
+                    displayMode === 'split' ? (isDarkMode ? 'bg-[#D73833] text-white font-bold shadow-sm' : 'bg-[#7EDEED] text-[#1F1F1F] font-bold shadow-sm') : (isDarkMode ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900')
                   }`}
                   title="Mod Split: Feed Video Extins 16:9 sus, Grilă incidente dedesubt"
                 >
@@ -330,7 +330,7 @@ export default function LiveView() {
                 onClick={() => toggleEngine(activeCamera?.id)}
                 className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold flex items-center gap-1.5 shadow transition-all ${
                   activeCamera?.engine_on
-                    ? 'bg-[#FFEB33] text-[#1F1F1F] animate-pulse font-black'
+                    ? 'bg-[#FFEB33] text-[#1F1F1F] font-bold animate-pulse font-black'
                     : 'bg-slate-700 text-slate-200 hover:bg-slate-600'
                 }`}
                 title="Comută starea motorului aeronavei pentru acest stand"
@@ -435,7 +435,7 @@ export default function LiveView() {
             className="p-2.5 rounded-xl border shadow-sm grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs shrink-0"
           >
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-[#7EDEED]/10 flex items-center justify-center text-[#7EDEED]">
+              <div className="w-7 h-7 rounded-lg bg-[#FFEB33]/25 dark:bg-[#FFEB33]/15 flex items-center justify-center text-[#FFEB33]">
                 <Radio size={14} />
               </div>
               <div className="truncate">
@@ -472,12 +472,12 @@ export default function LiveView() {
             </div>
 
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-[#7EDEED]/10 flex items-center justify-center text-[#7EDEED]">
+              <div className="w-7 h-7 rounded-lg bg-[#FFEB33]/25 dark:bg-[#FFEB33]/15 flex items-center justify-center text-[#FFEB33]">
                 <Clock size={14} />
               </div>
               <div>
                 <span className="text-[9px] text-slate-400 block font-semibold leading-tight">Detecție → Alertă</span>
-                <span className="font-mono font-bold text-blue-500 dark:text-[#7EDEED] text-[11px]">
+                <span className="font-mono font-bold text-[#FFEB33] text-[11px]">
                   {kpis.detection_to_alert_latency_s === '—'
                     ? '—'
                     : `${kpis.detection_to_alert_latency_s}s`}
@@ -499,7 +499,7 @@ export default function LiveView() {
               <ShieldAlert size={15} className="text-[#D73833]" />
               Incidente Detectate
             </h2>
-            <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-[#7EDEED] text-[#1F1F1F]">
+            <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-[#FFEB33] text-[#1F1F1F] font-bold">
               {filteredEvents.length}
             </span>
           </div>
@@ -515,8 +515,12 @@ export default function LiveView() {
                 key={f.key}
                 onClick={() => setFilterMode(f.key)}
                 style={{
-                  backgroundColor: filterMode === f.key ? '#7EDEED' : (isDarkMode ? '#282828' : '#E5E7EB'),
-                  color: filterMode === f.key ? '#1F1F1F' : (isDarkMode ? '#F5F5F5' : '#1F1F1F')
+                  backgroundColor: filterMode === f.key
+                    ? (isDarkMode ? '#D73833' : '#7EDEED')
+                    : (isDarkMode ? '#282828' : '#F1F5F9'),
+                  color: filterMode === f.key
+                    ? (isDarkMode ? (f.key === 'standard' ? '#FFFFFF' : '#FFFFFF') : '#1F1F1F')
+                    : (isDarkMode ? '#F5F5F5' : '#1F1F1F')
                 }}
                 className="flex-1 py-1 text-[11px] font-bold rounded-lg transition-colors text-center"
               >
@@ -616,7 +620,7 @@ export default function LiveView() {
 
                     {/* Buton Acțiune Acknowledge (Verde pentru confirmare sigură) */}
                     <div className="pt-1 flex items-center justify-between border-t border-slate-500/10">
-                      <span className="text-[10px] text-[#7EDEED] font-semibold hover:underline flex items-center gap-1">
+                      <span className="text-[10px] text-amber-600 dark:text-[#FFEB33] font-semibold hover:underline flex items-center gap-1">
                         <Eye size={12} /> Detalii Incident
                       </span>
 

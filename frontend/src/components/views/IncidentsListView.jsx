@@ -100,7 +100,7 @@ export default function IncidentsListView() {
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Caută tip, cameră, zonă, ID…"
             style={{ backgroundColor: themeStyles.cardBg, borderColor: themeStyles.panelBorder }}
-            className="w-full pl-8 pr-3 py-2 rounded-lg border text-xs focus:outline-none focus:ring-2 focus:ring-[#7EDEED]"
+            className="w-full pl-8 pr-3 py-2 rounded-lg border text-xs focus:outline-none focus:ring-2 focus:ring-[#FFEB33]"
           />
         </label>
       </div>
@@ -114,7 +114,7 @@ export default function IncidentsListView() {
               role="tab"
               aria-selected={active}
               onClick={() => setStatusFilter(f.id)}
-              style={active ? { backgroundColor: '#7EDEED', color: '#1F1F1F' } : { borderColor: themeStyles.panelBorder }}
+              style={active ? { backgroundColor: isDarkMode ? '#D73833' : '#7EDEED', color: isDarkMode ? '#FFFFFF' : '#1F1F1F' } : { borderColor: themeStyles.panelBorder }}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${active ? 'border-transparent' : 'hover:bg-white/5'}`}
             >
               {f.label} <span className="opacity-70 font-mono">{counts[f.id]}</span>

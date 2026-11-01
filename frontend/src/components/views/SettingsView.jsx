@@ -68,7 +68,7 @@ function Panel({ icon: Icon, title, children, themeStyles }) {
       className="p-4 rounded-xl border space-y-3 text-xs"
     >
       <h3 className="font-bold text-sm uppercase flex items-center gap-1.5">
-        <Icon size={16} className="text-[#7EDEED]" /> {title}
+        <Icon size={16} className="text-[#7EDEED] dark:text-[#FFEB33]" /> {title}
       </h3>
       {children}
     </section>
@@ -107,7 +107,7 @@ export default function SettingsView() {
     <div className="flex-1 p-4 md:p-6 overflow-y-auto space-y-5 h-full max-w-5xl mx-auto">
       <div>
         <h2 className="font-black text-lg uppercase tracking-tight flex items-center gap-2">
-          <Settings size={20} className="text-[#7EDEED]" />
+          <Settings size={20} className="text-[#7EDEED] dark:text-[#FFEB33]" />
           Edge & Audit
           {health?.mock && (
             <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 font-mono">
@@ -210,7 +210,7 @@ export default function SettingsView() {
         <Panel icon={MessageSquare} title="Notificări" themeStyles={themeStyles}>
           <ul className="space-y-1.5" style={{ color: themeStyles.textMuted }}>
             <li>
-              • <span className="font-bold text-[#7EDEED]">Slack</span>: mesaj text + link la incident, fără imagini.
+              • <span className="font-bold text-[#0284C7] dark:text-[#FFEB33]">Slack</span>: mesaj text + link la incident, fără imagini.
             </li>
             <li>• Escaladare dacă incidentul nu e confirmat în timpul setat pe zonă.</li>
             <li>• Confirmarea operatorului oprește escaladarea.</li>
@@ -238,7 +238,7 @@ export default function SettingsView() {
                   <span className="shrink-0" style={{ color: themeStyles.textMuted }}>
                     [{formatDateTime(row.at)}]
                   </span>
-                  <span className="text-[#7EDEED] font-bold shrink-0 w-20">{row.actor}</span>
+                  <span className="text-[#0284C7] dark:text-[#FFEB33] font-bold shrink-0 w-20">{row.actor}</span>
                   <span className="truncate">{row.action}</span>
                 </button>
               </li>

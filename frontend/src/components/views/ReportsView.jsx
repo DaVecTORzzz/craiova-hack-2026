@@ -22,7 +22,7 @@ export default function ReportsView() {
       <div className="flex items-center justify-between border-b border-white/10 pb-3 flex-wrap gap-2">
         <div>
           <h2 className="font-black text-lg uppercase tracking-tight flex items-center gap-2">
-            <FileText size={20} className="text-indigo-400" />
+            <FileText size={20} className="text-[#D73833]" />
             Raport de tură
           </h2>
           <p style={{ color: themeStyles.textMuted }} className="text-xs font-mono">
@@ -33,7 +33,7 @@ export default function ReportsView() {
         {/* Export PDF: dialogul de tipărire al browserului */}
         <button
           onClick={() => printAsPdf(`SafeSight_raport_${shiftReport.date}_${shiftReport.shift}`.replace(/[^\w.-]+/g, '_'))}
-          className="no-print px-3.5 py-2 rounded-lg bg-indigo-700 hover:bg-indigo-600 text-white font-bold text-xs flex items-center gap-2 shadow"
+          className="no-print px-3.5 py-2 rounded-lg bg-[#D73833] hover:bg-[#b82e2a] text-white font-bold text-xs flex items-center gap-2 shadow"
         >
           <FileDown size={15} /> Export PDF
         </button>
@@ -45,7 +45,7 @@ export default function ReportsView() {
         className="p-3 rounded-xl border shadow-sm flex items-center justify-between gap-3 text-xs flex-wrap"
       >
         <div className="flex items-center gap-2">
-          <Calendar size={15} className="text-indigo-400" />
+          <Calendar size={15} className="text-[#D73833]" />
           <span className="font-bold">Selectează Tura:</span>
           <select
             value={selectedShift}
@@ -83,7 +83,7 @@ export default function ReportsView() {
           className="p-3.5 rounded-xl border shadow-sm space-y-1"
         >
           <p style={{ color: themeStyles.textMuted }} className="text-xs font-semibold">Timp mediu de confirmare</p>
-          <p className="text-2xl font-black font-mono text-indigo-400">
+          <p className="text-2xl font-black font-mono text-[#D73833]">
             {shiftReport.kpi.avg_ack_time_s === '—' ? '—' : `${shiftReport.kpi.avg_ack_time_s} sec`}
           </p>
         </div>
@@ -103,7 +103,7 @@ export default function ReportsView() {
         style={{ backgroundColor: themeStyles.panelBg, borderColor: themeStyles.panelBorder }}
         className="p-4 rounded-xl border shadow-sm space-y-1.5"
       >
-        <span className="text-xs font-bold uppercase tracking-wider text-indigo-400 flex items-center gap-1.5">
+        <span className="text-xs font-bold uppercase tracking-wider text-[#D73833] flex items-center gap-1.5">
           <ShieldCheck size={15} /> Rezumat Executiv Tură:
         </span>
         <p className="text-xs leading-relaxed text-slate-200">
@@ -119,7 +119,7 @@ export default function ReportsView() {
           className="p-4 rounded-xl border shadow-sm space-y-3"
         >
           <h3 className="font-bold text-xs uppercase tracking-wider flex items-center gap-2">
-            <BarChart3 size={15} className="text-indigo-400" />
+            <BarChart3 size={15} className="text-[#D73833]" />
             Distribuție pe Tipuri de Alertă (by_type)
           </h3>
 
@@ -133,7 +133,7 @@ export default function ReportsView() {
                 <div className="w-full h-2 rounded-full bg-black/30 overflow-hidden">
                   <div
                     style={{ width: `${(t.count / Math.max(shiftReport.kpi.total_events, 1)) * 100}%` }}
-                    className="bg-indigo-500 h-full rounded-full"
+                    className="bg-[#D73833] h-full rounded-full"
                   />
                 </div>
               </div>
@@ -147,7 +147,7 @@ export default function ReportsView() {
           className="p-4 rounded-xl border shadow-sm space-y-3 flex flex-col justify-between"
         >
           <h3 className="font-bold text-xs uppercase tracking-wider flex items-center gap-2">
-            <TrendingUp size={15} className="text-indigo-400" />
+            <TrendingUp size={15} className="text-[#D73833]" />
             Grafic Incidente pe Ore (by_hour)
           </h3>
 
@@ -156,12 +156,12 @@ export default function ReportsView() {
               const heightPct = (h.events / maxHourEvents) * 100;
               return (
                 <div key={idx} className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end group">
-                  <span className="font-mono text-[10px] font-bold text-indigo-300 opacity-80 group-hover:opacity-100">
+                  <span className="font-mono text-[10px] font-bold text-[#D73833] dark:text-[#FFEB33] opacity-80 group-hover:opacity-100">
                     {h.events}
                   </span>
                   <div
                     style={{ height: `${heightPct}%` }}
-                    className="w-full max-w-[28px] rounded-t-md bg-gradient-to-t from-indigo-800 to-indigo-500 group-hover:from-indigo-600 group-hover:to-indigo-400 transition-all shadow"
+                    className="w-full max-w-[28px] rounded-t-md bg-gradient-to-t from-[#D73833]/80 to-[#D73833] group-hover:from-[#D73833] group-hover:to-[#FFEB33] transition-all shadow"
                   />
                   <span className="font-mono text-[10px] text-slate-400">{h.hour}</span>
                 </div>
@@ -177,7 +177,7 @@ export default function ReportsView() {
         className="p-4 rounded-xl border shadow-sm space-y-3"
       >
         <h3 className="font-bold text-xs uppercase tracking-wider flex items-center gap-2">
-          <Clock size={15} className="text-indigo-400" />
+          <Clock size={15} className="text-[#D73833]" />
           Statistici de Confirmare pe Sector (by_zone)
         </h3>
 

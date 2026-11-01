@@ -14,31 +14,31 @@ export const THEME_CONFIG = {
     panelBorder: 'rgba(255, 255, 255, 0.10)',
     navBg: '#181818',           // Bară neutră închisă
     navBorder: 'rgba(255, 255, 255, 0.10)',
-    accentColor: '#7EDEED',     // Frosted Blue
-    accentHover: '#5ccedc',
+    accentColor: '#FFEB33',     // Bright Lemon (galben oficial Coolors)
+    accentHover: '#FDD835',
     textColor: '#F5F5F5',       // White Smoke (WCAG > 10:1 pe #1F1F1F)
     textMuted: '#9E9E9E',       // Gri neutru lizibil
     cardBg: '#2D2D2D',          // Card neutru
     cardHover: '#363636',
     inputBg: '#1C1C1C',
-    badgeBg: 'rgba(126, 222, 237, 0.18)',
+    badgeBg: 'rgba(255, 235, 51, 0.20)',
     modalOverlay: 'rgba(0, 0, 0, 0.85)'
   },
-  // Paleta Light Mode (Pânză curată White Smoke conform Coolors cu text Carbon Black)
+  // Paleta Light Mode: Fundal alb pur #FFFFFF & Accent albastru #7EDEED conform cerinței
   light: {
-    appBg: '#F5F5F5',           // White Smoke
-    panelBg: '#FFFFFF',         // Alb curat
+    appBg: '#FFFFFF',           // Fundal alb conform cerinței
+    panelBg: '#FFFFFF',         // Panouri albe
     panelBorder: '#E5E7EB',
-    navBg: '#FFFFFF',           // Header curat
+    navBg: '#FFFFFF',           // Header alb
     navBorder: '#E5E7EB',
-    accentColor: '#7EDEED',     // Frosted Blue
-    accentHover: '#5ccedc',
-    textColor: '#1F1F1F',       // Carbon Black (WCAG > 12:1 pe #F5F5F5)
-    textMuted: '#666666',       // Gri neutru lizibil
+    accentColor: '#FFEB33',     // Accente galbene conform cerinței
+    accentHover: '#FDD835',
+    textColor: '#1F1F1F',       // Carbon Black pe alb
+    textMuted: '#64748B',       // Slate lizibil
     cardBg: '#FFFFFF',
-    cardHover: '#FAFAFA',
+    cardHover: '#F8FAFC',
     inputBg: '#FFFFFF',
-    badgeBg: 'rgba(126, 222, 237, 0.25)',
+    badgeBg: 'rgba(255, 235, 51, 0.25)',
     modalOverlay: 'rgba(15, 23, 42, 0.65)'
   }
 };

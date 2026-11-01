@@ -26,7 +26,7 @@ export default function Sidebar() {
   const edgeSeen = health?.edge_last_seen_s;
   const edgeActive = Boolean(health?.db && edgeSeen != null && edgeSeen < 60);
   const edgeLabel = edgeActive ? 'ACTIV' : edgeSeen == null ? 'FĂRĂ DATE' : 'ÎNTÂRZIAT';
-  const edgeColor = edgeActive ? 'bg-emerald-600' : 'bg-[#FFEB33] text-[#1F1F1F]';
+  const edgeColor = edgeActive ? 'bg-emerald-600 text-white' : 'bg-[#FFEB33] text-[#1F1F1F] font-black';
 
   // Ecranele principale ale aplicației SafeSight
   const menuItems = [
@@ -95,11 +95,15 @@ export default function Sidebar() {
                 key={item.id}
                 onClick={() => setCurrentView(item.id)}
                 style={{
-                  backgroundColor: isActive ? '#7EDEED' : 'transparent',
-                  color: isActive ? '#1F1F1F' : (isDarkMode ? '#F5F5F5' : '#1F1F1F')
+                  backgroundColor: isActive
+                    ? (isDarkMode ? '#D73833' : '#7EDEED')
+                    : 'transparent',
+                  color: isActive
+                    ? (isDarkMode ? '#FFFFFF' : '#1F1F1F')
+                    : (isDarkMode ? '#F5F5F5' : '#1F1F1F')
                 }}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs md:text-sm font-semibold transition-all group text-left relative ${
-                  isActive ? 'shadow-md font-bold' : 'hover:bg-white/5'
+                  isActive ? 'shadow-md font-bold' : (isDarkMode ? 'hover:bg-white/5' : 'hover:bg-slate-100 text-slate-700')
                 }`}
                 title={item.label}
               >
@@ -107,7 +111,7 @@ export default function Sidebar() {
                 {!isSidebarCollapsed && (
                   <div className="flex-1 truncate">
                     <span className="block leading-tight truncate">{item.label}</span>
-                    <p className={`text-[10px] font-normal truncate mt-0.5 ${isActive ? 'text-[#1F1F1F]/80' : 'text-slate-400'}`}>
+                    <p className={`text-[10px] font-normal truncate mt-0.5 ${isActive ? (isDarkMode ? 'text-white/80' : 'text-[#1F1F1F]/80') : (isDarkMode ? 'text-slate-400' : 'text-slate-500')}`}>
                       {item.subtitle}
                     </p>
                   </div>
@@ -119,9 +123,7 @@ export default function Sidebar() {
                     className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow shrink-0 ${
                       item.badgeCritical
                         ? 'bg-[#D73833] text-white animate-pulse'
-                        : isActive
-                        ? 'bg-[#1F1F1F] text-[#7EDEED]'
-                        : 'bg-[#7EDEED] text-[#1F1F1F]'
+                        : 'bg-[#FFEB33] text-[#1F1F1F] font-black'
                     }`}
                   >
                     {item.badge}
@@ -137,21 +139,21 @@ export default function Sidebar() {
       {/* Zona de Jos: Status Edge & Buton Minimizare (Fără textul "NAV") */}
       <div
         style={{ borderColor: isDarkMode ? 'rgba(255, 255, 255, 0.08)' : '#E5E7EB' }}
-        className="p-2.5 border-t space-y-2 shrink-0 bg-black/15"
+        className="p-2.5 border-t space-y-2 shrink-0 bg-slate-50/90 dark:bg-black/15"
       >
         {!isSidebarCollapsed && (
-          <div className="p-2 rounded-lg bg-[#7EDEED]/10 border border-[#7EDEED]/25 text-[11px] space-y-1">
-            <div className="flex items-center justify-between font-bold text-[#7EDEED]">
-              <span className="flex items-center gap-1.5">
-                <ShieldCheck size={14} />
-                Edge AI
+          <div className="p-2.5 rounded-xl bg-white dark:bg-black/35 border-2 border-[#7EDEED] dark:border-white/10 text-[11px] space-y-1.5 shadow-sm">
+            <div className="flex items-center justify-between font-black text-[#1F1F1F] dark:text-[#F5F5F5]">
+              <span className="flex items-center gap-1.5 tracking-tight">
+                <ShieldCheck size={16} className="text-amber-500 dark:text-[#FFEB33]" />
+                <span className="font-black uppercase tracking-tight text-[#1F1F1F] dark:text-[#F5F5F5]">Edge AI</span>
               </span>
-              <span className={`text-[10px] font-mono font-bold px-1.5 rounded ${edgeColor}`}>{edgeLabel}</span>
+              <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded shadow-sm ${edgeColor}`}>{edgeLabel}</span>
             </div>
-            <p className="text-[10px] text-slate-400 leading-tight">
+            <p className="text-[10px] text-slate-700 dark:text-slate-400 leading-tight font-medium">
               {health?.db ? 'Backend online' : 'Backend offline'} · {edgeSeen == null ? 'edge fără date' : `edge acum ${Math.round(edgeSeen)}s`}
             </p>
-            <p className="text-[10px] text-slate-400 leading-tight">
+            <p className="text-[10px] text-slate-600 dark:text-slate-400 leading-tight font-mono">
               YOLO26 + ByteTrack • snapshot automat
             </p>
           </div>
@@ -159,7 +161,7 @@ export default function Sidebar() {
 
         <button
           onClick={() => setIsSidebarCollapsed(true)}
-          className="w-full flex items-center justify-center gap-2 py-2 px-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 transition-all font-semibold text-xs shadow-sm"
+          className="w-full flex items-center justify-center gap-2 py-2 px-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-white/5 dark:hover:bg-white/10 dark:text-slate-300 transition-all font-semibold text-xs shadow-sm"
           title="Restrânge Meniul"
         >
           {isSidebarCollapsed ? (

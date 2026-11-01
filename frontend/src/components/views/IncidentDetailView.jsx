@@ -43,7 +43,7 @@ export default function IncidentDetailView() {
         <p className="font-bold text-lg">Niciun incident selectat.</p>
         <button
           onClick={() => setCurrentView('incidents')}
-          className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-bold"
+          className="mt-4 px-4 py-2 bg-[#D73833] text-white rounded-lg text-sm font-bold"
         >
           Vezi lista de incidente
         </button>
@@ -134,7 +134,7 @@ export default function IncidentDetailView() {
               setSelectedCameraId(selectedEvent.camera_id);
               setCurrentView('live');
             }}
-            className="no-print px-3 py-2 rounded-lg bg-[#7EDEED] hover:bg-[#5ccedc] text-[#1F1F1F] text-xs font-bold flex items-center gap-1.5"
+            className="no-print px-3 py-2 rounded-lg bg-[#D73833] hover:bg-[#b82e2a] text-white text-xs font-bold flex items-center gap-1.5"
           >
             <Video size={15} /> Vezi camera acum
           </button>
@@ -151,7 +151,7 @@ export default function IncidentDetailView() {
         >
           <div className="flex items-center justify-between text-xs font-mono">
             <span className="font-bold uppercase tracking-wider flex items-center gap-1.5">
-              <MapPin size={14} className="text-indigo-400" />
+              <MapPin size={14} className="text-[#D73833]" />
               Camera: {selectedEvent.camera_id} ({selectedEvent.zone_id})
             </span>
             <span className="text-slate-400">Durată: {selectedEvent.duration_s}s</span>
@@ -180,7 +180,7 @@ export default function IncidentDetailView() {
             style={{ backgroundColor: themeStyles.cardBg }}
             className="p-3 rounded-lg border border-white/10 space-y-2"
           >
-            <p className="text-xs font-bold uppercase tracking-wider text-indigo-400 flex items-center gap-1">
+            <p className="text-xs font-bold uppercase tracking-wider text-[#D73833] flex items-center gap-1">
               <Clock size={13} /> Cronologie Eveniment (5 Pași):
             </p>
             <div className="grid grid-cols-5 gap-1.5 text-center font-mono text-[10px]">
@@ -217,13 +217,13 @@ export default function IncidentDetailView() {
           >
             <div className="flex items-center justify-between pb-2 border-b border-white/10">
               <h3 className="font-bold text-sm uppercase tracking-wider flex items-center gap-2">
-                <Info size={16} className="text-indigo-400" />
+                <Info size={16} className="text-[#D73833]" />
                 Raport incident ({selectedEvent.report?.source === 'llm' ? 'AI' : 'șablon'})
               </h3>
               {canRetryReport && (
                 <button
                   onClick={handleRegenerate}
-                  className="no-print text-xs text-indigo-400 hover:underline flex items-center gap-1 font-semibold"
+                  className="no-print text-xs text-[#D73833] hover:underline flex items-center gap-1 font-semibold"
                   title="Raportul a fost scris din șablon (AI indisponibil); încearcă din nou cu AI"
                 >
                   <RefreshCw size={12} className={isRegenerating ? 'animate-spin' : ''} />
@@ -317,7 +317,7 @@ export default function IncidentDetailView() {
               {/* Buton 4: Export PDF (dialogul de tipărire al browserului) */}
               <button
                 onClick={() => printAsPdf(`SafeSight_incident_${selectedEvent.event_id}`)}
-                className="py-2.5 px-3 rounded-lg font-bold bg-indigo-900/60 hover:bg-indigo-900 text-indigo-200 border border-indigo-700/60 flex items-center justify-center gap-2"
+                className="py-2.5 px-3 rounded-lg font-bold bg-[#D73833]/20 hover:bg-[#D73833]/30 text-[#D73833] border border-[#D73833]/40 flex items-center justify-center gap-2"
               >
                 <FileDown size={15} />
                 <span>Export PDF</span>
@@ -342,7 +342,7 @@ export default function IncidentDetailView() {
               value={falsePositiveNote}
               onChange={(e) => setFalsePositiveNote(e.target.value)}
               placeholder="Ex: Tehnicanul purta dopuri interne de urechi, nu căști externe..."
-              className="w-full p-2.5 rounded-lg bg-black/30 border border-white/20 text-xs focus:ring-2 focus:ring-indigo-400"
+              className="w-full p-2.5 rounded-lg bg-black/30 border border-white/20 text-xs focus:ring-2 focus:ring-[#FFEB33]"
               rows={3}
             />
             <div className="flex justify-end gap-2">

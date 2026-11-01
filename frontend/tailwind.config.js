@@ -20,16 +20,16 @@ export default {
           panel: '#282828',
           card: '#2D2D2D',
           border: 'rgba(255, 255, 255, 0.10)',
-          accent: '#7EDEED',
-          accentHover: '#5ccedc'
+          accent: '#FFEB33',
+          accentHover: '#FDD835'
         },
         light: {
-          bg: '#F5F5F5',
+          bg: '#FFFFFF',
           panel: '#FFFFFF',
           card: '#FFFFFF',
           border: '#E5E7EB',
-          accent: '#7EDEED',
-          accentHover: '#5ccedc'
+          accent: '#FFEB33',
+          accentHover: '#FDD835'
         }
       },
       animation: {

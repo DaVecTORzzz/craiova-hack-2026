@@ -34,7 +34,11 @@ class LiveRate:
             return self.fps(camera_id)
         if version != self._last_version.get(camera_id):
             self._last_version[camera_id] = version
-            self._stamps.setdefault(camera_id, deque(maxlen=MAX_STAMPS)).append(time.monotonic())
+            now = time.perf_counter()
+            stamps = self._stamps.setdefault(camera_id, deque(maxlen=MAX_STAMPS))
+            if stamps and now <= stamps[-1]:
+                now = stamps[-1] + 1e-6
+            stamps.append(now)
         return self.fps(camera_id)
 
     def fps(self, camera_id: str) -> float | None:
@@ -46,7 +50,7 @@ class LiveRate:
         stamps = self._stamps.get(camera_id)
         if not stamps:
             return None
-        now = time.monotonic()
+        now = time.perf_counter()
         recent = [stamp for stamp in stamps if now - stamp <= self.window_s]
         if len(recent) < 2:
             return None
