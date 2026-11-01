@@ -207,9 +207,11 @@ async def apply_action(session: Session, event_id: str, action: str, body: Opera
         event.acked_at = now
         event.acked_by = body.operator
         cancel_escalation(event_id)
+        outbox.cancel_pending(event_id, prefix="escalation")
     elif action == "false_positive":
         note = body.note
         cancel_escalation(event_id)
+        outbox.cancel_pending(event_id, prefix="escalation")
     elif action == "reopen":
         event.acked_at = None
         event.acked_by = None

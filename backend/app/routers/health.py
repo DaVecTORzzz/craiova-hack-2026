@@ -39,7 +39,9 @@ async def health(response: Response):
     db_ok = check_db()
     edge_last_seen_s = get_edge_last_seen_s()
     mock = settings.use_mock
-    notifications = notification_stats()
+    # A monitoring endpoint must not fall over harder than the thing it monitors:
+    # with the DB down, report null instead of raising.
+    notifications = notification_stats() if db_ok else None
 
     # 7.11: HTTP 200 when db is true (status degraded if edge_last_seen_s is null or > 60 and mock is off), 503 when db is false.
     if not db_ok:

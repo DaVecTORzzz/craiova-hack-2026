@@ -17,6 +17,7 @@ import asyncio
 import logging
 from datetime import timedelta
 
+from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
@@ -112,6 +113,30 @@ def _backoff_s(attempts: int) -> float:
     return steps[min(max(attempts, 1) - 1, len(steps) - 1)]
 
 
+def cancel_pending(event_id: str, prefix: str = "") -> int:
+    """Mark the event's queued notifications as cancelled. Returns how many.
+
+    Used when the operator acts first: an escalation that has not left yet must
+    not arrive after the acknowledgement that made it pointless.
+    """
+    with Session(get_engine()) as session:
+        rows = session.exec(
+            select(NotificationOutbox)
+            .where(NotificationOutbox.event_id == event_id)
+            .where(NotificationOutbox.status == "pending")
+        ).all()
+        cancelled = 0
+        for row in rows:
+            if not row.kind.startswith(prefix):
+                continue
+            row.status = "cancelled"
+            session.add(row)
+            cancelled += 1
+        if cancelled:
+            session.commit()
+    return cancelled
+
+
 async def _deliver(kind: str, event_id: str, text: str) -> tuple[bool, str | None]:
     if kind == "new":
         return await notify.deliver(event_id, text)
@@ -174,20 +199,31 @@ async def drain_once(limit: int = 20) -> int:
 
 
 def notification_stats() -> dict[str, int | float | None]:
-    """State of the outbox for /health: what is stuck and for how long."""
+    """State of the outbox for /health: what is stuck and for how long.
+
+    Counts, not hydrated rows: the table grows by one row per event and /health
+    is polled every few seconds.
+    """
     now = utcnow()
     day_ago = now - timedelta(hours=24)
     with Session(get_engine()) as session:
-        pending = session.exec(select(NotificationOutbox).where(NotificationOutbox.status == "pending")).all()
+        pending = session.exec(
+            select(func.count())
+            .select_from(NotificationOutbox)
+            .where(NotificationOutbox.status == "pending")
+        ).one()
         failed = session.exec(
-            select(NotificationOutbox)
+            select(func.count())
+            .select_from(NotificationOutbox)
             .where(NotificationOutbox.status == "failed")
             .where(NotificationOutbox.created_at >= day_ago)
-        ).all()
-    oldest = min((row.created_at for row in pending), default=None)
+        ).one()
+        oldest = session.exec(
+            select(func.min(NotificationOutbox.created_at)).where(NotificationOutbox.status == "pending")
+        ).one()
     return {
-        "pending": len(pending),
-        "failed_24h": len(failed),
+        "pending": int(pending or 0),
+        "failed_24h": int(failed or 0),
         "oldest_pending_s": round((now - oldest).total_seconds(), 1) if oldest is not None else None,
     }
 

@@ -11,7 +11,7 @@ from sqlmodel import Session, select
 
 from app.config import get_settings
 from app.db import get_engine
-from app.models import NotificationOutbox
+from app.models import NotificationOutbox, Zone
 from app.services import notify, outbox
 from tests.conftest import edge_event
 
@@ -166,3 +166,60 @@ def test_pending_rows_are_picked_up_after_a_restart(client, monkeypatch):
 
     assert _wait_for(lambda: _rows() and _rows()[0].status == "sent")
     assert _rows()[0].event_id == event_id
+
+
+def _row(event_id: str, kind: str) -> NotificationOutbox | None:
+    with Session(get_engine()) as session:
+        return session.exec(
+            select(NotificationOutbox)
+            .where(NotificationOutbox.event_id == event_id)
+            .where(NotificationOutbox.kind == kind)
+        ).first()
+
+
+def _set_escalate_after(zone_id: str, seconds: int | None) -> None:
+    with Session(get_engine()) as session:
+        zone = session.get(Zone, zone_id)
+        zone.escalate_after_s = seconds
+        session.add(zone)
+        session.commit()
+
+
+def test_escalation_goes_through_the_outbox_and_is_retried(client, monkeypatch):
+    """Un mesaj de escaladare care pică nu se pierde: e același outbox."""
+    _fast_backoff(monkeypatch)
+    monkeypatch.setattr(get_settings(), "slack_webhook_url", "https://hooks.example.invalid/x")
+    _set_escalate_after("engine-left", 1)
+    # new alert ok, escalation fails once, its retry lands
+    sent = _record(monkeypatch, [True, False, True])
+
+    payload = edge_event()
+    client.post("/edge/events", json=payload, headers=HEADERS)
+    event_id = payload["event_id"]
+
+    assert _wait_for(
+        lambda: _row(event_id, "escalation") is not None and _row(event_id, "escalation").status == "sent",
+        timeout=6.0,
+    )
+    row = _row(event_id, "escalation")
+    assert row.attempts == 2
+    assert row.text.startswith("ESCALADARE")
+    assert len(sent) == 3
+
+
+def test_ack_cancels_an_escalation_still_in_the_queue(client, monkeypatch):
+    monkeypatch.setattr(get_settings(), "slack_webhook_url", "https://hooks.example.invalid/x")
+    monkeypatch.setattr(get_settings(), "outbox_backoff_s", "60")  # keep the retry far away
+    _set_escalate_after("engine-left", 1)
+    _record(monkeypatch, [True, False])  # the escalation stays pending
+
+    payload = edge_event()
+    client.post("/edge/events", json=payload, headers=HEADERS)
+    event_id = payload["event_id"]
+
+    assert _wait_for(
+        lambda: _row(event_id, "escalation") is not None and _row(event_id, "escalation").status == "pending",
+        timeout=6.0,
+    )
+    assert client.post(f"/events/{event_id}/ack", json={"operator": "operator1"}).status_code == 200
+    assert _row(event_id, "escalation").status == "cancelled"
