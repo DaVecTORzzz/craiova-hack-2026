@@ -55,6 +55,12 @@ const INITIAL_ROUTE = (() => {
 })();
 const LINKED_INCIDENT_ID = INITIAL_ROUTE.eventId;
 
+function withFreshPreview(zone) {
+  if (!zone?.reference_frame_url) return zone;
+  const base = zone.reference_frame_url.split('?')[0];
+  return { ...zone, reference_frame_url: `${base}?v=${Date.now()}` };
+}
+
 const EMPTY_KPIS = {
   ppe_compliance_pct: '—',
   open_incidents_count: 0,
@@ -531,11 +537,26 @@ export function SecurityProvider({ children }) {
     try {
       const updatedZone = await safeSightApi.captureReferenceFrame(zoneId, file);
       if (updatedZone) {
-        setZones((prev) => prev.map((z) => (z.zone_id === zoneId ? { ...z, ...updatedZone } : z)));
+        setZones((prev) =>
+          prev.map((z) => (z.zone_id === zoneId ? { ...z, ...withFreshPreview(updatedZone) } : z))
+        );
       }
       showToast('Cadru de referință curat salvat cu succes.');
     } catch (error) {
       showToast(`Cadrul de referință a eșuat: ${error.message}`);
+    }
+  };
+
+  const captureReferenceFromLive = async (zoneId) => {
+    showToast('Se preia cadrul live (deja blurat la edge)...');
+    try {
+      const updated = await safeSightApi.captureReferenceFromLive(zoneId);
+      setZones((prev) =>
+        prev.map((zone) => (zone.zone_id === zoneId ? { ...zone, ...withFreshPreview(updated) } : zone))
+      );
+      showToast('Cadru live preluat ca referință FOD.');
+    } catch (error) {
+      showToast(`Preluarea cadrului live a eșuat: ${error.message}`);
     }
   };
 
@@ -699,6 +720,7 @@ export function SecurityProvider({ children }) {
         regenerateReport,
         toggleEngine,
         captureReferenceFrame,
+        captureReferenceFromLive,
         saveZone,
         deleteZone,
         clearReferenceFrame,

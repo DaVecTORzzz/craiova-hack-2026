@@ -161,3 +161,34 @@ def test_delete_reference_frame_clears_the_field_and_the_file(client):
     assert client.get("/snapshots/reference/taxiway-b.jpg").status_code == 404
 
     assert client.delete("/zones/nope/reference-frame").status_code == 404
+
+
+def test_reference_frame_from_live_copies_the_edge_frame(client, tmp_path, monkeypatch):
+    from app.routers import zones as zones_router
+
+    clean = tmp_path / "taxiway-b.clean.jpg"
+    clean.write_bytes(b"\xff\xd8\xff\xd9")
+
+    async def fake_wait(live_dir, camera_id, since, timeout=0):
+        return clean
+
+    monkeypatch.setattr(zones_router, "_wait_for_clean_frame", fake_wait)
+
+    res = client.post("/zones/taxiway-b/reference-frame/from-live")
+    assert res.status_code == 200
+    assert res.json()["reference_frame"] == "/snapshots/reference/taxiway-b.jpg"
+    assert client.get("/snapshots/reference/taxiway-b.jpg").content == b"\xff\xd8\xff\xd9"
+
+
+def test_reference_frame_from_live_reports_a_silent_edge(client, monkeypatch):
+    from app.routers import zones as zones_router
+
+    async def no_frame(live_dir, camera_id, since, timeout=0):
+        return None
+
+    monkeypatch.setattr(zones_router, "_wait_for_clean_frame", no_frame)
+    res = client.post("/zones/taxiway-b/reference-frame/from-live")
+    assert res.status_code == 409
+    assert "did not send a frame" in res.json()["detail"]
+
+    assert client.post("/zones/nope/reference-frame/from-live").status_code == 404
