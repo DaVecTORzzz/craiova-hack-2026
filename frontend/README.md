@@ -35,7 +35,7 @@ Backend-ul trebuie pornit pe `:8000`; CORS-ul implicit acceptă `http://localhos
 
 ## Fișiere legacy
 
-`App.jsx` din rădăcină și `standalone-preview.html` nu sunt încărcate de `index.html`; entry point-ul este `src/main.jsx`. Nu le folosi pentru demo.
+Entry point-ul este `src/main.jsx`.
 
 ## Verificare
 

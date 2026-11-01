@@ -70,14 +70,14 @@ Folosește cifre conservative și spune pe ce hardware au fost măsurate:
 - **0 fețe neblurate** în snapshot-urile verificate; 2 semnalări slabe pe blur, clarificate manual.
 - **38 teste ML + 90 teste backend**.
 
-Nu folosi numărul de evenimente din B-roll ca „rată de falsuri” și nu promite PPE/FOD: detectorul implementat caută doar `person`, iar clipurile PPE/FOD lipsesc.
+Nu folosi numărul de evenimente din B-roll ca „rată de falsuri” și nu promite PPE: detectorul implementat caută doar `person`, iar clipurile PPE lipsesc.
 
 ## Limite
 
 - un singur poligon calibrat (`stand12`); `cam02` și B-roll nu au poligoane proprii;
 - fără eșantion de 50–100 evenimente, deci fără rată de falsuri; cele 4 evenimente sunt în [`false-alarms.md`](false-alarms.md);
 - soak-ul RTSP de 5 minute e făcut, dar doar edge-only și fără reconectare;
-- fără PPE/FOD: nu există nici clipuri, nici cod de detecție;
+- fără PPE: nu există nici clipuri, nici cod de detecție;
 - FPS-ul depinde de hardware-ul final; de remăsurat pe mașina de demo.
 
 ## Cum se reproduce

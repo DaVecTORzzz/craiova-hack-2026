@@ -91,7 +91,7 @@ uv run python -m safesight_ml.run --source rtsp://127.0.0.1:8554/stand12 \
 - Rata de falsuri alarme pe 50–100 evenimente etichetate.
 - Reconectarea RTSP după o cădere scurtă; soak-ul de 5 minute e deja în `soak.md`.
 - FPS pe Jetson / hardware de pilot.
-- PPE și FOD: nu există clipuri, iar codul de detecție pentru ele nu e implementat (există doar adnotări preliminare).
+- PPE: nu există clipuri, iar codul de detecție pentru ele nu e implementat (există doar adnotări preliminare).
 
 ## Observații
 
