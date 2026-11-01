@@ -11,10 +11,12 @@ import {
   Save,
   Trash2,
   Undo2,
-  X,
+  Wand2,
+  AlertTriangle,
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useSecurity } from '../../context/SecurityContext';
+import { crossingEdges, orderAroundCentroid } from '../../utils/polygon';
 
 // Un punct e ținut în coordonate normalizate 0-1, ca poligonul să urmeze orice rezoluție.
 const EMPTY_DRAFT = {
@@ -31,27 +33,6 @@ const HISTORY_LIMIT = 60;
 
 function rounded(point) {
   return { x: Number(point.x.toFixed(4)), y: Number(point.y.toFixed(4)) };
-}
-
-function distanceToSegment(point, start, end) {
-  const dx = end.x - start.x;
-  const dy = end.y - start.y;
-  const lengthSquared = dx * dx + dy * dy;
-  if (lengthSquared === 0) return Math.hypot(point.x - start.x, point.y - start.y);
-  const t = Math.max(0, Math.min(1, ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared));
-  return Math.hypot(point.x - (start.x + t * dx), point.y - (start.y + t * dy));
-}
-
-/** Index of the edge the click is closest to, so the point lands between the two nearest. */
-function nearestEdgeIndex(points, point) {
-  let best = { index: 0, distance: Number.POSITIVE_INFINITY };
-  for (let index = 0; index < points.length; index += 1) {
-    const start = points[index];
-    const end = points[(index + 1) % points.length];
-    const distance = distanceToSegment(point, start, end);
-    if (distance < best.distance) best = { index, distance };
-  }
-  return best.index;
 }
 
 function slugify(value) {
@@ -101,8 +82,8 @@ export default function ZoneEditorView() {
   const [points, setPoints] = useState([]);
   const [closed, setClosed] = useState(true);
   const [selectedIndex, setSelectedIndex] = useState(null);
-  const [dragIndex, setDragIndex] = useState(null);
-  const [dragged, setDragged] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  // Undo/redo snapshots: { points, closed }.
   const [history, setHistory] = useState({ past: [], future: [] });
   const [saving, setSaving] = useState(false);
   const [isNew, setIsNew] = useState(false);
@@ -111,10 +92,19 @@ export default function ZoneEditorView() {
   const [referenceAspect, setReferenceAspect] = useState(null);
   const [uploading, setUploading] = useState(false);
 
+  // Edges that cross another edge: the zone would be an hourglass, not a perimeter.
+  const crossing = crossingEdges(points, closed);
+  const hasCrossing = crossing.size > 0;
+
   const canvasRef = useRef(null);
   const referenceInputRef = useRef(null);
+  // With pointer capture, the click that ends a drag lands on the canvas: ignore that one.
   const suppressClickRef = useRef(false);
-  const dragStartRef = useRef(null);
+  // The drag in progress: { index, before, moved }.
+  const dragRef = useRef(null);
+  // The points as last rendered, read at the end of a drag.
+  const pointsRef = useRef(points);
+  pointsRef.current = points;
 
   const hydrate = useCallback((nextZone) => {
     setPoints((nextZone?.polygon || []).map(rounded));
@@ -149,22 +139,25 @@ export default function ZoneEditorView() {
       setZoneId('');
       setPoints([]);
       setDraft(EMPTY_DRAFT);
-      setClosed(true);
+      setClosed(false);
       setHistory({ past: [], future: [] });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCameraId, zoneId, isNew, cameraZones.length]);
 
+  const snapshot = () => ({ points, closed });
+
+  // Every edit goes through here, so it can be undone.
   const pushPoints = useCallback(
-    (next) => {
+    (next, { before = points, closedBefore = closed } = {}) => {
       setHistory((current) => ({
-        past: [...current.past, points].slice(-HISTORY_LIMIT),
+        past: [...current.past, { points: before, closed: closedBefore }].slice(-HISTORY_LIMIT),
         future: [],
       }));
       setPoints(next);
       setJsonInput(JSON.stringify(next, null, 2));
     },
-    [points]
+    [points, closed]
   );
 
   const replacePoints = useCallback((next) => {
@@ -172,27 +165,34 @@ export default function ZoneEditorView() {
     setJsonInput(JSON.stringify(next, null, 2));
   }, []);
 
+  const restore = (state) => {
+    setPoints(state.points);
+    setClosed(state.closed);
+    setJsonInput(JSON.stringify(state.points, null, 2));
+    setSelectedIndex(null);
+  };
+
   const undo = useCallback(() => {
-    setHistory((current) => {
-      if (current.past.length === 0) return current;
-      const previous = current.past[current.past.length - 1];
-      setPoints(previous);
-      setJsonInput(JSON.stringify(previous, null, 2));
-      setSelectedIndex(null);
-      return { past: current.past.slice(0, -1), future: [points, ...current.future].slice(0, HISTORY_LIMIT) };
+    if (history.past.length === 0) return;
+    const previous = history.past[history.past.length - 1];
+    setHistory({
+      past: history.past.slice(0, -1),
+      future: [snapshot(), ...history.future].slice(0, HISTORY_LIMIT),
     });
-  }, [points]);
+    restore(previous);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [history, points, closed]);
 
   const redo = useCallback(() => {
-    setHistory((current) => {
-      if (current.future.length === 0) return current;
-      const next = current.future[0];
-      setPoints(next);
-      setJsonInput(JSON.stringify(next, null, 2));
-      setSelectedIndex(null);
-      return { past: [...current.past, points].slice(-HISTORY_LIMIT), future: current.future.slice(1) };
+    if (history.future.length === 0) return;
+    const next = history.future[0];
+    setHistory({
+      past: [...history.past, snapshot()].slice(-HISTORY_LIMIT),
+      future: history.future.slice(1),
     });
-  }, [points]);
+    restore(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [history, points, closed]);
 
   const toNormalized = useCallback((event) => {
     const rect = canvasRef.current.getBoundingClientRect();
@@ -202,76 +202,140 @@ export default function ZoneEditorView() {
     });
   }, []);
 
-  const addPoint = useCallback(
-    (event) => {
-      if (suppressClickRef.current) {
-        suppressClickRef.current = false;
-        return;
-      }
-      if (!zoneId) return;
-      const point = toNormalized(event);
-      const next =
-        points.length >= 2
-          ? (() => {
-              // Între cele mai apropiate două puncte, nu la coada listei.
-              const edge = nearestEdgeIndex(points, point);
-              const copy = [...points];
-              copy.splice(edge + 1, 0, point);
-              return copy;
-            })()
-          : [...points, point];
-      pushPoints(next);
-      setSelectedIndex(next.length - 1);
-      if (next.length >= 3) setClosed(true);
-    },
-    [points, pushPoints, toNormalized, zoneId]
-  );
-
-  const startDrag = (index) => (event) => {
-    event.stopPropagation();
-    event.currentTarget.setPointerCapture(event.pointerId);
-    dragStartRef.current = points;
-    setDragIndex(index);
-    setDragged(false);
-    setSelectedIndex(index);
+  const closePolygon = () => {
+    setHistory((current) => ({
+      past: [...current.past, { points, closed: false }].slice(-HISTORY_LIMIT),
+      future: [],
+    }));
+    setClosed(true);
   };
 
-  const moveDrag = (event) => {
-    if (dragIndex === null) return;
-    setDragged(true);
-    const point = toNormalized(event);
-    replacePoints(points.map((item, index) => (index === dragIndex ? point : item)));
+  // Close by clicking the first point (no double-click: it added two extra points first).
+  const CLOSE_RADIUS_PX = 12;
+  const nearFirstPoint = (event) => {
+    if (points.length < 3) return false;
+    const rect = canvasRef.current.getBoundingClientRect();
+    const dx = event.clientX - (rect.left + points[0].x * rect.width);
+    const dy = event.clientY - (rect.top + points[0].y * rect.height);
+    return Math.hypot(dx, dy) <= CLOSE_RADIUS_PX;
   };
 
-  const endDrag = () => {
-    if (dragIndex === null) return;
-    if (dragged) {
-      // Un singur pas de undo pentru toată tragerea: starea de dinainte de pointerdown.
-      const before = dragStartRef.current ?? points;
-      setHistory((current) => ({ past: [...current.past, before].slice(-HISTORY_LIMIT), future: [] }));
-      suppressClickRef.current = true;
+  // Drawing: each click adds the next point of the outline, in order.
+  const handleCanvasClick = (event) => {
+    if (suppressClickRef.current) {
+      suppressClickRef.current = false;
+      return;
     }
-    setDragIndex(null);
-    setDragged(false);
+    if (closed) {
+      setSelectedIndex(null);
+      return;
+    }
+    if (!zoneId) {
+      showToast('Alege o zonă salvată sau apasă „Zonă nouă”.');
+      return;
+    }
+    if (nearFirstPoint(event)) {
+      closePolygon();
+      return;
+    }
+    pushPoints([...points, toNormalized(event)]);
+  };
+
+  // Drag a point; a drag from an edge's "+" first inserts a point there.
+  const beginDrag = (event, index, before = points) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setSelectedIndex(index);
+    canvasRef.current.setPointerCapture?.(event.pointerId);
+    dragRef.current = { index, before, moved: false };
+    setIsDragging(true);
+  };
+
+  const handleVertexPointerDown = (event, index) => {
+    if (event.button !== 0) return;
+    if (!closed && index === 0 && points.length >= 3) {
+      // While drawing, the first point closes the zone instead of moving.
+      event.stopPropagation();
+      closePolygon();
+      return;
+    }
+    beginDrag(event, index);
+  };
+
+  const handleEdgeHandlePointerDown = (event, edgeIndex) => {
+    if (event.button !== 0) return;
+    const a = points[edgeIndex];
+    const b = points[(edgeIndex + 1) % points.length];
+    const middle = rounded({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+    setPoints([...points.slice(0, edgeIndex + 1), middle, ...points.slice(edgeIndex + 1)]);
+    beginDrag(event, edgeIndex + 1, points);
+    dragRef.current.moved = true; // the insert is an edit even without moving
+  };
+
+  const handlePointerMove = (event) => {
+    const drag = dragRef.current;
+    if (!drag) return;
+    drag.moved = true;
+    const point = toNormalized(event);
+    setPoints((current) => current.map((item, index) => (index === drag.index ? point : item)));
+  };
+
+  const handlePointerUp = () => {
+    const drag = dragRef.current;
+    if (!drag) return;
+    dragRef.current = null;
+    setIsDragging(false);
+    suppressClickRef.current = true;
+    // No click follows a cancelled or outside release; do not eat the next real click.
+    setTimeout(() => { suppressClickRef.current = false; }, 0);
+    if (drag.moved) {
+      // One undo step for the whole drag: the points from before the pointerdown.
+      setHistory((current) => ({
+        past: [...current.past, { points: drag.before, closed }].slice(-HISTORY_LIMIT),
+        future: [],
+      }));
+      setJsonInput(JSON.stringify(pointsRef.current, null, 2));
+    }
   };
 
   const removePoint = useCallback(
     (index) => {
-      const next = points.filter((_, position) => position !== index);
-      pushPoints(next);
+      // A closed zone keeps at least 3 points; while drawing, any point can go.
+      if (closed && points.length <= 3) {
+        showToast('O zonă are nevoie de cel puțin 3 puncte.');
+        return;
+      }
+      pushPoints(points.filter((_, position) => position !== index));
       setSelectedIndex(null);
-      if (next.length < 3) setClosed(false);
     },
-    [points, pushPoints]
+    [closed, points, pushPoints, showToast]
   );
 
+  const handleReorder = () => {
+    pushPoints(orderAroundCentroid(points));
+    setSelectedIndex(null);
+    showToast('Punctele au fost reordonate în jurul centrului zonei.');
+  };
+
+  const handleRedraw = () => {
+    pushPoints([]);
+    setClosed(false);
+    setSelectedIndex(null);
+  };
+
+  // Keyboard: Ctrl+Z / Ctrl+Shift+Z undo/redo, Delete removes the selected point,
+  // arrows nudge it (Shift = 5x), Esc deselects.
   const handleKeyDown = useCallback((event) => {
-    if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return;
-    const step = event.shiftKey ? 0.01 : 0.002;
+    const tag = event.target?.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || event.target?.isContentEditable) return;
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
       event.preventDefault();
       if (event.shiftKey) redo();
       else undo();
+      return;
+    }
+    if (event.key === 'Escape') {
+      setSelectedIndex(null);
       return;
     }
     if (selectedIndex === null) return;
@@ -280,32 +344,23 @@ export default function ZoneEditorView() {
       removePoint(selectedIndex);
       return;
     }
+    const step = event.shiftKey ? 0.01 : 0.002;
     const deltas = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] };
     const delta = deltas[event.key];
     if (!delta) return;
     event.preventDefault();
     const point = points[selectedIndex];
-    const next = points.map((item, index) =>
+    replacePoints(points.map((item, index) =>
       index === selectedIndex
         ? rounded({ x: Math.max(0, Math.min(1, point.x + delta[0])), y: Math.max(0, Math.min(1, point.y + delta[1])) })
         : item
-    );
-    replacePoints(next);
+    ));
   }, [points, redo, removePoint, replacePoints, selectedIndex, undo]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
-
-  const handleCanvasDoubleClick = () => {
-    if (points.length >= 3) {
-      setClosed(true);
-      showToast('Poligon închis. Trage de puncte ca să ajustezi.');
-    } else {
-      showToast('Ai nevoie de cel puțin 3 puncte.');
-    }
-  };
 
   const handleApplyJson = () => {
     try {
@@ -345,7 +400,7 @@ export default function ZoneEditorView() {
     const remaining = cameraZones.filter((item) => item.zone_id !== zoneId);
     setZoneId(remaining[0]?.zone_id || '');
     setPoints([]);
-    setClosed(true);
+    setClosed(false);
   };
 
   const handleSave = async () => {
@@ -359,6 +414,14 @@ export default function ZoneEditorView() {
     }
     if (points.length < 3) {
       showToast('Poligonul are nevoie de minimum 3 puncte.');
+      return;
+    }
+    if (!closed) {
+      showToast('Închide zona: dă click pe primul punct.');
+      return;
+    }
+    if (hasCrossing) {
+      showToast('Laturile zonei se intersectează. Mută punctele sau folosește „Reordonează punctele”.');
       return;
     }
     const payload = {
@@ -438,7 +501,7 @@ export default function ZoneEditorView() {
     );
   }
 
-  const canSave = Boolean(zoneId) && points.length >= 3 && !saving;
+  const canSave = Boolean(zoneId) && points.length >= 3 && closed && !hasCrossing && !saving;
   const hasReference = Boolean(zone?.reference_frame_url);
 
   return (
@@ -450,7 +513,7 @@ export default function ZoneEditorView() {
             Configurare zone
           </h2>
           <p style={{ color: themeStyles.textMuted }} className="text-xs font-mono">
-            Trage punctele cu mouse-ul · click pe latură adaugă între cele mai apropiate două · click dreapta șterge
+            Trage un punct ca să-l muți · „+” de pe latură adaugă un punct · click dreapta / Delete șterge · Ctrl+Z anulează
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -528,12 +591,14 @@ export default function ZoneEditorView() {
           <div
             data-testid="zone-canvas"
             ref={canvasRef}
-            onClick={addPoint}
-            onDoubleClick={handleCanvasDoubleClick}
-            style={hasReference && referenceAspect ? { aspectRatio: referenceAspect } : undefined}
+            onClick={handleCanvasClick}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onPointerCancel={handlePointerUp}
+            style={{ ...(hasReference && referenceAspect ? { aspectRatio: referenceAspect } : {}), touchAction: 'none' }}
             className={`relative rounded-xl overflow-hidden bg-black border-2 border-indigo-500/40 shadow-2xl select-none ${
               hasReference && referenceAspect ? 'w-full max-h-[68vh] mx-auto' : 'min-h-[380px]'
-            } ${dragIndex === null ? 'cursor-crosshair' : 'cursor-move'}`}
+            } ${isDragging ? 'cursor-grabbing' : closed ? 'cursor-default' : 'cursor-crosshair'}`}
           >
             {hasReference ? (
               <img
@@ -559,93 +624,149 @@ export default function ZoneEditorView() {
             )}
 
             <svg viewBox="0 0 1000 1000" preserveAspectRatio="none" className="absolute inset-0 w-full h-full pointer-events-none">
-              {points.length > 1 && (
+              {points.length > 1 && closed && (
                 <polygon
                   points={points.map((point) => `${point.x * 1000},${point.y * 1000}`).join(' ')}
-                  fill="rgba(239, 68, 68, 0.18)"
+                  fill={hasCrossing ? 'rgba(245, 158, 11, 0.20)' : 'rgba(239, 68, 68, 0.18)'}
                   stroke="#EF4444"
                   strokeWidth="2.5"
                   vectorEffect="non-scaling-stroke"
-                  strokeDasharray={closed ? 'none' : '6,4'}
                 />
               )}
+              {points.length > 1 && !closed && (
+                <polyline
+                  points={points.map((point) => `${point.x * 1000},${point.y * 1000}`).join(' ')}
+                  fill="none"
+                  stroke="#EF4444"
+                  strokeWidth="2.5"
+                  vectorEffect="non-scaling-stroke"
+                  strokeDasharray="6,4"
+                />
+              )}
+              {/* Edges that cross another edge, drawn over in amber */}
+              {[...crossing].map((index) => {
+                const a = points[index];
+                const b = points[(index + 1) % points.length];
+                return (
+                  <line
+                    key={`x-${index}`}
+                    x1={a.x * 1000}
+                    y1={a.y * 1000}
+                    x2={b.x * 1000}
+                    y2={b.y * 1000}
+                    stroke="#F59E0B"
+                    strokeWidth="5"
+                    vectorEffect="non-scaling-stroke"
+                  />
+                );
+              })}
             </svg>
 
-            {points.map((point, index) => (
-              <div
-                data-testid={`zone-point-${index}`}
-                key={index}
-                onPointerDown={startDrag(index)}
-                onPointerMove={moveDrag}
-                onPointerUp={endDrag}
-                onPointerCancel={endDrag}
-                onClick={(event) => event.stopPropagation()}
-                onContextMenu={(event) => {
-                  event.preventDefault();
-                  removePoint(index);
-                }}
-                style={{ left: `${point.x * 100}%`, top: `${point.y * 100}%` }}
-                className={`group absolute w-4 h-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 shadow-lg touch-none ${
-                  selectedIndex === index || dragIndex === index
-                    ? 'bg-emerald-400 border-emerald-200 ring-4 ring-emerald-400/40'
-                    : 'bg-white border-red-600 ring-2 ring-red-400/40'
-                }`}
-                title={`Punct ${index + 1}: (${point.x.toFixed(3)}, ${point.y.toFixed(3)}) — trage, click dreapta șterge`}
-              >
-                <span className="absolute -top-4 left-1/2 -translate-x-1/2 text-[9px] font-mono text-white/80">
-                  {index + 1}
-                </span>
-                <button
-                  type="button"
-                  onClick={(event) => {
+            {/* "+" in the middle of each edge: drag it to add a point exactly there */}
+            {closed && points.length >= 3 && points.map((a, index) => {
+              const b = points[(index + 1) % points.length];
+              return (
+                <div
+                  key={`m-${index}`}
+                  data-testid={`zone-edge-${index}`}
+                  onPointerDown={(event) => handleEdgeHandlePointerDown(event, index)}
+                  onClick={(event) => event.stopPropagation()}
+                  style={{ left: `${((a.x + b.x) / 2) * 100}%`, top: `${((a.y + b.y) / 2) * 100}%` }}
+                  className="absolute w-3 h-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-black/60 border border-white/70 text-white text-[10px] leading-[10px] flex items-center justify-center cursor-copy opacity-60 hover:opacity-100"
+                  title="Trage ca să adaugi un punct pe această latură"
+                >
+                  +
+                </div>
+              );
+            })}
+
+            {/* Points: drag to move, right-click (or select + Delete) to remove */}
+            {points.map((point, index) => {
+              const closesZone = !closed && index === 0 && points.length >= 3;
+              const isSelected = selectedIndex === index;
+              return (
+                <div
+                  data-testid={`zone-point-${index}`}
+                  key={index}
+                  onPointerDown={(event) => handleVertexPointerDown(event, index)}
+                  onClick={(event) => event.stopPropagation()}
+                  onContextMenu={(event) => {
+                    event.preventDefault();
                     event.stopPropagation();
                     removePoint(index);
                   }}
-                  className="hidden group-hover:flex absolute -top-2 -right-2 w-4 h-4 items-center justify-center rounded-full bg-red-600 text-white border border-black/40"
-                  title="Șterge punctul"
+                  style={{ left: `${point.x * 100}%`, top: `${point.y * 100}%` }}
+                  className={`absolute -translate-x-1/2 -translate-y-1/2 rounded-full border-2 shadow-lg ${
+                    closesZone
+                      ? 'w-5 h-5 bg-emerald-400 border-white ring-4 ring-emerald-400/40 cursor-pointer'
+                      : isSelected
+                      ? 'w-4 h-4 bg-[#7EDEED] border-white ring-4 ring-[#7EDEED]/50 cursor-grab'
+                      : 'w-3.5 h-3.5 bg-white border-red-600 ring-2 ring-red-400/50 cursor-grab'
+                  }`}
+                  title={
+                    closesZone
+                      ? 'Click aici ca să închizi zona'
+                      : `Punct ${index + 1} (${point.x.toFixed(3)}, ${point.y.toFixed(3)}): trage ca să-l muți, click dreapta ca să-l ștergi`
+                  }
                 >
-                  <X size={10} />
-                </button>
-              </div>
-            ))}
+                  <span className="absolute -top-4 left-1/2 -translate-x-1/2 text-[9px] font-mono text-white/80 pointer-events-none">
+                    {index + 1}
+                  </span>
+                </div>
+              );
+            })}
 
-            <div className="absolute top-3 left-3 bg-black/80 backdrop-blur-sm px-3 py-1.5 rounded-lg border border-white/10 text-white text-[11px] font-mono shadow">
-              {closed ? '✓ poligon închis' : 'desenare: click = punct · dublu-click = închide'}
+            <div className="absolute top-3 left-3 bg-black/80 backdrop-blur-sm px-3 py-1.5 rounded-lg border border-white/10 text-white text-[11px] font-mono shadow pointer-events-none max-w-[85%]">
+              {closed
+                ? '✓ zonă închisă · trage punctele · „+” adaugă · click dreapta șterge'
+                : points.length >= 3
+                ? 'click = punct nou · click pe primul punct (verde) închide zona'
+                : 'click pe imagine ca să pui punctele zonei, în ordine, pe contur'}
             </div>
 
-            <div className="absolute bottom-3 right-3 flex items-center gap-1.5">
+            {hasCrossing && (
+              <div className="absolute top-12 left-3 right-3 bg-amber-500/95 text-[#1F1F1F] px-3 py-1.5 rounded-lg text-[11px] font-bold shadow flex items-center gap-2 pointer-events-none">
+                <AlertTriangle size={14} className="shrink-0" />
+                Laturile marcate cu portocaliu se intersectează: zona nu e un perimetru. Mută punctele sau reordonează-le.
+              </div>
+            )}
+
+            <div
+              className="absolute bottom-3 right-3 flex items-center gap-1.5"
+              onClick={(event) => event.stopPropagation()}
+              onPointerDown={(event) => event.stopPropagation()}
+            >
               <button
-                onClick={(event) => {
-                  event.stopPropagation();
-                  undo();
-                }}
+                onClick={undo}
                 disabled={history.past.length === 0}
                 className="p-1.5 rounded bg-black/70 border border-white/20 text-white disabled:opacity-30"
-                title="Undo (Ctrl+Z)"
+                title="Anulează (Ctrl+Z)"
               >
                 <Undo2 size={14} />
               </button>
               <button
-                onClick={(event) => {
-                  event.stopPropagation();
-                  redo();
-                }}
+                onClick={redo}
                 disabled={history.future.length === 0}
                 className="p-1.5 rounded bg-black/70 border border-white/20 text-white disabled:opacity-30"
-                title="Redo (Ctrl+Shift+Z)"
+                title="Refă (Ctrl+Shift+Z)"
               >
                 <Redo2 size={14} />
               </button>
+              {hasCrossing && (
+                <button
+                  onClick={handleReorder}
+                  className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-400 text-[#1F1F1F] text-xs font-bold flex items-center gap-1"
+                  title="Ordonează punctele în jurul centrului zonei"
+                >
+                  <Wand2 size={13} /> Reordonează punctele
+                </button>
+              )}
               <button
-                onClick={(event) => {
-                  event.stopPropagation();
-                  pushPoints([]);
-                  setClosed(false);
-                  setSelectedIndex(null);
-                }}
+                onClick={handleRedraw}
                 className="px-2.5 py-1 rounded bg-red-900/80 hover:bg-red-800 text-white text-xs font-bold flex items-center gap-1 border border-red-500/40"
+                title="Șterge toate punctele și desenează zona din nou"
               >
-                <Trash2 size={13} /> Golește
+                <Trash2 size={13} /> Desenează din nou
               </button>
             </div>
           </div>
