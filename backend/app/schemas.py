@@ -3,6 +3,8 @@ from typing import Literal
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator
 
+from app.geometry import crossing_edges
+
 
 class EventType(str, Enum):
     RESTRICTED_ZONE = "RESTRICTED_ZONE"
@@ -160,6 +162,22 @@ class ZoneIO(BaseModel):
             x, y = point
             if not (0.0 <= x <= 1.0 and 0.0 <= y <= 1.0):
                 raise ValueError("polygon coordinates must be normalized 0-1")
+        return v
+
+
+class ZoneIn(ZoneIO):
+    """PUT /zones body: also rejects a polygon whose edges cross (an hourglass, not a perimeter).
+
+    Only on input: zones already stored are still returned as they are.
+    """
+
+    @field_validator("polygon")
+    @classmethod
+    def validate_polygon_is_simple(cls, v: list[tuple[float, float]]) -> list[tuple[float, float]]:
+        crossing = crossing_edges(v)
+        if crossing:
+            edges = ", ".join(str(i) for i in sorted(crossing))
+            raise ValueError(f"polygon edges cross each other (edges {edges}); points must follow the outline")
         return v
 
 
