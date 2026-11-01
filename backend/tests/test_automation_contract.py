@@ -49,7 +49,7 @@ def test_summarize_uses_backend_shift_shape():
             "date": "2026-10-31",
             "kpi": {"open_incidents": 2, "escalated": 1},
             "by_type": [
-                {"type": "FOD", "critical": 1, "warning": 0},
+                {"type": "RESTRICTED_ZONE", "critical": 1, "warning": 0},
                 {"type": "NO_PPE", "critical": 0, "warning": 4},
             ],
         }

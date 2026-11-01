@@ -28,7 +28,7 @@ Pornește backend-ul, frontend-ul și câte un edge pe fiecare cameră, fiecare 
 | Cameră | Clip | Ce arată |
 |---|---|---|
 | CAM-01 Stand 12 | persoană lângă motor | intrare în zona motorului (`RESTRICTED_ZONE`, CRITICAL) |
-| CAM-02 Taxiway B | marshaller cu conuri | feed live; regula zonei e `FOD_WATCH`, iar FOD nu are detector — fără incidente |
+| CAM-02 Taxiway B | marshaller cu conuri | feed live; regula e `PPE_REQUIRED` — incident doar dacă cineva nu are vestă, iar în clip toți au |
 | CAM-03 Baggage area | avion la poarta de bagaje (4K, citit la 1920 px) | feed live; regula e `PPE_REQUIRED` — incident doar dacă cineva nu are vestă, iar în clip toți au |
 
 - deschide `http://localhost:5173`;
@@ -48,7 +48,7 @@ python scripts/dev.py fallback
 |---|---|---|
 | 0–10 s | Live, CAM-01 | „Camerele existente devin un flux de siguranță, nu doar înregistrare.” |
 | 10–25 s | Feed-ul adnotat: zonă roșie, persoane cu track, etichetă `vesta` | „Persoana intră în zona motorului; e urmărită de la un cadru la altul, iar zona rămâne pe asfalt chiar dacă camera se mișcă.” |
-| 25–35 s | Meniul **Cameră** → CAM-03, apoi CAM-02 | „Aceeași procesare pe fiecare cameră, în paralel: detecție, tracking, blur. Incidentul apare doar unde regula zonei poate fi evaluată — aici FOD și PPE n-au detector, deci camerele astea tac.” |
+| 25–35 s | Meniul **Cameră** → CAM-03, apoi CAM-02 | „Aceeași procesare pe fiecare cameră, în paralel: detecție, tracking, blur. Aici regula e echipamentul de protecție și toți poartă vestă, deci camerele astea tac.” |
 | 35–50 s | Click pe un card CRITICAL → **Incidente & XAI**; snapshot, cronologie, raport | „Alerta are dovadă blurată, severitate, timp și un raport de incident.” |
 | 50–58 s | Click **Acknowledge (Confirmă)** | „Operatorul confirmă; escaladarea se oprește. Human-in-the-loop.” |
 | 58–66 s | Arată mesajul Slack | „Slack primește text + link, fără imagini și fără butoane.” |
@@ -93,10 +93,10 @@ Spune: „camera care tace nu mai e o gaură în pază: devine incident, iar rev
 
 ## Ce nu spui
 
-- „`NO_PPE` / FOD merg live” — nu merg. Vesta e doar etichetată pe persoane (după culoare), fără alertă.
+- „`NO_PPE` merge live” — nu merge. Vesta e doar etichetată pe persoane (după culoare), fără alertă.
 - „Model PPE antrenat” — dataset-ul există, antrenarea nu e terminată.
 - „0% falsuri” — avem un eșantion mic, verificat vizual; rata de falsuri nu e măsurată.
-- „Trei incidente, câte unul pe cameră” — doar CAM-01 produce. CAM-02 și CAM-03 arată feed-ul adnotat, dar regula lor (`FOD_WATCH`, `PPE_REQUIRED`) nu poate fi evaluată fără detector.
+- „Trei incidente, câte unul pe cameră” — doar CAM-01 produce. CAM-02 și CAM-03 arată feed-ul adnotat, iar regula lor (`PPE_REQUIRED`) nu găsește pe nimeni fără vestă în clipuri.
 - „Camere live din aeroport” — clipurile sunt reale (stock), redate ca flux live.
 - „Camera offline e prinsă instant” — pragul e 90 s (3 heartbeats ratate); sub asta ar fi zgomot la fiecare microîntrerupere.
 - „Alertele ajung garantat în Slack” — coada garantează că nu se pierd la timeout sau restart; dacă Slack e jos mai mult de ~2 minute, rândul rămâne `failed` și se vede în `/health`.
@@ -123,7 +123,7 @@ Cu 3 camere în paralel, pe un laptop cu RTX 3050: 19,5 / 29,7 / 14,6 FPS (CAM-0
 5 minute RTSP pe o cameră: 8.697 cadre, 28,99 FPS, 0 căderi.
 
 **Ce urmează?**
-O cameră reală pentru pilot, modelul PPE antrenat și alerta `NO_PPE`, clipuri FOD, auth.
+O cameră reală pentru pilot, modelul PPE antrenat și alerta `NO_PPE`, auth.
 
 ## După demo
 

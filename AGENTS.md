@@ -26,7 +26,7 @@ Python 3.12 + `uv`, FastAPI, Pydantic v2, SQLite/SQLModel, YOLO26 (`YOLO26s`/`YO
 - `confidence` is `{ detector, temporal: { seen, window } }`, not a string.
 - Severity is only `CRITICAL` or `WARNING`; `RESOLVED` is a status. No `verifying`.
 - Slack: text + link, no images, no buttons.
-- FOD: 3 s in demo, 10 s in production. Smoke is stretch and not in the demo.
+- FOD and the mobile PWA are out of scope. Smoke is stretch and not in the demo.
 - Details and examples: `docs/contract.md`.
 - `docs/contract.md` changes only via a separate PR approved by all consumers.
 

@@ -871,7 +871,6 @@ export default function ZoneEditorView() {
               >
                 <option value="RESTRICTED">RESTRICTED (zonă interzisă)</option>
                 <option value="PPE_REQUIRED">PPE_REQUIRED (echipament obligatoriu)</option>
-                <option value="FOD_WATCH">FOD_WATCH (obiecte pe tarmac)</option>
               </select>
             </div>
 
@@ -956,7 +955,7 @@ export default function ZoneEditorView() {
             className="rounded-xl border p-4 shadow-lg space-y-2 text-xs"
           >
             <h3 className="font-bold text-sm uppercase tracking-wider flex items-center gap-2">
-              <Camera size={16} className={isDarkMode ? 'text-[#FFEB33]' : 'text-[#D73833]'} /> Referință FOD
+              <Camera size={16} className={isDarkMode ? 'text-[#FFEB33]' : 'text-[#D73833]'} /> Cadru de referință
             </h3>
             <p style={{ color: themeStyles.textMuted }} className="text-[11px] leading-snug">
               Cadrul pe care desenezi zonele. Folosește doar un cadru <b>deja blurat</b> — nicio față nu trebuie să ajungă aici.

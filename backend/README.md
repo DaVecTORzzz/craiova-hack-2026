@@ -58,7 +58,7 @@ If the edge, the camera or the model fails during the demo, send the demo event 
 ```bash
 cd backend
 uv run python scripts/demo_event.py                 # RESTRICTED_ZONE on stand12 / engine-left, engine turned on first
-uv run python scripts/demo_event.py --type FOD      # or NO_PPE
+uv run python scripts/demo_event.py --type NO_PPE
 ```
 
 `--api-url` and `--edge-token` default to `API_URL` / `EDGE_TOKEN` or `http://localhost:8000` / `dev-edge-token`. Without `--snapshot` it uploads a synthetic gray frame; with `--snapshot` pass only an already-blurred JPEG.

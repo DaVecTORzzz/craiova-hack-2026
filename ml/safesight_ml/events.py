@@ -16,7 +16,6 @@ from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_valid
 EventType = Literal[
     "RESTRICTED_ZONE",
     "NO_PPE",
-    "FOD",
     "SMOKING",
     "CAMERA_OFFLINE",
 ]

@@ -11,7 +11,7 @@ import numpy as np
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 Point = tuple[float, float]
-RuleType = Literal["RESTRICTED", "PPE_REQUIRED", "FOD_WATCH", "NO_SMOKING", "CROWD_WATCH"]
+RuleType = Literal["RESTRICTED", "PPE_REQUIRED", "NO_SMOKING", "CROWD_WATCH"]
 ActiveWhen = Literal["always", "engine_on"]
 
 

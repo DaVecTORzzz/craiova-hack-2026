@@ -2,12 +2,12 @@ from automation.report import generate, summarize, slack_text
 
 EVENT = {
     "event_id": "evt_demo_1",
-    "type": "FOD",
+    "type": "RESTRICTED_ZONE",
     "severity": "CRITICAL",
-    "camera_id": "taxiway-b",
-    "zone_id": "taxiway-b",
+    "camera_id": "stand12",
+    "zone_id": "engine-left",
     "detected_at": "2026-10-31T10:42:13Z",
-    "duration_s": 3.0,
+    "duration_s": 1.4,
 }
 
 
@@ -16,13 +16,13 @@ def main() -> None:
     expected = {"what", "where", "when", "severity_reason", "recommended_action", "source"}
     assert set(report) == expected, f"chei neașteptate: {set(report) ^ expected}"
     assert report["source"] in {"template", "llm"}
-    assert "taxiway-b" in report["where"]
+    assert "engine-left" in report["where"]
 
     text = slack_text(
         {**EVENT, "link": "http://localhost:5173/incidents/evt_demo_1", "escalate_after_s": 30},
         escalated=True,
     )
-    assert text.startswith("ESCALADARE · neconfirmat de 30 s · [CRITICAL] FOD")
+    assert text.startswith("ESCALADARE · neconfirmat de 30 s · [CRITICAL] RESTRICTED_ZONE")
     assert text.endswith(" · http://localhost:5173/incidents/evt_demo_1")
 
     summary = summarize(
@@ -31,7 +31,7 @@ def main() -> None:
             "date": "2026-10-31",
             "kpi": {"open_incidents": 1, "escalated": 0},
             "by_type": [
-                {"type": "FOD", "critical": 1, "warning": 0},
+                {"type": "RESTRICTED_ZONE", "critical": 1, "warning": 0},
                 {"type": "NO_PPE", "critical": 0, "warning": 1},
             ],
         }

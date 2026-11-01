@@ -7,7 +7,7 @@ exactly as with a real detection.
 
     cd backend
     uv run python scripts/demo_event.py                      # RESTRICTED_ZONE on stand12/engine-left
-    uv run python scripts/demo_event.py --type FOD
+    uv run python scripts/demo_event.py --type NO_PPE
     uv run python scripts/demo_event.py --snapshot frame.jpg   # an already-blurred JPEG only
 """
 
@@ -53,7 +53,7 @@ def build_payload(event_type: str, snapshot_url: str, event_id: str, track_id: i
         "zone_id": tpl["zone_id"],
         "track_id": track_id,
         "confidence": {"detector": 0.91, "temporal": {"seen": 14, "window": 15}},
-        "duration_s": 3.0 if event_type == EventType.FOD.value else 1.4,
+        "duration_s": 1.4,
         "context": {"engine_on": engine_on},
         "snapshot_url": snapshot_url,
         "model": tpl["model"],
@@ -75,13 +75,13 @@ def main(argv: list[str] | None = None) -> int:
 
     tpl = TEMPLATES_BY_TYPE[args.type]
     camera_id = tpl["camera_id"]
-    track_id = 0 if args.type == EventType.FOD.value else random.randint(1, 99)
+    track_id = random.randint(1, 99)
     event_id = f"evt_{camera_id}_{int(time.time() * 1000)}_{track_id}"
     headers = {"X-Edge-Token": args.edge_token}
     engine_on = args.type == EventType.RESTRICTED_ZONE.value and not args.no_engine
 
     with httpx.Client(base_url=args.api_url.rstrip("/"), timeout=5) as client:
-        # Only the restricted-zone demo needs the engine on; FOD/NO_PPE do not.
+        # Only the restricted-zone demo needs the engine on; NO_PPE does not.
         if engine_on:
             client.put(f"/cameras/{camera_id}/engine", json={"on": True}).raise_for_status()
 

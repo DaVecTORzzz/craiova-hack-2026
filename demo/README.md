@@ -5,9 +5,9 @@ Responsabile: **Ariana** (scenariul și înregistrarea OBS) și **Dalina** (vide
 Briefuri interne: `safesight-docs/03_C_frontend.typ` și `safesight-docs/04_D_date_pitch.typ` (repo privat).
 
 - Scenariul canonic: 10 pași, 3 minute; versiunea scurtă sare la pașii 2, 3, 4 și 9.
-- Cazuri în demo: persoană în zona motorului, FOD (3 s în demo, 10 s în producție) și PPE lipsă. Fumul rămâne stretch.
-- Pentru fiecare cameră, pregătiți și un cadru de referință fără obiecte, din același unghi; A îl folosește la FOD.
+- Cazuri în demo: persoană în zona motorului și PPE lipsă. Fumul rămâne stretch; FOD nu mai e în scope.
+- Pentru fiecare cameră, pregătiți un cadru de referință din același unghi; editorul de zone desenează pe el.
 - Video-urile `.mp4` nu intră în git. Le puneți în [folderul comun din Drive](https://drive.google.com/drive/folders/1OTXiPjvX7PCAGDeXVKPa702PyQQZgzhA?usp=sharing) și puneți aici linkul clipului.
 - Fiecare clip are sursă, licență și cine a filmat, în `data/videos/README.md`. Fără acord scris, nu apare în materialul publicat.
 
-Clipurile de test: om cu vestă, om fără vestă, om în zona motorului, cheie franceză aruncată pe „pistă”, cadru de referință curat.
+Clipurile de test: om cu vestă, om fără vestă, om în zona motorului, cadru de referință curat.

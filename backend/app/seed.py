@@ -85,11 +85,11 @@ def seed_zones(session: Session) -> None:
             id="taxiway-b",
             camera_id="taxiway-b",
             name="Taxiway B",
-            rule_type="FOD_WATCH",
+            rule_type="PPE_REQUIRED",
             active_when="always",
-            required_ppe=[],
-            severity="CRITICAL",
-            debounce_s=3.0,
+            required_ppe=["hi_vis_vest"],
+            severity="WARNING",
+            debounce_s=2.0,
             escalate_after_s=30,
             notify_channel="slack",
             polygon=[[0.0, 0.76], [1.0, 0.76], [1.0, 0.92], [0.0, 0.92]],
@@ -131,7 +131,7 @@ def seed_demo_events_if_requested(session: Session) -> None:
     templates = [
         ("RESTRICTED_ZONE", "CRITICAL", "stand12", "engine-left", "acknowledged"),
         ("NO_PPE", "WARNING", "stand12", "apron-stand12", "open"),
-        ("FOD", "CRITICAL", "taxiway-b", "taxiway-b", "escalated"),
+        ("RESTRICTED_ZONE", "CRITICAL", "stand12", "engine-left", "escalated"),
         ("NO_PPE", "WARNING", "baggage-area", "baggage-area", "false_positive"),
     ]
 
@@ -142,7 +142,7 @@ def seed_demo_events_if_requested(session: Session) -> None:
         notified = received + timedelta(seconds=1.5)
         acked = (notified + timedelta(seconds=10)) if st in ("acknowledged", "false_positive") else None
         escalated = (notified + timedelta(seconds=35)) if st == "escalated" else None
-        track_id = 0 if ev_type in ("FOD", "CAMERA_OFFLINE") else (i + 1)
+        track_id = 0 if ev_type == "CAMERA_OFFLINE" else (i + 1)
 
         event = Event(
             event_id=f"evt_{cam}_{int(detected.replace(tzinfo=UTC).timestamp() * 1000)}_{track_id}",
@@ -158,7 +158,7 @@ def seed_demo_events_if_requested(session: Session) -> None:
             duration_s=2.5,
             context={"engine_on": (ev_type == "RESTRICTED_ZONE")},
             snapshot_url="/snapshots/placeholder.jpg",
-            model="fod-diff-v1" if ev_type == "FOD" else "person-ppe-v1",
+            model="person-ppe-v1",
             detected_at=detected,
             received_at=received,
             notified_at=notified,

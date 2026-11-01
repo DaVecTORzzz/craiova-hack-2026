@@ -131,7 +131,7 @@ export default function Sidebar() {
     {
       id: 'zones',
       label: 'Configurare Zone',
-      subtitle: 'Poligoane & Cadru FOD',
+      subtitle: 'Poligoane & Cadru de referință',
       icon: PenTool
     },
     {

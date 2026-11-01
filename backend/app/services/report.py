@@ -24,11 +24,6 @@ TEMPLATES: dict[EventType, tuple[str, str, str]] = {
         "Lucru fără echipamentul obligatoriu.",
         "Supervizorul verifică echipamentul persoanei înainte de reluarea lucrului.",
     ),
-    EventType.FOD: (
-        "Obiect static pe suprafața {zone_id}.",
-        "Obiectele uitate pot fi aspirate de motoare.",
-        "Inspectează și îndepărtează obiectul înainte de următoarea mișcare.",
-    ),
     EventType.SMOKING: (
         "Posibil fumat în zona {zone_id}.",
         "Fumatul lângă aeronave și combustibil e interzis.",

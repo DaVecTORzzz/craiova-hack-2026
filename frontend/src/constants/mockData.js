@@ -46,16 +46,7 @@ export const INITIAL_CAMERAS = [
     fps: 60,
     resolution: "4K 60FPS HDR",
     previewBg: "from-zinc-900 to-neutral-800",
-    boxes: [
-      {
-        id: "box-runway08-1",
-        label: "FOD Detectat pe Cale Rulare",
-        type: "critical",
-        coords: { top: "58%", left: "38%", width: "20%", height: "18%" },
-        trackingId: "fod_441",
-        details: "Obiect metalic nespecificat ~14cm pe axul pistei"
-      }
-    ]
+    boxes: []
   },
   {
     id: "gate4b",
@@ -156,35 +147,6 @@ export const INITIAL_EVENTS = [
       when: "10:42:13, timp în zonă 1,4 s.",
       severity_reason: "Motorul e pornit; risc de ingestie sau jet blast.",
       recommended_action: "Oprește activitatea la Stand 12. Contactează persoana prin radio.",
-      source: "llm"
-    }
-  },
-  {
-    event_id: "evt_runway08_1730284520110_44",
-    type: "FOD",
-    severity: "CRITICAL",
-    camera_id: "runway08",
-    zone_id: "runway-center",
-    track_id: 44,
-    confidence: { detector: 0.96, temporal: { seen: 15, window: 15 } },
-    duration_s: 3.2,
-    context: { engine_on: false },
-    snapshot_url: "https://images.unsplash.com/photo-1508873696983-2df5703bc20d?w=800&auto=format&fit=crop&q=60",
-    model: "fod-detector-v2",
-    detected_at: "2026-10-31T07:38:15.000Z",
-    status: "open",
-    received_at: "2026-10-31T07:38:15.200Z",
-    notified_at: "2026-10-31T07:38:16.100Z",
-    escalated_at: null,
-    escalate_after_s: 30,
-    acked_at: null,
-    acked_by: null,
-    report: {
-      what: "Fragment metalic reflectorizant de ~14cm pe axul pistei active.",
-      where: "Pista 08R, intersecție calea de rulare Bravo.",
-      when: "10:38:15, identificat la 420m de prag.",
-      severity_reason: "Pericol de absorbție în turbinele avioanelor sau tăiere anvelopă la decolare.",
-      recommended_action: "Blochează autorizările de decolare din TWR și trimite vehiculul 'Follow-Me' FOD sweeper.",
       source: "llm"
     }
   },
@@ -298,11 +260,11 @@ export const INITIAL_ZONES = [
   {
     zone_id: "runway-center",
     camera_id: "runway08",
-    rule_type: "FOD_WATCH",
+    rule_type: "RESTRICTED",
     active_when: "always",
     required_ppe: [],
     severity: "CRITICAL",
-    debounce_s: 3.0,
+    debounce_s: 1.0,
     notify_channel: "slack",
     escalate_after_s: 30,
     polygon: [
@@ -331,11 +293,10 @@ export const INITIAL_SHIFT_REPORT = {
     avg_ack_time_s: 38,
     ppe_compliance_pct: 94.2
   },
-  summary: "Tura de dimineață a avut un nivel de conformitate PPE de 94.2%. A fost neutralizat rapid un fragment FOD pe Pista 08R în mai puțin de 4 minute, prevenind întârzieri pe fluxul de decolare.",
+  summary: "Tura de dimineață a avut un nivel de conformitate PPE de 94.2%. O intrare neautorizată pe Pista 08R a fost confirmată de operator în mai puțin de 4 minute.",
   by_type: [
     { type: "NO_PPE", count: 9, label: "Echipament Lipsă" },
-    { type: "RESTRICTED_ZONE", count: 4, label: "Zonă Restricționată" },
-    { type: "FOD", count: 2, label: "FOD Runway" },
+    { type: "RESTRICTED_ZONE", count: 6, label: "Zonă Restricționată" },
     { type: "UNATTENDED_BAGGAGE", count: 2, label: "Bagaje Abandonate" },
     { type: "CAMERA_OFFLINE", count: 1, label: "Camere Offline" }
   ],

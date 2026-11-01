@@ -6,7 +6,6 @@ Responsabile: Ariana (prezentare + înregistrare OBS), Dalina (clipuri de test +
 Clip folosit: `2026-10-30_restricted-zone_cam02_lucratori-pushback-motor.mp4` (Drive → data/videos).
 
 ## Cazuri opționale (doar dacă avem clipuri verificate până la demo)
-- FOD: 3 s în demo (10 s în producție).
 - PPE lipsă.
 - Fumul rămâne stretch — nu intră în demo.
 
@@ -20,7 +19,7 @@ Clip folosit: `2026-10-30_restricted-zone_cam02_lucratori-pushback-motor.mp4` (D
 7. (15 s) Notificarea Slack cu textul formatat (fără imagini, fără butoane).
 8. (15 s) Escaladarea: alerta trece la supervisor dacă nu e confirmată.
 9. (20 s) Privacy: video-ul nu iese din aeroport, fețele se blur-ează.
-10. (15 s) Încheiere: ce urmează (FOD, PPE, fum) + întrebări.
+10. (15 s) Încheiere: ce urmează (PPE, fum) + întrebări.
 
 ## Versiunea scurtă (dacă rămânem fără timp)
 Sărim direct la pașii 2, 3, 4 și 9.

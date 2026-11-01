@@ -28,13 +28,6 @@ TEMPLATES = [
         "zone_id": "apron-stand12",
         "model": "person-ppe-v1",
     },
-    {
-        "type": EventType.FOD,
-        "severity": Severity.CRITICAL,
-        "camera_id": "taxiway-b",
-        "zone_id": "taxiway-b",
-        "model": "fod-diff-v1",
-    },
 ]
 
 
@@ -47,7 +40,7 @@ async def run_mock_generator() -> None:
         while True:
             await asyncio.sleep(settings.mock_interval_s)
             tpl = random.choice(TEMPLATES)
-            track_id = 0 if tpl["type"] == EventType.FOD else random.randint(1, 99)
+            track_id = random.randint(1, 99)
             unix_ms = int(time.time() * 1000)
             camera_id = tpl["camera_id"]
             event_id = f"evt_{camera_id}_{unix_ms}_{track_id}"

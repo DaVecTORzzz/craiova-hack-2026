@@ -548,7 +548,7 @@ export function SecurityProvider({ children }) {
     }
   };
 
-  // 6. Cadru de referință FOD (upload JPEG deja blurat)
+  // 6. Cadru de referință al zonei (upload JPEG deja blurat)
   const captureReferenceFrame = async (zoneId, file) => {
     showToast(`Salvare cadru de referință pentru zona ${zoneId}...`);
     try {
@@ -571,7 +571,7 @@ export function SecurityProvider({ children }) {
       setZones((prev) =>
         prev.map((zone) => (zone.zone_id === zoneId ? { ...zone, ...withFreshPreview(updated) } : zone))
       );
-      showToast('Cadru live preluat ca referință FOD.');
+      showToast('Cadru live preluat ca referință.');
     } catch (error) {
       showToast(`Preluarea cadrului live a eșuat: ${error.message}`);
     }

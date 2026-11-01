@@ -48,12 +48,6 @@ RULES = {
         "severity_reason": "Lucru fără echipamentul obligatoriu.",
         "recommended_action": "Supervizorul verifică echipamentul persoanei înainte de reluarea lucrului.",
     },
-    "FOD": {
-        "severity": "CRITICAL",
-        "what": "Obiect străin (FOD) pe suprafața de mișcare.",
-        "severity_reason": "Obiectele uitate pot fi aspirate de motoare.",
-        "recommended_action": "Inspectează și îndepărtează obiectul înainte de următoarea mișcare.",
-    },
     "SMOKING": {
         "severity": "WARNING",
         "what": "Posibil fumat în zona aeronavei.",
@@ -254,12 +248,12 @@ if __name__ == "__main__":
     # Fixture de demo: generează un raport dintr-un eveniment de test.
     fixture = {
         "event_id": "evt_demo_1",
-        "type": "FOD",
+        "type": "RESTRICTED_ZONE",
         "severity": "CRITICAL",
-        "camera_id": "taxiway-b",
-        "zone_id": "taxiway-b",
+        "camera_id": "stand12",
+        "zone_id": "engine-left",
         "detected_at": "2026-10-31T10:42:13Z",
-        "duration_s": 3.0,
+        "duration_s": 1.4,
     }
     generated = generate(fixture)
     print(json.dumps(generated, ensure_ascii=False, indent=2))
@@ -271,7 +265,7 @@ if __name__ == "__main__":
                 "date": "2026-10-31",
                 "kpi": {"open_incidents": 2, "escalated": 1},
                 "by_type": [
-                    {"type": "FOD", "critical": 1, "warning": 0},
+                    {"type": "RESTRICTED_ZONE", "critical": 1, "warning": 0},
                     {"type": "NO_PPE", "critical": 0, "warning": 4},
                 ],
             }

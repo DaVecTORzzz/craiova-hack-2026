@@ -47,7 +47,7 @@ def _seed_morning_shift() -> None:
         _event("NO_PPE", "WARNING", "apron-stand12", "false_positive", t(5, 10)),
         _event("NO_PPE", "WARNING", "apron-stand12", "acknowledged", t(6),
                notified_at=t(6) + 3 * s, acked_at=t(6) + 10 * s, acked_by="operator1"),
-        _event("FOD", "CRITICAL", "taxiway-b", "escalated", t(7),
+        _event("SMOKING", "CRITICAL", "taxiway-b", "escalated", t(7),
                notified_at=t(7) + 1.5 * s, escalated_at=t(7) + 30 * s),
         # Outside the window: 05:59 and 14:00 local
         _event("RESTRICTED_ZONE", "CRITICAL", "engine-left", "open", t(2, 59)),
@@ -87,9 +87,9 @@ def test_b12_shift_report_aggregates(client, monkeypatch):
     # Fals pozitivul (NO_PPE, 08:10 local) nu e incident: nu apare în by_type,
     # nu apare în by_zone și nu umflă totalul. Se numără separat.
     assert data["by_type"] == [
-        {"type": "FOD", "critical": 1, "warning": 0, "false_positive": 0},
         {"type": "NO_PPE", "critical": 0, "warning": 2, "false_positive": 1},
         {"type": "RESTRICTED_ZONE", "critical": 1, "warning": 0, "false_positive": 0},
+        {"type": "SMOKING", "critical": 1, "warning": 0, "false_positive": 0},
     ]
     assert data["by_zone"] == [
         {"zone_id": "apron-stand12", "critical": 0, "warning": 2, "avg_ack_s": 10, "false_positive": 1},

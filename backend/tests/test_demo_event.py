@@ -48,19 +48,6 @@ def test_demo_event_no_ppe_does_not_enable_engine(client, monkeypatch, capsys):
     assert stand12["engine_on"] is False
 
 
-def test_demo_event_fod_without_engine(client, monkeypatch, capsys):
-    _use_test_client(monkeypatch, client)
-
-    assert demo_event.main(["--edge-token", "test-token", "--type", "FOD", "--no-engine"]) == 0
-
-    event_id = capsys.readouterr().out.split()[2]
-    data = client.get(f"/events/{event_id}").json()
-    assert data["type"] == "FOD"
-    assert data["camera_id"] == "taxiway-b"
-    assert data["track_id"] == 0
-    assert data["context"] == {"engine_on": False}
-
-
 def test_demo_event_wrong_token_fails(client, monkeypatch):
     _use_test_client(monkeypatch, client)
     try:

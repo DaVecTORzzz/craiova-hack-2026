@@ -28,7 +28,7 @@ class LiveFrameWriter:
         self.interval_s = interval_s
         self.max_width = max_width
         self.path = self.directory / f"{camera_id}.jpg"
-        # Cerere de cadru "curat" (blurat, fără overlay) pentru referința FOD.
+        # Cerere de cadru "curat" (blurat, fără overlay) pentru cadrul de referință al zonei.
         self.clean_request = self.directory / f"{camera_id}.reference"
         self.clean_path = self.directory / f"{camera_id}.clean.jpg"
         self.directory.mkdir(parents=True, exist_ok=True)
