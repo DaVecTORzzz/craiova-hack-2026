@@ -29,6 +29,7 @@ import numpy as np
 
 from .align import ZoneAligner, load_reference
 from .capture import LatestFrameReader, is_live_source, webcam_index
+from .ncnn_detector import NcnnDetector
 from .detector import SyntheticDetector, YoloDetector
 from .events import EdgeEvent
 from .live import AnnotatedVideoWriter, AsyncLiveWriter, LiveFrameWriter
@@ -108,6 +109,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--camera-id", default="stand12")
     parser.add_argument("--model", default="yolo26n.pt")
     parser.add_argument("--conf", type=float, default=0.35)
+    parser.add_argument(
+        "--backend",
+        choices=("torch", "ncnn"),
+        default="torch",
+        help="ncnn runs the same weights on the integrated GPU when Vulkan sees one",
+    )
+    parser.add_argument("--ncnn-model", default="yolo26n_ncnn_model", help="directory from `yolo export format=ncnn`")
     parser.add_argument("--face-model", default=os.getenv("FACE_MODEL_PATH", DEFAULT_FACE_MODEL))
     parser.add_argument(
         "--threads",
@@ -247,7 +255,15 @@ def main(argv: list[str] | None = None) -> int:
         if not args.source:
             print("--source is required unless --fake is used", file=sys.stderr)
             return 2
-        detector = YoloDetector(args.model, confidence=args.conf)
+        if args.backend == "ncnn":
+            detector = NcnnDetector(
+                args.ncnn_model,
+                confidence=args.conf,
+                use_gpu=None,
+                threads=threads,
+            )
+        else:
+            detector = YoloDetector(args.model, confidence=args.conf)
         # Detection runs on every frame; the face pass runs on the live view and on
         # snapshots. Half the budget for the faces keeps the detector the bigger share.
         blurrer = FaceBlurrer(args.face_model, threads=max(1, threads // 2))
