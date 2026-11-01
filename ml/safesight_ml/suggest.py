@@ -29,17 +29,23 @@ import cv2
 import numpy as np
 
 # Echipamentul care primește zonă periculoasă, cu felul zonei sugerat.
-EQUIPMENT_PROMPTS = ("jet engine. boarding stairs. baggage cart. tow tractor.")
+# Doar pericolele fixe devin zonă. Un cărucior sau un tractor se mută în minutul
+# următor, iar o zonă desenată în jurul lui e fie inutilă, fie un fals pozitiv pe
+# un petec de asfalt (măsurat: „cărucioare bagaje" 0,48 pe tarmac gol).
+EQUIPMENT_PROMPTS = "jet engine. boarding stairs."
 EQUIPMENT_ZONES = {
     "jet engine": ("Zonă motor", "RESTRICTED", "CRITICAL"),
-    "boarding stairs": ("Zonă scări îmbarcare", "RESTRICTED", "CRITICAL"),
-    "baggage cart": ("Zonă cărucioare bagaje", "RESTRICTED", "WARNING"),
-    "tow tractor": ("Zonă tractare", "RESTRICTED", "WARNING"),
+    "boarding stairs": ("Zonă scări îmbarcare", "RESTRICTED", "WARNING"),
 }
 
 ACTIVITY_MARGIN = 0.03  # cât creștem poligonul de activitate, ca omul să fie înăuntru
 EQUIPMENT_SIDE_PAD = 0.25  # cât lățime în plus în jurul echipamentului
 EQUIPMENT_GROUND_DROP = 1.2  # cât coborâm sub echipament, spre zona de pericol
+# Un echipament ocupă între 0,05% și 8% din cadru: sub asta e zgomot, peste e decor
+# (un „tractor" cât o pistă întreagă nu e un tractor).
+EQUIPMENT_MIN_AREA = 0.0005
+EQUIPMENT_MAX_AREA = 0.08
+EQUIPMENT_MAX_ZONE_AREA = 0.30  # nici zona extinsă spre sol nu are voie să acopere tot
 CLUSTER_RADIUS = 0.06  # ~6% din diagonală: un grup de oameni, nu două
 CLUSTER_MINIMUM = 12  # sub atât e un trecător, nu o zonă de lucru
 
@@ -158,7 +164,7 @@ def equipment_proposals(
     frame: np.ndarray,
     camera_id: str,
     *,
-    threshold: float = 0.25,
+    threshold: float = 0.35,
     text_threshold: float = 0.2,
 ) -> list[Proposal]:
     """Open-vocabulary: cere ``transformers`` doar când e folosit."""
@@ -192,6 +198,14 @@ def equipment_proposals(
             continue
         name, rule_type, severity = EQUIPMENT_ZONES[key]
         x1, y1, x2, y2 = (float(v) for v in box)
+        area = (x2 - x1) * (y2 - y1) / (width * height)
+        if not EQUIPMENT_MIN_AREA <= area <= EQUIPMENT_MAX_AREA:
+            continue  # un dreptunghi care acoperă o treime din cadru e decor, nu echipament
+        polygon = equipment_polygon((x1 / width, y1 / height, x2 / width, y2 / height), (height, width))
+        xs = [point[0] for point in polygon]
+        ys = [point[1] for point in polygon]
+        if (max(xs) - min(xs)) * (max(ys) - min(ys)) > EQUIPMENT_MAX_ZONE_AREA:
+            continue  # extinderea spre sol a făcut zona prea mare ca să fie utilă
         proposals.append(
             Proposal(
                 id=f"{camera_id}-{key.replace(' ', '-')}",
@@ -200,7 +214,7 @@ def equipment_proposals(
                 label=name,
                 rule_type=rule_type,
                 severity=severity,
-                polygon=equipment_polygon((x1 / width, y1 / height, x2 / width, y2 / height), (height, width)),
+                polygon=polygon,
                 score=float(score),
                 evidence={"detector": "grounding-dino-tiny", "box": [round(x1), round(y1), round(x2), round(y2)]},
             )
@@ -208,17 +222,56 @@ def equipment_proposals(
     return proposals
 
 
-def read_frames(source: Path, limit: int, *, sample_every: int = 1) -> list[np.ndarray]:
+def _polygon_iou(a: list[tuple[float, float]], b: list[tuple[float, float]]) -> float:
+    def bounds(polygon):
+        xs = [point[0] for point in polygon]
+        ys = [point[1] for point in polygon]
+        return min(xs), min(ys), max(xs), max(ys)
+
+    ax1, ay1, ax2, ay2 = bounds(a)
+    bx1, by1, bx2, by2 = bounds(b)
+    inter = max(0.0, min(ax2, bx2) - max(ax1, bx1)) * max(0.0, min(ay2, by2) - max(ay1, by1))
+    union = (ax2 - ax1) * (ay2 - ay1) + (bx2 - bx1) * (by2 - by1) - inter
+    return inter / union if union > 0 else 0.0
+
+
+def dedupe(proposals: list[Proposal], threshold: float = 0.5) -> list[Proposal]:
+    """Un obiect detectat de trei ori e o zonă, nu trei.
+
+    Se păstrează propunerea cu scorul cel mai mare și se aruncă cele care se suprapun
+    peste ea, indiferent de etichetă (motorul prins ca „tractor" nu devine a doua zonă).
+    """
+    kept: list[Proposal] = []
+    for proposal in sorted(proposals, key=lambda item: item.score, reverse=True):
+        if any(_polygon_iou(proposal.polygon, other.polygon) >= threshold for other in kept):
+            continue
+        kept.append(proposal)
+    return kept
+
+
+def read_frames(source: Path, limit: int, *, max_size: int = 1920) -> list[np.ndarray]:
+    """Cadre eșantionate pe toată durata clipului, nu doar de la început.
+
+    „Unde stă lumea" se vede din tot materialul, nu din prima secundă. Cadrele se
+    micșorează la ``max_size`` pe latura lungă: analiza nu are nevoie de 4K, iar
+    detectorul oricum lucrează la 640.
+    """
     capture = cv2.VideoCapture(str(source))
     if not capture.isOpened():
         raise SystemExit(f"nu pot deschide {source}")
+    total = int(capture.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+    step = max(1, total // max(limit, 1)) if total > 0 else 1
     frames: list[np.ndarray] = []
     index = 0
     while len(frames) < limit:
         ok, frame = capture.read()
         if not ok:
             break
-        if index % sample_every == 0:
+        if index % step == 0:
+            height, width = frame.shape[:2]
+            if max_size and max(height, width) > max_size:
+                scale = max_size / max(height, width)
+                frame = cv2.resize(frame, (round(width * scale), round(height * scale)))
             frames.append(frame)
         index += 1
     capture.release()
@@ -234,6 +287,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--frames", type=int, default=60, help="câte cadre analizează pentru activitate")
     parser.add_argument("--model", default="yolo26n.pt")
     parser.add_argument("--no-equipment", action="store_true", help="doar zone de activitate (rapid)")
+    parser.add_argument("--max-size", type=int, default=1920, help="latura lungă la care se micșorează cadrele")
     parser.add_argument("--out", type=Path, help="scrie propunerile într-un JSON")
     parser.add_argument("--api-url", help="trimite propunerile la backend")
     parser.add_argument("--token", help="EDGE_TOKEN, pentru POST /zones/proposals")
@@ -249,15 +303,24 @@ def main(argv: list[str] | None = None) -> int:
             raise SystemExit(f"nu pot citi {source}")
         frames = [frame]
     else:
-        frames = read_frames(source, args.frames, sample_every=max(1, 1))
+        frames = read_frames(source, args.frames, max_size=args.max_size)
 
+    import time
+
+    started = time.perf_counter()
     proposals = activity_proposals(frames, args.camera_id, detector)
+    activity_s = time.perf_counter() - started
+    equipment_s = 0.0
     if not args.no_equipment:
+        started = time.perf_counter()
         try:
             proposals += equipment_proposals(frames[len(frames) // 2], args.camera_id)
+            equipment_s = time.perf_counter() - started
         except RuntimeError as exc:
             print(f"warn: {exc}", file=sys.stderr)
+    print(f"timp: activitate {activity_s:.1f}s, echipament {equipment_s:.1f}s ({len(frames)} cadre)", file=sys.stderr)
 
+    proposals = dedupe(proposals)
     payload = {"camera_id": args.camera_id, "proposals": [p.as_dict() for p in proposals]}
     if args.out:
         args.out.write_text(json.dumps(payload, indent=2), encoding="utf-8")

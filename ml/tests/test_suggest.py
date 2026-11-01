@@ -47,3 +47,22 @@ def test_equipment_box_is_extended_sideways_and_down_to_the_ground():
 def test_equipment_zone_never_leaves_the_frame():
     polygon = equipment_polygon((0.01, 0.80, 0.10, 0.95), (1080, 1920), side_pad=0.5, ground_drop=2.0)
     assert all(0.0 <= x <= 1.0 and 0.0 <= y <= 1.0 for x, y in polygon)
+
+
+def test_duplicate_detections_of_one_object_become_one_zone():
+    from safesight_ml.suggest import Proposal, dedupe
+
+    def proposal(name: str, score: float, box: tuple[float, float, float, float]) -> Proposal:
+        x1, y1, x2, y2 = box
+        return Proposal(
+            id=name, camera_id="stand12", kind="equipment", label=name, rule_type="RESTRICTED",
+            severity="CRITICAL", polygon=[(x1, y1), (x2, y1), (x2, y2), (x1, y2)], score=score,
+        )
+
+    same = proposal("motor-puternic", 0.8, (0.2, 0.3, 0.4, 0.5))
+    weaker = proposal("motor-slab", 0.4, (0.21, 0.31, 0.41, 0.51))
+    elsewhere = proposal("scari", 0.6, (0.6, 0.3, 0.8, 0.5))
+
+    kept = dedupe([same, weaker, elsewhere])
+
+    assert [item.id for item in kept] == ["motor-puternic", "scari"]
