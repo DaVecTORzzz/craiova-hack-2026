@@ -94,7 +94,7 @@ async def record_beat(session: Session, camera_id: str) -> EventOut | None:
 
     out = event_out(session, recovered) if recovered is not None else None
     if out is not None:
-        outbox.enqueue(outage_id or "", "recovery", _recovery_text(recovered, now), session=session)
+        outbox.enqueue(outage_id, "recovery", _recovery_text(recovered, now), session=session)
     session.commit()
 
     if out is not None:
@@ -134,6 +134,11 @@ async def _open_outage(camera_id: str, engine_on: bool, last_seen: datetime, now
     with Session(get_engine()) as session:
         beat = session.get(EdgeHeartbeat, camera_id)
         if beat is None or beat.outage_event_id is not None:
+            return
+        # A beat may have arrived between the scan and this check: never declare a
+        # camera dead while it is alive (the next beat would resolve it, but the
+        # operator would have seen a false incident first).
+        if (utcnow() - beat.last_seen_at).total_seconds() <= get_settings().camera_offline_after_s:
             return
         # ingest() writes the event and its alert row, commits, and broadcasts.
         await ingest(session, payload)
