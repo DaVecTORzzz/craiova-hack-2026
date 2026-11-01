@@ -1,6 +1,6 @@
 # Contractul dintre module
 
-Versiunea 2.2 · 1 noiembrie 2026. Produs: **SafeSight**. Aliniat la briefingurile Ultra A–D. Responsabil: Max (backend). Orice schimbare se face prin pull request aprobat de cel afectat.
+Versiunea 2.2 · 1 noiembrie 2026. FOD scos din scope. Produs: **SafeSight**. Aliniat la briefingurile Ultra A–D. Responsabil: Max (backend). Orice schimbare se face prin pull request aprobat de cel afectat.
 
 Față de 2.1, aditiv: `POST /edge/heartbeat`, `GET /events?from&to`, câmpurile `coverage` / `total_events` / `false_positives` din raportul de tură și semantica lui `notified_at` (livrare cu retry). Nimic nu s-a șters sau redenumit.
 
@@ -30,13 +30,13 @@ Edge **nu** trimite `status`, `report`, `received_at`, `notified_at`, `escalated
 | Câmp | Tip | Regulă |
 |---|---|---|
 | `event_id` | string | `evt_<camera_id>_<unix_ms>_<track_id>`; unic, cheia de idempotență. |
-| `type` | enum | `RESTRICTED_ZONE`, `NO_PPE`, `FOD`, `SMOKING`, `CAMERA_OFFLINE`. `CROWD` e rezervat. |
+| `type` | enum | `RESTRICTED_ZONE`, `NO_PPE`, `SMOKING`, `CAMERA_OFFLINE`. `CROWD` e rezervat. |
 | `severity` | enum | Doar `CRITICAL` sau `WARNING`. `RESOLVED` este status, nu severitate. |
 | `camera_id` | string | ID-ul din seed: `stand12`, `taxiway-b`, `baggage-area`. |
 | `zone_id` | string | ID-ul zonei din seed sau din editorul lui C. |
-| `track_id` | int | ID ByteTrack. `0` pentru evenimente fără track de persoană (FOD, cameră offline). |
+| `track_id` | int | ID ByteTrack. `0` pentru evenimente fără track de persoană (cameră offline). |
 | `confidence` | object | `{ detector: 0–1, temporal: { seen, window } }`. Nu șir, nu float simplu. |
-| `duration_s` | float | Timpul în zonă sau al obiectului static. |
+| `duration_s` | float | Timpul în zonă. |
 | `context` | object | `{ engine_on: bool }` la momentul detecției. |
 | `snapshot_url` | string | URL HTTP relativ, servit de `GET /snapshots/{file}`. Niciodată `minio://`. |
 | `model` | string | Nume și versiune, ex. `person-ppe-v1`. |
@@ -107,7 +107,7 @@ Nu există status intermediar `verifying`. Fumul este stretch și se emite doar 
 | PUT | `/cameras/{camera_id}/engine` | setează `engine_on`; body `{ "on": true }`; doar demo |
 | GET | `/zones?camera_id=stand12` | zonele pentru editor |
 | PUT | `/zones/{zone_id}` | salvează zona; A o reîncarcă fără restart |
-| POST | `/zones/reference-frame` | salvează cadrul de referință pentru FOD |
+| POST | `/zones/reference-frame` | salvează cadrul de referință al zonei (fundalul din editor) |
 | GET | `/events?status=open&severity=CRITICAL` | lista de evenimente, filtre combinabile |
 | GET | `/events?from=2026-10-30T06:00:00Z&to=2026-10-30T14:00:00Z` | filtre de timp, combinabile cu celelalte; `to` exclusiv |
 | GET | `/events/{event_id}` | detaliu: dovadă, cronologie, raport |
@@ -155,10 +155,10 @@ B o generează singur, pe baza heartbeat-ului; edge-ul nu trimite niciodată `CA
 }
 ```
 
-- `rule_type`: `RESTRICTED`, `PPE_REQUIRED`, `FOD_WATCH`, `NO_SMOKING`; `CROWD_WATCH` rezervat.
+- `rule_type`: `RESTRICTED`, `PPE_REQUIRED`, `NO_SMOKING`; `CROWD_WATCH` rezervat.
 - `active_when`: `always`, `engine_on`; `schedule` rămâne roadmap.
 - `polygon`: coordonate normalizate 0–1 față de cadru, nu pixeli, în ordine pe contur. Laturile nu se pot intersecta (fără „clepsidre”); `PUT /zones/{id}` răspunde `422` altfel.
-- `debounce_s`: durata minimă în zonă. FOD: `3` în demo, `10` în producție.
+- `debounce_s`: durata minimă în zonă.
 - `escalate_after_s`: per zonă; `null` = fără escaladare. Seed demo `30`, producție `120`.
 - `notify_channel`: `slack` în demo; Teams/SMS/radio rămân roadmap.
 
@@ -201,7 +201,7 @@ B apelează `automation.report.generate(event)` în proces, nu printr-un endpoin
 - Statusuri: `open`, `acknowledged`, `false_positive`, `escalated`, `resolved`.
 - SQLite prin SQLModel; Postgres doar plan B.
 - Slack incoming webhook, text + link, fără imagini și fără butoane.
-- Escaladare per zonă; FOD 3 s demo / 10 s producție.
+- Escaladare per zonă.
 - O alertă nu se pierde: B scrie evenimentul și notificarea în aceeași tranzacție, apoi reîncearcă. `notified_at` se setează doar la primul succes real; un rând eșuat definitiv rămâne în evidență.
 - `CAMERA_OFFLINE` e generat de B din heartbeat, nu trimis de edge; un singur incident per cădere, `resolved` la revenire.
 - Demo fără login: câmp `operator`; JWT/SSO și audit sunt roadmap.
@@ -211,5 +211,5 @@ B apelează `automation.report.generate(event)` în proces, nu printr-un endpoin
 
 ## Decizii tehnice
 
-- **Model de detecție: YOLO26.** Nu YOLO11 și nu generații mai vechi. `YOLO26s` pentru acuratețe, `YOLO26n` dacă FPS-ul scade sub 10. `YOLO11s` rămâne doar fallback dacă YOLO26 nu converge pe PPE/FOD sau nu exportă pe edge; orice schimbare se anunță înainte de demo.
-- Licența YOLO și datele FOD-A se verifică înainte de orice demo comercial.
+- **Model de detecție: YOLO26.** Nu YOLO11 și nu generații mai vechi. `YOLO26s` pentru acuratețe, `YOLO26n` dacă FPS-ul scade sub 10. `YOLO11s` rămâne doar fallback dacă YOLO26 nu converge pe PPE sau nu exportă pe edge; orice schimbare se anunță înainte de demo.
+- Licența YOLO se verifică înainte de orice demo comercial.
