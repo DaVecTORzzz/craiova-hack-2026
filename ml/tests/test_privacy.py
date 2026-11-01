@@ -80,3 +80,24 @@ def test_strong_blur_removes_at_least_as_much_detail_as_gaussian_sigma_25():
 
     assert _strong_blur(roi).shape == roi.shape
     assert detail(_strong_blur(roi)) <= detail(cv2.GaussianBlur(roi, (0, 0), sigmaX=25)) * 1.1
+
+@pytest.mark.parametrize(
+    ("available", "expected"),
+    [
+        (["CPUExecutionProvider"], ["CPUExecutionProvider"]),
+        (
+            ["CUDAExecutionProvider", "CPUExecutionProvider"],
+            ["CUDAExecutionProvider", "CPUExecutionProvider"],
+        ),
+        (
+            ["ROCMExecutionProvider", "CPUExecutionProvider"],
+            ["ROCMExecutionProvider", "CPUExecutionProvider"],
+        ),
+        (["OpenVINOExecutionProvider", "CPUExecutionProvider"], ["CPUExecutionProvider"]),
+    ],
+)
+def test_the_face_pass_uses_a_discrete_gpu_when_one_is_available(available, expected):
+    """Machines without CUDA/ROCm keep the CPU path unchanged; the choice is data only."""
+    from safesight_ml.privacy import _providers
+
+    assert _providers(available) == expected
