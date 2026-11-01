@@ -96,6 +96,7 @@ class Pipeline:
         start_epoch: float | None = None,
         rules: RuleEngine | None = None,
         clock: Callable[[], float] | None = None,
+        incident_cooldown_s: float = 60.0,
         live_writer: LiveFrameWriter | AsyncLiveWriter | None = None,
         video_writer: AnnotatedVideoWriter | None = None,
         aligner: ZoneAligner | None = None,
@@ -121,10 +122,21 @@ class Pipeline:
         # live view keeps updating, but no new event is raised.
         self.emit_events = True
         self.vests = VestTracker()
+        # One incident per type and zone per window: a worker without a vest must not page
+        # the operator every few seconds, and the operator already has that case open.
+        self.incident_cooldown_s = incident_cooldown_s
+        self._last_incident: dict[tuple[str, str], float] = {}
 
     def set_config(self, zones: list[Zone], engine_on: bool) -> None:
         self.zones = [zone for zone in zones if zone.camera_id == self.camera_id]
         self.engine_on = engine_on
+
+    def _in_cooldown(self, event_type: str, zone_id: str, now_s: float) -> bool:
+        """True while an incident of this type in this zone is still fresh."""
+        if self.incident_cooldown_s <= 0:
+            return False
+        last = self._last_incident.get((event_type, zone_id))
+        return last is not None and now_s - last < self.incident_cooldown_s
 
     def process(self, frame: np.ndarray, now_s: float) -> list[EdgeEvent]:
         self.rules.prune(now_s)
@@ -218,6 +230,10 @@ class Pipeline:
                 if decision is None:
                     continue
 
+                event_type = EVENT_TYPE_BY_RULE[zone.rule_type]
+                if self._in_cooldown(event_type, zone.id, now_s):
+                    continue
+
                 event_epoch = self.clock() if self.clock is not None else self.start_epoch + now_s
                 detected_at = datetime.fromtimestamp(event_epoch, tz=UTC)
                 event_id = f"evt_{self.camera_id}_{int(event_epoch * 1000)}_{detection.track_id}"
@@ -229,7 +245,7 @@ class Pipeline:
 
                 event = EdgeEvent(
                     event_id=event_id,
-                    type=EVENT_TYPE_BY_RULE[zone.rule_type],  # type: ignore[arg-type]
+                    type=event_type,  # type: ignore[arg-type]
                     severity=zone.severity,
                     camera_id=self.camera_id,
                     zone_id=zone.id,
@@ -249,6 +265,7 @@ class Pipeline:
                 )
                 with self.timer.stage("emit"):
                     self.sink.emit(event)
+                self._last_incident[(event_type, zone.id)] = now_s
                 emitted.append(event)
 
         if self.video_writer is not None:

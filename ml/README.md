@@ -272,6 +272,7 @@ fixtures/
 - `debounce_s` și confidence temporal: minim 5 cadre observate și 80% confirmare.
 - `detected_at` folosește ceasul real al procesării, nu timpul video; `now_s` rămâne pentru durata în zonă.
 - `snapshot_url` e HTTP; niciodată `minio://`. Snapshot-ul se urcă cu `event_id` ca form field.
+- Un incident per **tip și zonă** la cel mult `--incident-cooldown-s` secunde (implicit 60): un muncitor fără vestă, sau o persoană care iese și reintră în zonă, nu mai pagește operatorul la fiecare câteva secunde. Regula din `zones.py` declanșează în continuare o dată per prezență; cooldown-ul e stratul de deasupra, ca un al doilea om (sau un track id nou) să nu producă un al doilea incident în același minut. `0` îl dezactivează.
 - `FaceBlurrer` blurează fețele YuNet **și** partea de sus a fiecărui bbox de persoană, ca plasă de siguranță pentru fețe mici.
 - Stările track-urilor dispărute se curăță după cooldown.
 - `status`, `report`, `received_at`, `notified_at`, `escalated_at`, `acked_at`, `acked_by` nu se trimit din edge.
