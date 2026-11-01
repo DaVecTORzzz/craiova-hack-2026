@@ -89,7 +89,7 @@ Scenariul complet, cu ce spui la fiecare pas: [`demo/run_sheet.md`](demo/run_she
 
 | Folder | Ce conține | Responsabil |
 |---|---|---|
-| [`ml/`](ml/README.md) | Detecție (YOLO26), tracking, zone, FOD, blur pe fețe | Andrei |
+| [`ml/`](ml/README.md) | Detecție (YOLO26), tracking, zone, blur pe fețe | Andrei |
 | [`backend/`](backend/README.md) | FastAPI, rule engine, WebSocket, stream video, stocare | Max |
 | [`automation/`](automation/README.md) | Raport AI, notificări Slack, escaladare, raport de tură | Dalina |
 | [`frontend/`](frontend/README.md) | Dashboard React + Vite | Ariana |
