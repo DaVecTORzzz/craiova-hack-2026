@@ -405,3 +405,45 @@ def test_limit_size_shrinks_only_the_longest_side_above_the_limit():
     assert limit_size(portrait, 1920).shape == (1920, 1080, 3)
     assert limit_size(small, 1920) is small
     assert limit_size(landscape, 0) is landscape
+
+def _detector_two_people_one_after_another() -> FakeDetector:
+    """Track 1 walks in for 6 s, then track 2 does the same — a re-id or a second worker."""
+    frames = []
+    for _ in range(10):
+        frames.append([])  # nobody: clears any rule state
+    for _ in range(60):
+        frames.append([Detection(track_id=1, bbox=(0.50, 0.20, 0.60, 0.60), confidence=0.9)])
+    for _ in range(150):
+        frames.append([])  # long enough for the rule cooldown to expire
+    for _ in range(60):
+        frames.append([Detection(track_id=2, bbox=(0.50, 0.20, 0.60, 0.60), confidence=0.9)])
+    return FakeDetector(frames)
+
+
+def _run(detector, *, cooldown_s: float, fps: float = 10.0) -> list:
+    pipeline = Pipeline(
+        camera_id="stand12",
+        zones=[ZONE],
+        detector=detector,
+        blurrer=RecordingBlurrer(),
+        sink=RecordingSink(),
+        engine_on=True,
+        start_epoch=1_793_356_933.0,
+        incident_cooldown_s=cooldown_s,
+    )
+    frame = np.zeros((360, 640, 3), dtype=np.uint8)
+    emitted = []
+    for step in range(280):
+        emitted.extend(pipeline.process(frame, now_s=step / fps))
+    return emitted
+
+
+def test_two_presences_in_the_same_zone_raise_two_incidents_without_a_cooldown():
+    emitted = _run(_detector_two_people_one_after_another(), cooldown_s=0)
+    assert [event.track_id for event in emitted] == [1, 2]
+
+
+def test_the_same_zone_does_not_raise_the_same_incident_twice_inside_the_cooldown():
+    """A worker without a vest must not page the operator every few seconds."""
+    emitted = _run(_detector_two_people_one_after_another(), cooldown_s=60)
+    assert [event.track_id for event in emitted] == [1]

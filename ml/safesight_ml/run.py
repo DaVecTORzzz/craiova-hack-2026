@@ -125,6 +125,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="cap compute threads for this edge (torch, OpenCV, face pass); 0 = split by --share-cpu",
     )
     parser.add_argument(
+        "--incident-cooldown-s",
+        type=float,
+        default=60.0,
+        metavar="S",
+        help="one incident per type and zone per window; 0 = no cooldown",
+    )
+    parser.add_argument(
         "--share-cpu",
         type=int,
         default=1,
@@ -302,6 +309,7 @@ def main(argv: list[str] | None = None) -> int:
         live_writer=live_writer,
         aligner=aligner,
         membership=ZoneMembership(margin=args.zone_margin),
+        incident_cooldown_s=args.incident_cooldown_s,
     )
 
     total = 0

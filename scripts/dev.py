@@ -619,6 +619,7 @@ def run_demo(args: argparse.Namespace) -> int:
                         # start a pool sized from the core count. With three cameras that
                         # is three pools fighting for 16 cores.
                         *(["--backend", args.backend] if args.backend != "torch" else []),
+                        *(["--incident-cooldown-s", str(args.incident_cooldown_s)] if args.incident_cooldown_s else []),
                         "--share-cpu",
                         str(len(runnable)) if not args.threads else "1",
                         *(["--threads", str(args.threads)] if args.threads else []),
@@ -715,6 +716,13 @@ def build_parser() -> argparse.ArgumentParser:
         choices=("torch", "ncnn"),
         default="torch",
         help="ncnn rulează aceleași weights pe iGPU (Vulkan), eliberând CPU-ul",
+    )
+    p_demo.add_argument(
+        "--incident-cooldown-s",
+        type=float,
+        default=0,
+        metavar="S",
+        help="un incident per tip și zonă la acest interval (implicit 60 în edge)",
     )
     p_demo.add_argument("--no-ml", action="store_true", help="nu porni edge-ul")
     p_demo.add_argument("--edge-token", default=None, help="token edge; implicit EDGE_TOKEN din mediu sau .env")
