@@ -60,3 +60,33 @@ def test_decode_clips_boxes_to_the_frame():
     boxes, _ = decode(output, scale=1.0, left=0, top=0, frame_shape=(640, 640, 3))
     assert boxes[0][0] >= 0 and boxes[0][1] >= 0
     assert boxes[0][2] <= 640 and boxes[0][3] <= 640
+
+class _Info:
+    def __init__(self, name: str) -> None:
+        self._name = name
+
+    def device_name(self) -> str:
+        return self._name
+
+
+class _FakeNcnn:
+    def __init__(self, names: list[str]) -> None:
+        self._names = names
+
+    def create_gpu_instance(self) -> None:
+        return None
+
+    def get_gpu_count(self) -> int:
+        return len(self._names)
+
+    def get_gpu_info(self, index: int) -> _Info:
+        return _Info(self._names[index])
+
+
+def test_a_software_renderer_is_never_picked_as_the_gpu():
+    """`get_gpu_count()` also counts llvmpipe; using it would be slower than the CPU."""
+    from safesight_ml.ncnn_detector import _gpu_device
+
+    assert _gpu_device(_FakeNcnn(["llvmpipe (LLVM 22.1.8, 256 bits)"])) is None
+    assert _gpu_device(_FakeNcnn(["AMD Radeon 780M Graphics (RADV PHOENIX)"])) == 0
+    assert _gpu_device(_FakeNcnn(["llvmpipe (LLVM)", "AMD Radeon 780M"]) ) == 1

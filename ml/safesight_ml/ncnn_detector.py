@@ -110,10 +110,13 @@ class NcnnDetector:
         self.confidence = confidence
         self.classes = classes
         self._net = ncnn.Net()
-        # A GPU is only worth it when Vulkan actually sees one; llvmpipe (software) is not.
-        gpu_available = ncnn.get_gpu_count() > 0 and "llvmpipe" not in _gpu_names(ncnn)
-        self.use_gpu = gpu_available if use_gpu is None else use_gpu
+        # A GPU is only worth it when Vulkan sees a real one: llvmpipe is a CPU renderer
+        # that shows up in the device list and would be slower than the CPU path.
+        device = _gpu_device(ncnn)
+        self.use_gpu = device is not None if use_gpu is None else use_gpu
         self._net.opt.use_vulkan_compute = self.use_gpu
+        if self.use_gpu and device is not None:
+            self._net.set_vulkan_device(device)
         if threads > 0:
             self._net.opt.num_threads = threads
         self._net.load_param(str(param))
@@ -177,9 +180,27 @@ def _boxes_class() -> type:
     return Boxes
 
 
-def _gpu_names(ncnn_module) -> str:
-    """Device names as ncnn prints them, so a software renderer can be skipped."""
+SOFTWARE_RENDERERS = ("llvmpipe", "swiftshader", "softpipe")
+
+
+def _gpu_device(ncnn_module) -> int | None:
+    """Index of the best device that is not a software renderer, or ``None``.
+
+    ``get_gpu_count()`` also counts llvmpipe, so counting alone would send the detector to
+    a CPU rasteriser that is slower than not using Vulkan at all.
+    """
     try:
-        return " ".join(ncnn_module.get_gpu_list_ncnn()) if hasattr(ncnn_module, "get_gpu_list_ncnn") else ""
-    except Exception:  # noqa: BLE001 - only used to pick a device, never to fail
-        return ""
+        if hasattr(ncnn_module, "create_gpu_instance"):
+            ncnn_module.create_gpu_instance()
+        count = ncnn_module.get_gpu_count()
+    except Exception:  # noqa: BLE001 - no Vulkan is a normal outcome, not an error
+        return None
+    for index in range(count):
+        try:
+            name = ncnn_module.get_gpu_info(index).device_name().lower()
+        except Exception:  # noqa: BLE001 - an unreadable device is skipped, not fatal
+            continue
+        if any(software in name for software in SOFTWARE_RENDERERS):
+            continue
+        return index
+    return None
