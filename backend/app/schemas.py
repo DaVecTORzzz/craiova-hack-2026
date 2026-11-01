@@ -217,3 +217,11 @@ class ShiftReport(BaseModel):
     false_positives: int = 0
     # Minutele în care camerele nu au transmis (CAMERA_OFFLINE nu e incident de operator).
     coverage: dict = Field(default_factory=dict)
+
+
+class CameraCreate(BaseModel):
+    """A camera added at runtime, e.g. the laptop webcam as a demo feed."""
+
+    model_config = ConfigDict(extra="forbid")
+    name: str = Field(min_length=1, max_length=80)
+    rtsp_url: str | None = None
