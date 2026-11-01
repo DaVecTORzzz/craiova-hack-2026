@@ -1,5 +1,6 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { PenTool, Save, Trash2, Camera, Info, Shield, Layers, Code } from 'lucide-react';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
+import { PenTool, Save, Trash2, Camera, Info, Shield, Layers, Code, Undo2, Wand2, AlertTriangle } from 'lucide-react';
+import { crossingEdges, orderAroundCentroid } from '../../utils/polygon';
 import { useTheme } from '../../context/ThemeContext';
 import { useSecurity } from '../../context/SecurityContext';
 
@@ -24,6 +25,15 @@ export default function ZoneEditorView() {
     { x: 0.3, y: 0.75 }
   ]);
   const [isPolygonClosed, setIsPolygonClosed] = useState(true);
+  // Editing: selected vertex (Delete removes it), undo stack, and the drag in progress.
+  const [selectedIdx, setSelectedIdx] = useState(null);
+  const [history, setHistory] = useState([]);
+  const dragRef = useRef(null);
+  // The points as last rendered, for the end of a drag (a pointer event reads it after moves).
+  const pointsRef = useRef(points);
+  pointsRef.current = points;
+  // With pointer capture, the click that ends a drag lands on the canvas: ignore that one.
+  const suppressClickRef = useRef(false);
   const [showJsonFallback, setShowJsonFallback] = useState(false);
   const [jsonInput, setJsonInput] = useState(JSON.stringify(points, null, 2));
 
@@ -56,6 +66,8 @@ export default function ZoneEditorView() {
       setZoneId('');
       setPoints([]);
       setIsPolygonClosed(false);
+      setSelectedIdx(null);
+      setHistory([]);
       setJsonInput('[]');
       setRuleType('RESTRICTED');
       setActiveWhen('always');
@@ -76,6 +88,8 @@ export default function ZoneEditorView() {
     setZoneId(zone.zone_id);
     setPoints(zone.polygon || []);
     setIsPolygonClosed(true);
+    setSelectedIdx(null);
+    setHistory([]);
     setJsonInput(JSON.stringify(zone.polygon || [], null, 2));
     setRuleType(zone.rule_type || 'RESTRICTED');
     setActiveWhen(zone.active_when || 'always');
@@ -101,39 +115,160 @@ export default function ZoneEditorView() {
     );
   }
 
-  // Click pe canvas pentru adăugare punct
-  const handleCanvasClick = (e) => {
-    if (isPolygonClosed) return;
+  // Every edit goes through here, so Ctrl+Z can undo it.
+  const HISTORY_LIMIT = 50;
+  const commitPoints = useCallback((next, previous = points) => {
+    setHistory((h) => [...h.slice(-(HISTORY_LIMIT - 1)), { points: previous, closed: isPolygonClosed }]);
+    setPoints(next);
+    setJsonInput(JSON.stringify(next, null, 2));
+  }, [points, isPolygonClosed]);
+
+  const undo = useCallback(() => {
+    if (!history.length) return;
+    const last = history[history.length - 1];
+    setHistory(history.slice(0, -1));
+    setPoints(last.points);
+    setIsPolygonClosed(last.closed);
+    setJsonInput(JSON.stringify(last.points, null, 2));
+    setSelectedIdx(null);
+  }, [history]);
+
+  const deletePoint = useCallback((idx) => {
+    // A closed zone keeps at least 3 points; while drawing, any point can go.
+    if (isPolygonClosed && points.length <= 3) {
+      showToast('O zonă are nevoie de cel puțin 3 puncte.');
+      return;
+    }
+    commitPoints(points.filter((_, i) => i !== idx));
+    setSelectedIdx(null);
+  }, [points, isPolygonClosed, commitPoints, showToast]);
+
+  // Pointer position inside the frame, normalized 0-1 and clamped to the frame.
+  const toNormalized = (e) => {
     const rect = canvasContainerRef.current.getBoundingClientRect();
     const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     const y = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
-    const newPoints = [...points, { x: Number(x.toFixed(3)), y: Number(y.toFixed(3)) }];
-    setPoints(newPoints);
-    setJsonInput(JSON.stringify(newPoints, null, 2));
+    return { x: Number(x.toFixed(3)), y: Number(y.toFixed(3)) };
   };
 
-  // Dublu-click pentru închidere poligon
-  const handleDoubleClick = () => {
-    if (points.length >= 3) {
+  // Close by clicking the first point (a double-click used to add two extra points first).
+  const CLOSE_RADIUS_PX = 12;
+  const nearFirstPoint = (e) => {
+    if (points.length < 3) return false;
+    const rect = canvasContainerRef.current.getBoundingClientRect();
+    const dx = e.clientX - (rect.left + points[0].x * rect.width);
+    const dy = e.clientY - (rect.top + points[0].y * rect.height);
+    return Math.hypot(dx, dy) <= CLOSE_RADIUS_PX;
+  };
+
+  const handleCanvasClick = (e) => {
+    if (suppressClickRef.current) {
+      suppressClickRef.current = false;
+      return;
+    }
+    if (isPolygonClosed) {
+      setSelectedIdx(null);
+      return;
+    }
+    if (nearFirstPoint(e)) {
+      setHistory((h) => [...h.slice(-(HISTORY_LIMIT - 1)), { points, closed: false }]);
       setIsPolygonClosed(true);
-      showToast('Poligon închis. Punctele pot fi acum repoziționate.');
-    } else {
-      showToast('Ai nevoie de cel puțin 3 puncte pentru un poligon valid.');
+      return;
+    }
+    commitPoints([...points, toNormalized(e)]);
+  };
+
+  // Drag a vertex; a drag from an edge's "+" handle first inserts a vertex there.
+  const startDrag = (e, idx, base = points) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setSelectedIdx(idx);
+    canvasContainerRef.current.setPointerCapture?.(e.pointerId);
+    dragRef.current = { idx, before: base, moved: false };
+  };
+
+  const handleVertexPointerDown = (e, idx) => {
+    if (e.button !== 0) return;
+    if (!isPolygonClosed && idx === 0 && points.length >= 3) {
+      // While drawing, the first point closes the zone instead of moving.
+      e.stopPropagation();
+      setHistory((h) => [...h.slice(-(HISTORY_LIMIT - 1)), { points, closed: false }]);
+      setIsPolygonClosed(true);
+      return;
+    }
+    startDrag(e, idx);
+  };
+
+  const handleEdgeHandlePointerDown = (e, edgeIdx) => {
+    if (e.button !== 0) return;
+    const a = points[edgeIdx];
+    const b = points[(edgeIdx + 1) % points.length];
+    const mid = { x: Number(((a.x + b.x) / 2).toFixed(3)), y: Number(((a.y + b.y) / 2).toFixed(3)) };
+    const next = [...points.slice(0, edgeIdx + 1), mid, ...points.slice(edgeIdx + 1)];
+    setPoints(next);
+    startDrag(e, edgeIdx + 1, points);
+    dragRef.current.moved = true; // the insert itself is an edit, even without moving
+  };
+
+  const handlePointerMove = (e) => {
+    const drag = dragRef.current;
+    if (!drag) return;
+    const pos = toNormalized(e);
+    drag.moved = true;
+    setPoints((prev) => prev.map((p, i) => (i === drag.idx ? pos : p)));
+  };
+
+  const handlePointerUp = () => {
+    const drag = dragRef.current;
+    if (!drag) return;
+    dragRef.current = null;
+    suppressClickRef.current = true;
+    // No click follows a cancelled or outside release; do not eat the next real click.
+    setTimeout(() => { suppressClickRef.current = false; }, 0);
+    if (drag.moved) {
+      setHistory((h) => [...h.slice(-(HISTORY_LIMIT - 1)), { points: drag.before, closed: isPolygonClosed }]);
+      setJsonInput(JSON.stringify(pointsRef.current, null, 2));
     }
   };
 
+  const handleReorder = () => {
+    commitPoints(orderAroundCentroid(points));
+    setSelectedIdx(null);
+    showToast('Punctele au fost reordonate în jurul centrului zonei.');
+  };
+
+  // Keyboard: Delete/Backspace removes the selected point, Ctrl+Z undoes, Esc deselects.
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      const tag = e.target?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || e.target?.isContentEditable) return;
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+        e.preventDefault();
+        undo();
+      } else if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIdx !== null) {
+        e.preventDefault();
+        deletePoint(selectedIdx);
+      } else if (e.key === 'Escape') {
+        setSelectedIdx(null);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [selectedIdx, undo, deletePoint]);
+
   const handleResetPoints = () => {
-    setPoints([]);
+    commitPoints([]);
     setIsPolygonClosed(false);
-    setJsonInput('[]');
+    setSelectedIdx(null);
   };
 
   const handleApplyJson = () => {
     try {
       const parsed = JSON.parse(jsonInput);
       if (Array.isArray(parsed) && parsed.length >= 3) {
-        setPoints(parsed);
+        commitPoints(parsed);
         setIsPolygonClosed(true);
+        setSelectedIdx(null);
         showToast('Coordonate JSON încărcate cu succes în poligon.');
       } else {
         showToast('Eroare: JSON-ul trebuie să fie un array de minimum 3 puncte {x, y}.');
@@ -143,7 +278,10 @@ export default function ZoneEditorView() {
     }
   };
 
-  const canSave = Boolean(zoneId) && points.length >= 3;
+  // Edges that cross another edge: the zone would be an hourglass, not a perimeter.
+  const crossing = crossingEdges(points, isPolygonClosed);
+  const hasCrossing = crossing.size > 0;
+  const canSave = Boolean(zoneId) && points.length >= 3 && isPolygonClosed && !hasCrossing;
 
   const handleSave = () => {
     if (!zoneId) {
@@ -152,6 +290,14 @@ export default function ZoneEditorView() {
     }
     if (points.length < 3) {
       showToast('Eroare validare: Poligonul trebuie să aibă minimum 3 puncte.');
+      return;
+    }
+    if (!isPolygonClosed) {
+      showToast('Închide zona: dă click pe primul punct.');
+      return;
+    }
+    if (hasCrossing) {
+      showToast('Laturile zonei se intersectează. Mută punctele sau folosește „Reordonează punctele”.');
       return;
     }
     const zonePayload = {
@@ -243,8 +389,13 @@ export default function ZoneEditorView() {
           <div
             ref={canvasContainerRef}
             onClick={handleCanvasClick}
-            onDoubleClick={handleDoubleClick}
-            style={activeZone?.reference_frame_url && referenceAspect ? { aspectRatio: referenceAspect } : undefined}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onPointerCancel={handlePointerUp}
+            style={{
+              ...(activeZone?.reference_frame_url && referenceAspect ? { aspectRatio: referenceAspect } : {}),
+              touchAction: 'none'
+            }}
             className={`relative rounded-xl overflow-hidden bg-black border-2 border-indigo-500/40 shadow-2xl flex items-center justify-center cursor-${
               isPolygonClosed ? 'default' : 'crosshair'
             } ${activeZone?.reference_frame_url && referenceAspect ? 'w-full max-h-[70vh] mx-auto' : 'min-h-[380px]'}`}
@@ -277,39 +428,137 @@ export default function ZoneEditorView() {
               preserveAspectRatio="none"
               className="absolute inset-0 w-full h-full pointer-events-none"
             >
-              {points.length > 1 && (
+              {points.length > 1 && isPolygonClosed && (
                 <polygon
                   points={points.map((p) => `${p.x * 1000},${p.y * 1000}`).join(' ')}
-                  fill="rgba(239, 68, 68, 0.25)"
+                  fill={hasCrossing ? 'rgba(245, 158, 11, 0.20)' : 'rgba(239, 68, 68, 0.25)'}
                   stroke="#EF4444"
                   strokeWidth="2.5"
                   vectorEffect="non-scaling-stroke"
-                  strokeDasharray={isPolygonClosed ? 'none' : '6,4'}
                 />
               )}
+              {points.length > 1 && !isPolygonClosed && (
+                <polyline
+                  points={points.map((p) => `${p.x * 1000},${p.y * 1000}`).join(' ')}
+                  fill="none"
+                  stroke="#EF4444"
+                  strokeWidth="2.5"
+                  vectorEffect="non-scaling-stroke"
+                  strokeDasharray="6,4"
+                />
+              )}
+              {/* Edges that cross another edge, drawn over in amber */}
+              {[...crossing].map((i) => {
+                const a = points[i];
+                const b = points[(i + 1) % points.length];
+                return (
+                  <line
+                    key={`x-${i}`}
+                    x1={a.x * 1000}
+                    y1={a.y * 1000}
+                    x2={b.x * 1000}
+                    y2={b.y * 1000}
+                    stroke="#F59E0B"
+                    strokeWidth="5"
+                    vectorEffect="non-scaling-stroke"
+                  />
+                );
+              })}
             </svg>
 
             {/* Noduri / Puncte Desenate */}
-            {points.map((p, idx) => (
-              <div
-                key={idx}
-                style={{ left: `${p.x * 100}%`, top: `${p.y * 100}%` }}
-                className="absolute w-3.5 h-3.5 -translate-x-1/2 -translate-y-1/2 bg-white border-2 border-red-600 rounded-full shadow-lg ring-2 ring-red-400/50 pointer-events-auto cursor-move"
-                title={`Punct ${idx + 1}: (${p.x.toFixed(2)}, ${p.y.toFixed(2)})`}
-              />
-            ))}
+            {/* "+" in the middle of each edge: drag it to add a point exactly there */}
+            {isPolygonClosed && points.length >= 3 && points.map((a, idx) => {
+              const b = points[(idx + 1) % points.length];
+              return (
+                <div
+                  key={`m-${idx}`}
+                  onPointerDown={(e) => handleEdgeHandlePointerDown(e, idx)}
+                  onClick={(e) => e.stopPropagation()}
+                  style={{ left: `${((a.x + b.x) / 2) * 100}%`, top: `${((a.y + b.y) / 2) * 100}%` }}
+                  className="absolute w-3 h-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-black/60 border border-white/70 text-white text-[10px] leading-[10px] flex items-center justify-center cursor-copy opacity-60 hover:opacity-100"
+                  title="Trage ca să adaugi un punct pe această latură"
+                >
+                  +
+                </div>
+              );
+            })}
+
+            {/* Vertices: drag to move, right-click (or select + Delete) to remove */}
+            {points.map((p, idx) => {
+              const isFirstWhileDrawing = !isPolygonClosed && idx === 0 && points.length >= 3;
+              const isSelected = selectedIdx === idx;
+              return (
+                <div
+                  key={idx}
+                  onPointerDown={(e) => handleVertexPointerDown(e, idx)}
+                  onClick={(e) => e.stopPropagation()}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    deletePoint(idx);
+                  }}
+                  style={{ left: `${p.x * 100}%`, top: `${p.y * 100}%` }}
+                  className={`absolute -translate-x-1/2 -translate-y-1/2 rounded-full shadow-lg border-2 ${
+                    isFirstWhileDrawing
+                      ? 'w-5 h-5 bg-emerald-400 border-white ring-4 ring-emerald-400/40 cursor-pointer'
+                      : isSelected
+                      ? 'w-4 h-4 bg-[#7EDEED] border-white ring-4 ring-[#7EDEED]/50 cursor-grab'
+                      : 'w-3.5 h-3.5 bg-white border-red-600 ring-2 ring-red-400/50 cursor-grab'
+                  }`}
+                  title={
+                    isFirstWhileDrawing
+                      ? 'Click aici ca să închizi zona'
+                      : `Punct ${idx + 1} (${p.x.toFixed(2)}, ${p.y.toFixed(2)}): trage ca să-l muți, click dreapta ca să-l ștergi`
+                  }
+                />
+              );
+            })}
 
             {/* Instrucțiuni plutitoare */}
-            <div className="absolute top-3 left-3 bg-black/80 backdrop-blur-sm px-3 py-1.5 rounded-lg border border-white/10 text-white text-[11px] font-mono shadow">
-              <span>{isPolygonClosed ? '✓ Poligon Închis' : 'Mod Desenare: Click = Punct, Dublu-click = Închide'}</span>
+            <div className="absolute top-3 left-3 bg-black/80 backdrop-blur-sm px-3 py-1.5 rounded-lg border border-white/10 text-white text-[11px] font-mono shadow pointer-events-none max-w-[85%]">
+              {isPolygonClosed
+                ? 'Trage un punct ca să-l muți · „+” adaugă un punct · click dreapta / Delete șterge · Ctrl+Z anulează'
+                : points.length >= 3
+                ? 'Click = punct nou · click pe primul punct (verde) închide zona'
+                : 'Click pe imagine ca să pui punctele zonei, în ordine, pe contur'}
             </div>
 
-            <div className="absolute bottom-3 right-3 flex items-center gap-2">
+            {hasCrossing && (
+              <div className="absolute top-12 left-3 right-3 bg-amber-500/95 text-[#1F1F1F] px-3 py-1.5 rounded-lg text-[11px] font-bold shadow flex items-center gap-2 pointer-events-none">
+                <AlertTriangle size={14} className="shrink-0" />
+                Laturile marcate cu portocaliu se intersectează: zona nu e un perimetru. Mută punctele sau reordonează-le.
+              </div>
+            )}
+
+            <div
+              className="absolute bottom-3 right-3 flex items-center gap-2"
+              onClick={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={undo}
+                disabled={!history.length}
+                className="px-2.5 py-1 bg-black/70 hover:bg-black/90 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded text-xs font-bold flex items-center gap-1 border border-white/20"
+                title="Anulează ultima modificare (Ctrl+Z)"
+              >
+                <Undo2 size={13} /> Anulează
+              </button>
+              {hasCrossing && (
+                <button
+                  onClick={handleReorder}
+                  className="px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-[#1F1F1F] rounded text-xs font-bold flex items-center gap-1"
+                  title="Ordonează punctele în jurul centrului zonei"
+                >
+                  <Wand2 size={13} /> Reordonează punctele
+                </button>
+              )}
               <button
                 onClick={handleResetPoints}
                 className="px-2.5 py-1 bg-red-900/80 hover:bg-red-800 text-white rounded text-xs font-bold flex items-center gap-1 border border-red-500/40"
+                title="Șterge toate punctele și desenează zona din nou"
               >
-                <Trash2 size={13} /> Resetează Poligon
+                <Trash2 size={13} /> Desenează din nou
               </button>
             </div>
           </div>
