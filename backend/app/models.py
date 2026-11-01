@@ -90,6 +90,38 @@ class ConfigState(SQLModel, table=True):
     config_version: int = 1
 
 
+class EdgeHeartbeat(SQLModel, table=True):
+    """Last sign of life per camera, plus the outage incident it belongs to."""
+
+    __tablename__ = "edge_heartbeat"
+    camera_id: str = Field(primary_key=True)
+    last_seen_at: datetime
+    source: str = "edge"                 # edge | assumed (grace at startup)
+    outage_event_id: str | None = None   # one incident per outage
+
+
+class CameraOutage(SQLModel, table=True):
+    """A window in which a camera was blind. Coverage is computed from this table."""
+
+    __tablename__ = "camera_outages"
+    id: int | None = Field(default=None, primary_key=True)
+    camera_id: str = Field(index=True)
+    event_id: str
+    started_at: datetime = Field(index=True)
+    ended_at: datetime | None = None
+
+
+class ShiftSummary(SQLModel, table=True):
+    """The generated shift summary, reused while the numbers behind it are unchanged."""
+
+    __tablename__ = "shift_summaries"
+    id: str = Field(primary_key=True)     # "<shift>:<date>"
+    numbers_hash: str
+    summary: str
+    source: str                           # llm | template
+    generated_at: datetime
+
+
 class NotificationOutbox(SQLModel, table=True):
     """A notification waiting to be sent, with retry.
 

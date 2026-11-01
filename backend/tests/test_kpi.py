@@ -3,7 +3,7 @@ import types
 from datetime import date, datetime, timedelta
 from sqlmodel import Session
 from app.db import get_engine
-from app.models import Event
+from app.models import CameraOutage, Event
 from app.services.kpi import current_shift, shift_window
 from app.timeutil import LOCAL_TZ
 
@@ -224,3 +224,62 @@ def test_shift_report_avg_ack_over_all_acked_events(client, monkeypatch):
 def test_shift_report_avg_ack_none_without_acks(client, monkeypatch):
     monkeypatch.setitem(sys.modules, "automation", None)
     assert client.get("/reports", params={"date": DAY, "shift": "afternoon"}).json()["avg_ack_s"] is None
+
+
+def test_camera_offline_counts_as_coverage_not_as_an_incident(client, monkeypatch):
+    monkeypatch.setitem(sys.modules, "automation", None)
+    t = datetime(2026, 7, 15, 4)  # 07:00 local, inside the morning shift
+    with Session(get_engine()) as session:
+        session.add(_event("CAMERA_OFFLINE", "WARNING", "stand12", "open", t))
+        session.add(
+            CameraOutage(
+                camera_id="stand12",
+                event_id="evt_stand12_1784080000000_0",
+                started_at=t,
+                ended_at=t + timedelta(minutes=60),
+            )
+        )
+        session.commit()
+
+    data = client.get("/reports", params={"date": DAY, "shift": "morning"}).json()
+    assert data["total_events"] == 0
+    assert data["by_type"] == []
+    assert data["by_zone"] == []
+    assert data["coverage"]["offline_minutes"] == 60
+    # 8 h * 3 seed cameras; one hour blind on one camera
+    assert data["coverage"]["coverage"] == round(1 - 60 / (8 * 60 * 3), 3)
+    assert [row["camera_id"] for row in data["coverage"]["cameras"]] == [
+        "baggage-area",
+        "stand12",
+        "taxiway-b",
+    ]
+
+
+def test_the_summary_is_generated_once_per_set_of_numbers(client, monkeypatch):
+    calls: list[dict] = []
+
+    def summarize(report: dict) -> str:
+        calls.append(report)
+        return f"Rezumat {len(calls)}"
+
+    package = types.ModuleType("automation")
+    module = types.ModuleType("automation.report")
+    module.summarize = summarize
+    package.report = module
+    monkeypatch.setitem(sys.modules, "automation", package)
+    monkeypatch.setitem(sys.modules, "automation.report", module)
+
+    first = client.get("/reports", params={"date": DAY, "shift": "morning"}).json()["summary"]
+    second = client.get("/reports", params={"date": DAY, "shift": "morning"}).json()["summary"]
+    assert first == second == "Rezumat 1"
+    assert len(calls) == 1
+
+    # New numbers -> a new summary, not the old text over new figures.
+    with Session(get_engine()) as session:
+        session.add(_event("RESTRICTED_ZONE", "CRITICAL", "engine-left", "open", datetime(2026, 7, 15, 4)))
+        session.commit()
+    assert client.get("/reports", params={"date": DAY, "shift": "morning"}).json()["summary"] == "Rezumat 2"
+
+    forced = client.get("/reports", params={"date": DAY, "shift": "morning", "refresh": True}).json()["summary"]
+    assert forced == "Rezumat 3"
+    assert len(calls) == 3

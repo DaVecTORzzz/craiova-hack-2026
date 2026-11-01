@@ -24,6 +24,13 @@ class Settings(BaseSettings):
     outbox_backoff_s: str = "1,2,4,8,15,30,60"
     outbox_max_attempts: int = 8
 
+    # Watchdog: o cameră fără heartbeat devine incident. 0 = oprit.
+    camera_offline_after_s: int = 90
+    watchdog_interval_s: float = 10.0
+
+    # Sumarul turei se refolosește cât timp cifrele nu se schimbă.
+    summary_ttl_s: int = 900
+
 
 @lru_cache
 def get_settings() -> Settings:

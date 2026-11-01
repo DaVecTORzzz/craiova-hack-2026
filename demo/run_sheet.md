@@ -52,7 +52,7 @@ python scripts/dev.py fallback
 | 35–50 s | Click pe un card CRITICAL → **Incidente & XAI**; snapshot, cronologie, raport | „Alerta are dovadă blurată, severitate, timp și un raport de incident.” |
 | 50–58 s | Click **Acknowledge (Confirmă)** | „Operatorul confirmă; escaladarea se oprește. Human-in-the-loop.” |
 | 58–66 s | Arată mesajul Slack | „Slack primește text + link, fără imagini și fără butoane.” |
-| 66–78 s | Click **Rapoarte Tură** | „KPI pe tură, distribuție pe tipuri, rezumat.” |
+| 66–78 s | Click **Rapoarte Tură** | „KPI pe tură, distribuție pe tipuri, rezumat. Fals pozitivele nu intră în total — se numără separat. Acoperirea arată minutele în care o cameră a fost oarbă.” |
 | 78–85 s | Click **Edge & Audit** | „Totul rulează la margine: detecție, tracking, blur și decizia. Backend-ul primește doar evenimentul, nu video.” |
 | 85–90 s | Închide cu privacy | „Video-ul brut nu iese din aeroport; fețele sunt blurate la edge înainte de orice salvare.” |
 
@@ -67,6 +67,20 @@ python scripts/dev.py fallback --type NO_PPE --snapshot <jpeg-blurat>
 ```
 
 Spune explicit: „evenimentul e trimis manual pe aceleași rute ca edge-ul; detecția de vestă live e afișată pe persoane, dar alerta `NO_PPE` nu e încă activă”.
+
+### Opțional: camera moartă devine incident (90 s)
+
+Fiecare edge trimite heartbeat prin poll-ul de configurație (la 30 s). Oprește unul:
+
+```bash
+# în terminalul run.sh: Ctrl-C pe linia „edge <camera>” (sau închide laptopul de demo pe acea cameră)
+```
+
+- după `CAMERA_OFFLINE_AFTER_S` (implicit 90 s) apare un singur `CAMERA_OFFLINE` (WARNING), cu snapshot placeholder și fără escaladare
+- repornește edge-ul: primul heartbeat rezolvă incidentul (`status: resolved`, acțiune „recovered”) și închide fereastra de orbire din raport
+- în **Rapoarte Tură**, „Acoperire camere” scade cu minutele cât a fost oarbă
+
+Spune: „camera care tace nu mai e o gaură în pază: devine incident, iar revenirea îl închide singură.”
 
 ## Dacă ceva pică
 
@@ -84,12 +98,14 @@ Spune explicit: „evenimentul e trimis manual pe aceleași rute ca edge-ul; det
 - „0% falsuri” — avem un eșantion mic, verificat vizual; rata de falsuri nu e măsurată.
 - „Trei incidente, câte unul pe cameră” — doar CAM-01 produce. CAM-02 și CAM-03 arată feed-ul adnotat, dar regula lor (`FOD_WATCH`, `PPE_REQUIRED`) nu poate fi evaluată fără detector.
 - „Camere live din aeroport” — clipurile sunt reale (stock), redate ca flux live.
+- „Camera offline e prinsă instant” — pragul e 90 s (3 heartbeats ratate); sub asta ar fi zgomot la fiecare microîntrerupere.
+- „Alertele ajung garantat în Slack” — coada garantează că nu se pierd la timeout sau restart; dacă Slack e jos mai mult de ~2 minute, rândul rămâne `failed` și se vede în `/health`.
 - „Producție gata” — auth, audit, retenție și camere reale sunt roadmap.
 
 ## Întrebări probabile
 
 **Ce e real?**
-YOLO26 + ByteTrack, zonele care urmăresc camera, eticheta de vestă după culoare, blurul, backend-ul, UI-ul, ack-ul, escaladarea, raportul, testele.
+YOLO26 + ByteTrack, zonele care urmăresc camera, eticheta de vestă după culoare, blurul, backend-ul, UI-ul, ack-ul, escaladarea, raportul, watchdog-ul de cameră, coada de notificări cu retry, testele.
 
 **Ce e stock sau simulat?**
 Clipurile (stock, filmate din mână, redate în buclă ca 3 camere), operatorul, `NO_PPE` (trimis prin fallback), Slack dacă nu e webhook, raportul dacă nu e cheie Groq.

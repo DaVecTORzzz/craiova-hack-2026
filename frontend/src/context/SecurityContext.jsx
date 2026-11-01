@@ -154,6 +154,8 @@ export function SecurityProvider({ children }) {
   // 7. Raport de Tură
   const [shiftReport, setShiftReport] = useState(USE_MOCK ? INITIAL_SHIFT_REPORT : EMPTY_SHIFT_REPORT);
   const [selectedShift, setSelectedShift] = useState(() => (USE_MOCK ? 'shift_1' : safeSightApi.currentShiftId()));
+  // Ziua operațională (se schimbă la 06:00), nu ziua calendaristică.
+  const [selectedDate, setSelectedDate] = useState(() => (USE_MOCK ? '2026-10-31' : safeSightApi.shiftDate()));
 
   // 8. Stare Conexiune & Toast / Banner Erori (Regulă C-10)
   const [isWsConnected, setIsWsConnected] = useState(true);
@@ -257,16 +259,31 @@ export function SecurityProvider({ children }) {
     };
   }, []);
 
-  // Raportul de tură se reîncarcă la schimbarea turei.
+  // Raportul de tură se reîncarcă la schimbarea turei sau a datei, și la 30 s cât
+  // timp ecranul e deschis: cifrele turei se mișcă în timpul demo-ului.
   useEffect(() => {
     if (USE_MOCK) return;
     let cancelled = false;
+    const load = (refresh = false) =>
+      safeSightApi
+        .getShiftReport(safeSightApi.shiftToApi(selectedShift), selectedDate, { refresh })
+        .then((report) => { if (!cancelled) setShiftReport(report); })
+        .catch(() => { if (!cancelled) showToast('Raportul de tură nu a putut fi încărcat.'); });
+
+    load();
+    const interval = setInterval(() => load(), 30000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [selectedShift, selectedDate]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // „Regenerează sumarul" forțează un text nou; o reîncărcare normală refoloseste
+  // sumarul cât timp cifrele nu s-au schimbat.
+  const regenerateShiftSummary = () => {
+    if (USE_MOCK) return;
     safeSightApi
-      .getShiftReport(safeSightApi.shiftToApi(selectedShift), safeSightApi.shiftDate(selectedShift))
-      .then((report) => { if (!cancelled) setShiftReport(report); })
-      .catch(() => { if (!cancelled) showToast('Raportul de tură nu a putut fi încărcat.'); });
-    return () => { cancelled = true; };
-  }, [selectedShift]);
+      .getShiftReport(safeSightApi.shiftToApi(selectedShift), selectedDate, { refresh: true })
+      .then((report) => setShiftReport(report))
+      .catch(() => showToast('Sumarul nu a putut fi regenerat.'));
+  };
 
   // Camera activă curentă
   const activeCamera = useMemo(() => {
@@ -708,6 +725,9 @@ export function SecurityProvider({ children }) {
         shiftReport,
         selectedShift,
         setSelectedShift,
+        selectedDate,
+        setSelectedDate,
+        regenerateShiftSummary,
         isWsConnected,
         setIsWsConnected,
         health,
