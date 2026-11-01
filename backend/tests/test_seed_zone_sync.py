@@ -15,9 +15,6 @@ the report counted it under the wrong rule.
 import json
 from pathlib import Path
 
-import pytest
-from pydantic import ValidationError
-
 from app.models import Zone
 from app.seed import seed_cameras, seed_zones
 
@@ -96,9 +93,9 @@ def test_camera_fixture_matches_the_seed():
 def test_seed_repairs_a_zone_stored_with_a_retired_rule_type(client):
     """A database from before FOD was dropped still holds `taxiway-b` as FOD_WATCH.
 
-    `GET /zones` validates every row, so that one row made the whole list fail with a
-    500 and the editor showed no zones at all. The seed takes the rule from the seed
-    again, but keeps the polygon the user drew.
+    One such row used to make `GET /zones` fail with a 500, so the editor showed no
+    zones at all. The read path now skips the retired row instead of failing, and the
+    seed takes the rule from the seed again, keeping the polygon the user drew.
     """
     from sqlalchemy import text
     from sqlmodel import Session
@@ -112,9 +109,10 @@ def test_seed_repairs_a_zone_stored_with_a_retired_rule_type(client):
             params={"polygon": json.dumps(drawn)},
         )
         session.commit()
-    # The bug, before the seed runs again (TestClient re-raises what the server answers with 500).
-    with pytest.raises(ValidationError):
-        client.get("/zones")
+    # Before the seed runs again: the list must survive and hide the retired row.
+    before = client.get("/zones")
+    assert before.status_code == 200
+    assert "taxiway-b" not in {zone["id"] for zone in before.json()}
 
     with Session(get_engine()) as session:
         seed_zones(session)
