@@ -56,17 +56,27 @@ python scripts/dev.py fallback
 | 78–85 s | Click **Edge & Audit** | „Totul rulează la margine: detecție, tracking, blur și decizia. Backend-ul primește doar evenimentul, nu video.” |
 | 85–90 s | Închide cu privacy | „Video-ul brut nu iese din aeroport; fețele sunt blurate la edge înainte de orice salvare.” |
 
-### Opțional: fluxul `NO_PPE` (simulat)
+### Opțional: `NO_PPE` live cu webcam-ul
 
-În clipuri toți poartă vestă, deci un `NO_PPE` real nu apare live. Pentru a arăta fluxul (incident WARNING, raport, Slack, ack):
+În clipuri toți poartă vestă, deci alerta `NO_PPE` nu se declanșează pe ele. O arăți live cu camera laptopului, care rulează în locul celor 3 clipuri:
+
+```bash
+python scripts/dev.py demo --webcam    # repornește stack-ul doar cu webcam-ul (camera baggage-area)
+```
+
+- Stai la 2–3 m, cu tot corpul în cadru; o casetă tăiată de margine rămâne `vesta ?`.
+- Cu vestă fluorescentă (portocalie sau galben-verde): eticheta `vesta`, fără incident.
+- Fără vestă: `FARA VESTA` după ~1 s, apoi incident `NO_PPE` (WARNING) în Live.
+- Fața ta e blurată la edge, la fel ca pe clipuri.
+- Repetă pe laptopul și în lumina de la prezentare: încă n-a fost testat pe camera laptopului de demo.
+
+Spune: „Alerta pentru vestă e activă și prudentă: pleacă doar când lipsa vestei e sigură.”
+
+Plan B, dacă webcam-ul nu prinde: trimiți evenimentul manual, pe aceleași rute ca edge-ul.
 
 ```bash
 python scripts/dev.py fallback --type NO_PPE
-# sau cu un JPEG deja blurat:
-python scripts/dev.py fallback --type NO_PPE --snapshot <jpeg-blurat>
 ```
-
-Spune explicit: „evenimentul e trimis manual pe aceleași rute ca edge-ul; detecția de vestă live e afișată pe persoane, dar alerta `NO_PPE` nu e încă activă”.
 
 ### Opțional: camera moartă devine incident (90 s)
 
@@ -93,7 +103,7 @@ Spune: „camera care tace nu mai e o gaură în pază: devine incident, iar rev
 
 ## Ce nu spui
 
-- „`NO_PPE` merge live” — nu merge. Vesta e doar etichetată pe persoane (după culoare), fără alertă.
+- „`NO_PPE` apare pe clipuri” — nu apare: în clipuri toți poartă vestă. Live îl arăți doar cu webcam-ul sau prin fallback.
 - „Model PPE antrenat” — dataset-ul există, antrenarea nu e terminată.
 - „0% falsuri” — avem un eșantion mic, verificat vizual; rata de falsuri nu e măsurată.
 - „Trei incidente, câte unul pe cameră” — doar CAM-01 produce. CAM-02 și CAM-03 arată feed-ul adnotat, iar regula lor (`PPE_REQUIRED`) nu găsește pe nimeni fără vestă în clipuri.
@@ -108,7 +118,7 @@ Spune: „camera care tace nu mai e o gaură în pază: devine incident, iar rev
 YOLO26 + ByteTrack, zonele care urmăresc camera, eticheta de vestă după culoare, blurul, backend-ul, UI-ul, ack-ul, escaladarea, raportul, watchdog-ul de cameră, coada de notificări cu retry, testele.
 
 **Ce e stock sau simulat?**
-Clipurile (stock, filmate din mână, redate în buclă ca 3 camere), operatorul, `NO_PPE` (trimis prin fallback), Slack dacă nu e webhook, raportul dacă nu e cheie Groq.
+Clipurile (stock, filmate din mână, redate în buclă ca 3 camere), operatorul, `NO_PPE` doar dacă e trimis prin fallback (cu webcam-ul e real), Slack dacă nu e webhook, raportul dacă nu e cheie Groq.
 
 **De ce se mișcă zona în video?**
 Clipurile sunt filmate cu telefonul. Zona e desenată pe primul cadru și urmărește solul (potrivire de puncte + omografie). Pe o cameră fixă de aeroport nu ar fi nevoie.
