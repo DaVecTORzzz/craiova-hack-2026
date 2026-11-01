@@ -1,8 +1,45 @@
+<div align="center">
+
 # SafeSight
 
-Inspector automat de siguranță pentru platforma aeroportului. Camerele existente sunt analizate local, pe un Edge Box: echipament de protecție lipsă, persoane în zone restricționate, obiecte pe pistă (FOD), fumat (stretch). Fiecare încălcare pornește singură fluxul de răspuns: alertă cu link la incident, raport de incident scris de AI și escaladare dacă nimeni nu confirmă. Snapshot-ul blurat se vede în aplicație, nu în Slack.
+**Camerele care există deja pe platformă devin senzori de siguranță.**
+Fiecare încălcare pornește singură alerta, raportul și escaladarea — fără un operator care se uită la 40 de ecrane.
 
-Video-ul nu iese din aeroport. Fețele sunt blurate înainte de orice salvare.
+![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white&style=flat-square)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white&style=flat-square)
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=1F1F1F&style=flat-square)
+![YOLO](https://img.shields.io/badge/YOLO-26-111F68?logo=ultralytics&logoColor=white&style=flat-square)
+![SQLite](https://img.shields.io/badge/SQLite-WAL-003B57?logo=sqlite&logoColor=white&style=flat-square)
+![Edge](https://img.shields.io/badge/video-stays%20on%20the%20edge-1F1F1F?style=flat-square)
+
+[Demo](#demo) · [Cum funcționează](#cum-funcționează) · [Pornire rapidă](#pornire-rapidă) · [Contract](docs/contract.md) · [Pornire detaliată](RUNNING.md)
+
+</div>
+
+## Ce face
+
+- **Echipament de protecție lipsă** — vestă și cască, verificate pe fiecare cadru, per persoană.
+- **Zonă restricționată** — cine intră în zona motorului cât timp motorul e pornit, cu poligon desenat pe imagine.
+- **Obiecte pe pistă (FOD)** — comparație cu cadrul de referință al camerei; prag de 3 s în demo, 10 s în producție.
+- **Răspuns automat** — alertă pe Slack cu link la incident, raport de incident scris de AI, escaladare dacă nimeni nu confirmă, raport de tură la final.
+
+Fumatul rămâne stretch și nu e în demo. Ce e real și ce nu: vezi [mai jos](#ce-e-real-ce-e-fallback).
+
+## Cum funcționează
+
+```mermaid
+flowchart LR
+  CAM["Camere existente<br/>RTSP sau clip"] --> EDGE["Edge Box · ml/<br/>YOLO26 + tracking<br/>blur pe fețe"]
+  EDGE -- "eveniment + snapshot blurat" --> API["Backend · backend/<br/>reguli, stocare SQLite<br/>WebSocket live"]
+  API --> UI["Dashboard · frontend/<br/>live, incidente, zone, rapoarte"]
+  API --> SLACK["Slack · automation/<br/>text + link"]
+  API --> REP["Raport AI<br/>incident + tură"]
+```
+
+1. **Edge-ul** citește camera, detectează persoanele, le urmărește între cadre și aplică regulile zonei. Confirmă un eveniment doar după o fereastră temporală, ca un cadru ratat să nu sune.
+2. **Blur-ul** rulează înainte de orice scriere: fețele și capetele sunt acoperite pe cadrul live, pe snapshot și pe clipul adnotat. Video-ul nu iese din aeroport.
+3. **Backend-ul** validează evenimentul după contract, îl stochează, îl trimite pe WebSocket și programează escaladarea.
+4. **Automatizarea** scrie raportul — textul recomandat vine din tabelul fix pe tip, LLM-ul doar îl reformulează, iar fără LLM se folosește șablonul — și trimite alerta.
 
 ## Demo
 
@@ -15,37 +52,69 @@ Aplicația în funcțiune, în două clipuri scurte. În README se joacă o secv
 
 Ce e real: detecția rulează pe clipurile din `data/videos/` sau pe camera locală, nu pe o animație. Ce nu e: secvențele din README sunt tăiate și fără sunet, ca să se încarce repede.
 
-## Structura
-
-| Folder | Ce conține | Responsabil |
-|---|---|---|
-| `ml/` | Detecție (YOLO26), tracking, zone, FOD, blur pe fețe | Andrei |
-| `backend/` | FastAPI, rule engine, WebSocket, stream video, stocare | Max |
-| `automation/` | Raport AI, notificări Slack, escaladare, raport de tură | Dalina |
-| `frontend/` | Dashboard React + Vite | Ariana |
-| `demo/` | Scenariul demo și instrucțiunile pentru înregistrarea de rezervă | Ariana + Dalina |
-| `docs/` | Contractul API și alte documente comune | toți |
-
-## Documente
-
-- [`docs/contract.md`](docs/contract.md) — contractul canonic dintre module; se schimbă doar prin pull request aprobat de cel afectat.
-- Briefingurile interne de rol A–D (Typst + PDF) sunt în repo-ul privat `DaVecTORzzz/safesight-docs`. Sunt explicative; dacă diferă de contract, contractul câștigă.
-
-## Pornire
+## Pornire rapidă
 
 Pe Linux, macOS sau Windows, cu Python 3.12+:
 
 ```bash
-python scripts/dev.py setup   # o singură dată
-python scripts/dev.py demo    # backend + frontend + un run real pe clip
+python scripts/dev.py setup   # o singură dată: dependențe backend, ML, frontend și modelul de blur
+python scripts/dev.py demo    # backend + dashboard + câte un edge pe fiecare cameră
 ```
 
-sau `./run.sh demo` / `run.cmd demo`. Detalii, cerințe și variante: [`RUNNING.md`](RUNNING.md).
+Echivalent: `./run.sh demo` pe Linux/macOS, `run.cmd demo` pe Windows. Verificare de mediu: `python scripts/dev.py doctor`.
 
-0. `./scripts/agent-preflight.sh` — sincronizează repo-ul public și repo-ul privat de documente înainte de lucru.
-1. `cp .env.example .env` și completează cheile; `.env` e opțional pentru demo.
-2. Fiecare modul are în folderul lui un `README.md` cu pornirea și comanda de verificare.
-3. Cât timp un modul nu e gata, ceilalți lucrează cu `USE_MOCK=true` și cu fixture-urile din `frontend/fixtures/`.
+| Ce pornește | Unde | Ce vezi |
+|---|---|---|
+| Dashboard | <http://localhost:5173> | live pe 3 camere, incidente, zone, rapoarte |
+| API | <http://localhost:8000> | `/health`, `/events`, `/stream/{camera}.mjpg`, `/ws/events` |
+| Edge-uri | 3 procese | `stand12`, `taxiway-b`, `baggage-area`, fiecare pe clipul lui, în buclă |
+
+`.env` e opțional pentru demo. Fără `SLACK_WEBHOOK_URL` alerta rămâne în aplicație și se consemnează ca simulată; cu webhook, pleacă text + link.
+
+## Parcursul demo, în 90 de secunde
+
+1. Persoana intră în zona motorului → `RESTRICTED_ZONE` apare în Live, cu snapshot blurat.
+2. Detaliul incidentului: dovadă, cronologie, raport scris.
+3. Slack primește text + link către incident.
+4. Operatorul confirmă → escaladarea se oprește.
+5. Raportul de tură arată KPI și rezumat.
+
+Scenariul complet, cu ce spui la fiecare pas: [`demo/run_sheet.md`](demo/run_sheet.md). Dacă un edge cade, `python scripts/dev.py fallback` pornește evenimente de rezervă.
+
+## Module
+
+| Folder | Ce conține | Responsabil |
+|---|---|---|
+| [`ml/`](ml/README.md) | Detecție (YOLO26), tracking, zone, FOD, blur pe fețe | Andrei |
+| [`backend/`](backend/README.md) | FastAPI, rule engine, WebSocket, stream video, stocare | Max |
+| [`automation/`](automation/README.md) | Raport AI, notificări Slack, escaladare, raport de tură | Dalina |
+| [`frontend/`](frontend/README.md) | Dashboard React + Vite | Ariana |
+| [`demo/`](demo/README.md) | Scenariul demo și înregistrarea de rezervă | Ariana + Dalina |
+| [`docs/`](docs/contract.md) | Contractul API și documentele comune | toți |
+
+Fiecare folder are propriul `README.md` cu pornirea și comanda lui de verificare.
+
+## Contract și documente
+
+- [`docs/contract.md`](docs/contract.md) — contractul canonic dintre module; se schimbă doar prin pull request aprobat de cel afectat.
+- [`RUNNING.md`](RUNNING.md) — cerințe, setup, variante de pornire, probleme frecvente.
+- [`docs/performance.md`](docs/performance.md) — ce s-a măsurat și ce s-a închis, cu cifre.
+- Briefingurile interne de rol A–D (Typst + PDF) sunt în repo-ul privat `DaVecTORzzz/safesight-docs`. Sunt explicative; dacă diferă de contract, contractul câștigă.
+
+## Ce e real, ce e fallback
+
+| | |
+|---|---|
+| **Real** | Detecție pe clipuri reale și pe cameră locală, tracking între cadre, blur pe fețe înainte de scriere, ingestie idempotentă, WebSocket live, escaladare anulată de ack, stocare SQLite |
+| **Fallback** | Fără LLM → raportul folosește șablonul; fără webhook → alerta e marcată simulată; fără MJPEG → snapshot la 500 ms; `USE_MOCK=true` → evenimente false pentru frontend |
+| **Stock / simulat** | Clipurile de test sunt înregistrări, nu camera live din aeroport; FOD și fumatul nu au detector în demo |
+
+## Limite cunoscute
+
+- FOD are regulă și cadru de referință, dar nu are încă detector antrenat: în demo nu produce incidente.
+- Fumatul e stretch, în afara scenariului.
+- O cameră căzută nu produce deocamdată un incident `CAMERA_OFFLINE`; în contract tipul există, producătorul încă nu.
+- Nu există autentificare de operator; demo-ul e single-tenant, cu token de edge pentru ingestie.
 
 ## Date care nu intră în git
 
@@ -55,4 +124,5 @@ Video-urile de test (`.mp4`), modelele antrenate (`.pt`, `.onnx`) și baza de da
 
 - `main` trebuie să ruleze mereu. Lucrați pe branch-uri scurte (`max/rule-engine`, `ariana/live-monitor`) și intrați în `main` prin pull request.
 - Commit-uri cu prefix: `ml:`, `api:`, `ui:`, `auto:`, `docs:`.
-- Asistenții AI (Claude Code etc.) citesc regulile din [`CLAUDE.md`](CLAUDE.md).
+- Asistenții AI citesc regulile din [`AGENTS.md`](AGENTS.md); `CLAUDE.md` trimite tot acolo.
+- Înainte de lucru: `./scripts/agent-preflight.sh` sincronizează repo-ul public și repo-ul privat de documente.
