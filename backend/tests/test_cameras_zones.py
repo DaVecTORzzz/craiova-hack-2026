@@ -226,3 +226,76 @@ def test_reference_frame_from_live_reports_a_silent_edge(client, monkeypatch):
     assert "did not send a frame" in res.json()["detail"]
 
     assert client.post("/zones/nope/reference-frame/from-live").status_code == 404
+
+
+def _proposal(proposal_id: str = "stand12-lucru-1", **overrides) -> dict:
+    data = {
+        "id": proposal_id,
+        "camera_id": "stand12",
+        "kind": "activity",
+        "label": "Zonă de lucru 1",
+        "rule_type": "PPE_REQUIRED",
+        "severity": "WARNING",
+        "polygon": [[0.2, 0.5], [0.6, 0.5], [0.6, 0.9], [0.2, 0.9]],
+        "score": 0.7,
+        "evidence": {"instances": 42},
+    }
+    data.update(overrides)
+    return data
+
+
+def test_proposals_replace_per_camera_and_need_the_edge_token(client):
+    payload = {"camera_id": "stand12", "proposals": [_proposal()]}
+
+    assert client.post("/zones/proposals", json=payload).status_code == 401
+
+    res = client.post("/zones/proposals", json=payload, headers=HEADERS)
+    assert res.status_code == 200
+    assert [p["id"] for p in res.json()] == ["stand12-lucru-1"]
+
+    # o analiză nouă înlocuiește propunerile vechi ale camerei
+    second = {"camera_id": "stand12", "proposals": [_proposal("stand12-motor", kind="equipment", label="Zonă motor")]}
+    assert client.post("/zones/proposals", json=second, headers=HEADERS).status_code == 200
+    assert [p["id"] for p in client.get("/zones/proposals", params={"camera_id": "stand12"}).json()] == ["stand12-motor"]
+
+    # altă cameră nu e atinsă
+    other = {"camera_id": "taxiway-b", "proposals": [_proposal("taxiway-b-lucru-1", camera_id="taxiway-b")]}
+    assert client.post("/zones/proposals", json=other, headers=HEADERS).status_code == 200
+    assert [p["id"] for p in client.get("/zones/proposals", params={"camera_id": "stand12"}).json()] == ["stand12-motor"]
+
+
+def test_proposals_reject_unknown_camera_and_two_point_polygon(client):
+    bad_camera = {"camera_id": "nope", "proposals": [_proposal()]}
+    assert client.post("/zones/proposals", json=bad_camera, headers=HEADERS).status_code == 404
+
+    two_points = {"camera_id": "stand12", "proposals": [_proposal(polygon=[[0.1, 0.1], [0.2, 0.2]])]}
+    assert client.post("/zones/proposals", json=two_points, headers=HEADERS).status_code == 422
+
+
+def test_a_proposal_can_be_accepted_then_deleted(client):
+    payload = {"camera_id": "stand12", "proposals": [_proposal()]}
+    client.post("/zones/proposals", json=payload, headers=HEADERS)
+
+    proposal = client.get("/zones/proposals", params={"camera_id": "stand12"}).json()[0]
+    zone = client.put(
+        "/zones/lucru-1",
+        json={
+            "id": "lucru-1",
+            "camera_id": proposal["camera_id"],
+            "name": proposal["label"],
+            "rule_type": proposal["rule_type"],
+            "active_when": "always",
+            "required_ppe": [],
+            "severity": proposal["severity"],
+            "debounce_s": 3,
+            "escalate_after_s": 60,
+            "notify_channel": "slack",
+            "polygon": proposal["polygon"],
+            "reference_frame": None,
+        },
+    )
+    assert zone.status_code == 200
+
+    assert client.delete(f"/zones/proposals/{proposal['id']}").status_code == 204
+    assert client.get("/zones/proposals", params={"camera_id": "stand12"}).json() == []
+    assert client.delete("/zones/proposals/nope").status_code == 404

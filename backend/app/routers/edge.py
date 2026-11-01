@@ -2,13 +2,13 @@ import re
 from datetime import timedelta
 from pathlib import Path
 from uuid import uuid4
-from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Response, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile, status
 from sqlmodel import Session, select
 
 from app.config import get_settings
 from app.db import get_session
 from app.models import Camera, Snapshot, Zone
-from app.routers.health import record_edge_seen
+from app.auth import verify_edge_token
 from app.routers.zones import get_config_version, zone_io
 from app.schemas import EVENT_ID_PATTERN, EdgeEventIn, EdgeZonesOut, EventOut
 from app.services.events import ingest
@@ -19,14 +19,6 @@ router = APIRouter(prefix="/edge", tags=["edge"])
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB
 
 
-def verify_edge_token(x_edge_token: str | None = Header(default=None, alias="X-Edge-Token")) -> None:
-    settings = get_settings()
-    if not x_edge_token or x_edge_token != settings.edge_token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="invalid edge token",
-        )
-    record_edge_seen()
 
 
 @router.post("/events", response_model=EventOut)

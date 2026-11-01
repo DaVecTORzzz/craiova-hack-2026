@@ -1,3 +1,4 @@
+from datetime import datetime
 from enum import Enum
 from typing import Literal
 
@@ -204,3 +205,23 @@ class ShiftReport(BaseModel):
     by_type: list[dict]
     by_zone: list[dict]
     by_hour: list[dict]
+
+
+class ZoneProposalIO(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    id: str = Field(min_length=1, max_length=80)
+    camera_id: str
+    kind: Literal["activity", "equipment"]
+    label: str = Field(min_length=1, max_length=80)
+    rule_type: RuleType
+    severity: Severity
+    polygon: list[tuple[float, float]] = Field(min_length=3)
+    score: float = 0.0
+    evidence: dict = Field(default_factory=dict)
+    created_at: datetime | None = None
+
+
+class ZoneProposalsIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    camera_id: str
+    proposals: list[ZoneProposalIO]

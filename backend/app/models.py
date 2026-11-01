@@ -88,3 +88,19 @@ class ConfigState(SQLModel, table=True):
     __tablename__ = "config_state"
     id: int = Field(default=1, primary_key=True)
     config_version: int = 1
+
+
+class ZoneProposal(SQLModel, table=True):
+    """O zonă propusă de analiza vizuală, înainte ca un operator să o accepte."""
+
+    __tablename__ = "zone_proposals"
+    id: str = Field(primary_key=True)
+    camera_id: str = Field(index=True)
+    kind: str  # activity | equipment
+    label: str
+    rule_type: str
+    severity: str
+    polygon: list = Field(sa_column=Column(JSON))
+    score: float = 0.0
+    evidence: dict = Field(default_factory=dict, sa_column=Column(JSON))
+    created_at: datetime

@@ -61,6 +61,8 @@ function withFreshPreview(zone) {
   return { ...zone, reference_frame_url: `${base}?v=${Date.now()}` };
 }
 
+const EMPTY_PROPOSALS = [];
+
 const EMPTY_KPIS = {
   ppe_compliance_pct: '—',
   open_incidents_count: 0,
@@ -547,6 +549,33 @@ export function SecurityProvider({ children }) {
     }
   };
 
+  const [zoneProposals, setZoneProposals] = useState(EMPTY_PROPOSALS);
+
+  // Propunerile vin din analiza vizuală (YOLO + open-vocabulary), nu din motorul de reguli:
+  // se reîncarcă la schimbarea camerei și după ce analiza a rulat.
+  const refreshZoneProposals = async (cameraId) => {
+    try {
+      const proposals = await safeSightApi.getZoneProposals(cameraId);
+      setZoneProposals(proposals || EMPTY_PROPOSALS);
+    } catch {
+      setZoneProposals(EMPTY_PROPOSALS);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedCameraId) refreshZoneProposals(selectedCameraId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCameraId]);
+
+  const deleteZoneProposal = async (proposalId) => {
+    setZoneProposals((prev) => prev.filter((proposal) => proposal.id !== proposalId));
+    try {
+      await safeSightApi.deleteZoneProposal(proposalId);
+    } catch (error) {
+      showToast(`Ștergerea propunerii a eșuat: ${error.message}`);
+    }
+  };
+
   const captureReferenceFromLive = async (zoneId) => {
     showToast('Se preia cadrul live (deja blurat la edge)...');
     try {
@@ -721,6 +750,9 @@ export function SecurityProvider({ children }) {
         toggleEngine,
         captureReferenceFrame,
         captureReferenceFromLive,
+        zoneProposals,
+        refreshZoneProposals,
+        deleteZoneProposal,
         saveZone,
         deleteZone,
         clearReferenceFrame,

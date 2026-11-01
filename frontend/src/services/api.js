@@ -314,6 +314,17 @@ export const safeSightApi = {
     return mapZone(zone);
   },
 
+  async getZoneProposals(cameraId) {
+    if (USE_MOCK) return [];
+    return http(`/zones/proposals${queryString({ camera_id: cameraId })}`);
+  },
+
+  async deleteZoneProposal(proposalId) {
+    if (USE_MOCK) return true;
+    await http(`/zones/proposals/${encodeURIComponent(proposalId)}`, { method: 'DELETE' });
+    return true;
+  },
+
   async deleteZone(zoneId) {
     if (USE_MOCK) return true;
     await http(`/zones/${encodeURIComponent(zoneId)}`, { method: 'DELETE' });

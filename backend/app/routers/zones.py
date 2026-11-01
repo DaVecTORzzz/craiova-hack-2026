@@ -5,9 +5,11 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, Upl
 from sqlmodel import Session, select
 
 from app.config import get_settings
+from app.timeutil import utcnow
+from app.auth import verify_edge_token
 from app.db import get_session
-from app.models import Camera, ConfigState, Zone
-from app.schemas import ZoneIn, ZoneIO
+from app.models import Camera, ConfigState, Zone, ZoneProposal
+from app.schemas import ZoneIn, ZoneIO, ZoneProposalIO, ZoneProposalsIn
 
 router = APIRouter(prefix="/zones", tags=["zones"])
 
@@ -43,6 +45,49 @@ async def list_zones(
         query = query.where(Zone.camera_id == camera_id)
     zones = session.exec(query.order_by(Zone.id)).all()
     return [zone_io(z) for z in zones]
+
+
+def proposal_io(row: ZoneProposal) -> ZoneProposalIO:
+    return ZoneProposalIO.model_validate(row.model_dump())
+
+
+@router.get("/proposals", response_model=list[ZoneProposalIO])
+async def list_proposals(
+    camera_id: str | None = None,
+    session: Session = Depends(get_session),
+) -> list[ZoneProposalIO]:
+    query = select(ZoneProposal)
+    if camera_id is not None:
+        query = query.where(ZoneProposal.camera_id == camera_id)
+    return [proposal_io(row) for row in session.exec(query.order_by(ZoneProposal.id)).all()]
+
+
+@router.post("/proposals", response_model=list[ZoneProposalIO], dependencies=[Depends(verify_edge_token)])
+async def put_proposals(body: ZoneProposalsIn, session: Session = Depends(get_session)) -> list[ZoneProposalIO]:
+    """Replace every proposal of a camera: o analiză nouă înlocuiește una veche."""
+    if session.get(Camera, body.camera_id) is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="unknown camera_id")
+    for row in session.exec(select(ZoneProposal).where(ZoneProposal.camera_id == body.camera_id)).all():
+        session.delete(row)
+    created = []
+    for proposal in body.proposals:
+        row = ZoneProposal(**proposal.model_dump(exclude={"created_at"}), created_at=utcnow())
+        session.add(row)
+        created.append(row)
+    session.commit()
+    for row in created:
+        session.refresh(row)
+    return [proposal_io(row) for row in created]
+
+
+@router.delete("/proposals/{proposal_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_proposal(proposal_id: str, session: Session = Depends(get_session)) -> Response:
+    row = session.get(ZoneProposal, proposal_id)
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="unknown proposal_id")
+    session.delete(row)
+    session.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.put("/{zone_id}", response_model=ZoneIO)

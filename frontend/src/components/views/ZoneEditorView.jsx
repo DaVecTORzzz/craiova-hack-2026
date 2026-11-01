@@ -10,10 +10,12 @@ import {
   Radio,
   Redo2,
   Save,
+  Sparkles,
   Trash2,
   Undo2,
   Wand2,
   AlertTriangle,
+  X,
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useSecurity } from '../../context/SecurityContext';
@@ -34,6 +36,28 @@ const HISTORY_LIMIT = 60;
 
 function rounded(point) {
   return { x: Number(point.x.toFixed(4)), y: Number(point.y.toFixed(4)) };
+}
+
+// Backend-ul trimite perechi [x, y]; editorul lucrează cu {x, y}.
+function toPoint(point) {
+  if (Array.isArray(point)) return rounded({ x: point[0], y: point[1] });
+  return rounded(point);
+}
+
+
+// Miniatură: poligonul e scalat pe propria cutie, altfel o zonă mică e un punct verde.
+function previewPoints(polygon) {
+  const points = (polygon || []).map(toPoint);
+  if (points.length < 3) return '';
+  const xs = points.map((point) => point.x);
+  const ys = points.map((point) => point.y);
+  const minX = Math.min(...xs);
+  const minY = Math.min(...ys);
+  const width = Math.max(Math.max(...xs) - minX, 0.01);
+  const height = Math.max(Math.max(...ys) - minY, 0.01);
+  return points
+    .map((point) => `${((point.x - minX) / width) * 86 + 7},${((point.y - minY) / height) * 46 + 7}`)
+    .join(' ');
 }
 
 function slugify(value) {
@@ -67,6 +91,8 @@ export default function ZoneEditorView() {
     captureReferenceFrame,
     captureReferenceFromLive,
     clearReferenceFrame,
+    zoneProposals,
+    deleteZoneProposal,
     showToast,
   } = useSecurity();
 
@@ -490,6 +516,32 @@ export default function ZoneEditorView() {
     }
   };
 
+  const applyProposal = (proposal) => {
+    const base = slugify(proposal.id) || slugify(proposal.label);
+    let candidate = base;
+    let suffix = 2;
+    while (zones.some((item) => item.zone_id === candidate)) {
+      candidate = `${base}-${suffix}`;
+      suffix += 1;
+    }
+    setZoneId(candidate);
+    setIsNew(true);
+    setPoints((proposal.polygon || []).map(toPoint));
+    setClosed(true);
+    setHistory({ past: [], future: [] });
+    setSelectedIndex(null);
+    setDraft({
+      name: proposal.label,
+      rule_type: proposal.rule_type,
+      active_when: 'always',
+      severity: proposal.severity,
+      debounce_s: 3,
+      notify_channel: 'slack',
+      escalate_after_s: 60,
+    });
+    showToast(`Propunere încărcată: ${proposal.label}. Verifică și salvează.`);
+  };
+
   const handleCopyFrom = () => {
     const other = zones.find((item) => item.camera_id !== selectedCameraId && (item.polygon || []).length >= 3);
     if (!other) {
@@ -809,6 +861,69 @@ export default function ZoneEditorView() {
         </div>
 
         <div className="space-y-3">
+          <div
+            style={{ backgroundColor: themeStyles.panelBg, borderColor: themeStyles.panelBorder }}
+            className="rounded-xl border p-4 shadow-lg space-y-2 text-xs"
+          >
+            <h3 className="font-bold text-sm uppercase tracking-wider flex items-center gap-2">
+              <Sparkles size={16} className="text-emerald-400" /> Zone propuse
+              {zoneProposals.length > 0 && (
+                <span className="text-[10px] font-mono opacity-60">({zoneProposals.length})</span>
+              )}
+            </h3>
+
+            {zoneProposals.length === 0 ? (
+              <p style={{ color: themeStyles.textMuted }} className="text-[11px] leading-snug font-mono">
+                Nimic propus încă. Analiza vizuală propune zone din ce vede camera:
+                <br />
+                <code className="text-emerald-300/90">
+                  python -m safesight_ml.suggest --source clip.mp4 --camera-id {selectedCameraId}
+                </code>
+              </p>
+            ) : (
+              <ul className="space-y-2">
+                {zoneProposals.map((proposal) => (
+                  <li
+                    key={proposal.id}
+                    data-testid={`proposal-${proposal.id}`}
+                    className="flex items-center gap-2 rounded-lg border border-white/10 bg-black/20 p-1.5"
+                  >
+                    <svg viewBox="0 0 100 60" className="w-14 h-9 shrink-0 rounded bg-black/50">
+                      <polygon
+                        points={previewPoints(proposal.polygon)}
+                        fill="rgba(52, 211, 153, 0.35)"
+                        stroke="#34D399"
+                        strokeWidth="2"
+                      />
+                    </svg>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-bold truncate">{proposal.label}</p>
+                      <p className="text-[10px] font-mono opacity-60 truncate">
+                        {proposal.rule_type} · {proposal.kind === 'equipment' ? 'obiect' : 'activitate'}
+                        {proposal.score ? ` · ${Math.round(proposal.score * 100)}%` : ''}
+                      </p>
+                    </div>
+                    <button
+                      data-testid={`proposal-accept-${proposal.id}`}
+                      onClick={() => applyProposal(proposal)}
+                      className="px-2 py-1 rounded bg-emerald-700 hover:bg-emerald-600 text-white text-[10px] font-bold shrink-0"
+                      title="Încarcă propunerea în editor"
+                    >
+                      Adaugă
+                    </button>
+                    <button
+                      onClick={() => deleteZoneProposal(proposal.id)}
+                      className="text-red-300/80 hover:text-red-200 shrink-0"
+                      title="Respinge propunerea"
+                    >
+                      <X size={13} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
           <div
             style={{ backgroundColor: themeStyles.panelBg, borderColor: themeStyles.panelBorder }}
             className="rounded-xl border p-4 shadow-lg space-y-3 text-xs"
