@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Camera,
   Code,
-  Copy,
   ImageOff,
   Layers,
   PenTool,
@@ -490,17 +489,6 @@ export default function ZoneEditorView() {
     }
   };
 
-  const handleCopyFrom = () => {
-    const other = zones.find((item) => item.camera_id !== selectedCameraId && (item.polygon || []).length >= 3);
-    if (!other) {
-      showToast('Nu există o zonă pe altă cameră din care să copiezi.');
-      return;
-    }
-    pushPoints(other.polygon.map(rounded));
-    setClosed(true);
-    showToast(`Poligon copiat din ${other.camera_id} / ${other.zone_id}.`);
-  };
-
   if (!activeCamera) {
     return (
       <div className="flex-1 flex items-center justify-center p-6">
@@ -534,14 +522,6 @@ export default function ZoneEditorView() {
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={handleCopyFrom}
-            disabled={!zoneId}
-            className="px-2.5 py-1.5 rounded-lg border border-white/20 hover:bg-white/10 disabled:opacity-40 text-xs font-mono font-bold flex items-center gap-1.5"
-            title="Copiază poligonul celei mai apropiate zone de pe altă cameră"
-          >
-            <Copy size={14} /> Copiază de pe altă cameră
-          </button>
-          <button
             onClick={() => setShowJson(!showJson)}
             className="px-2.5 py-1.5 rounded-lg border border-white/20 hover:bg-white/10 text-xs font-mono font-bold flex items-center gap-1.5"
           >
@@ -553,20 +533,25 @@ export default function ZoneEditorView() {
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
         <div className="lg:col-span-3 space-y-3">
           <div className="flex items-center gap-2 text-xs flex-wrap">
-            <span className="font-bold opacity-75">Camera:</span>
-            {cameras.map((camera) => (
-              <button
-                key={camera.id}
-                onClick={() => setSelectedCameraId(camera.id)}
-                className={`px-2.5 py-1 rounded font-mono font-bold border ${
-                  camera.id === selectedCameraId
-                    ? 'bg-indigo-600 text-white border-indigo-400'
-                    : 'bg-black/30 text-slate-300 border-white/10'
-                }`}
-              >
-                {camera.id}
-              </button>
-            ))}
+            <label htmlFor="zone-camera" className="font-bold opacity-75">
+              Camera:
+            </label>
+            <select
+              id="zone-camera"
+              data-testid="zone-camera"
+              value={selectedCameraId}
+              onChange={(event) => setSelectedCameraId(event.target.value)}
+              style={{ backgroundColor: themeStyles.cardBg, borderColor: themeStyles.panelBorder }}
+              className="min-w-[16rem] max-w-full px-2.5 py-1.5 rounded-lg border text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#7EDEED]"
+            >
+              {cameras.map((camera) => (
+                <option key={camera.id} value={camera.id}>
+                  {`${camera.name || camera.code || camera.id} (${camera.id})${
+                    camera.status === 'offline' ? ' · offline' : ''
+                  } · ${zones.filter((item) => item.camera_id === camera.id).length} zone`}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="flex items-center gap-1.5 flex-wrap">
