@@ -11,6 +11,7 @@ from app.config import get_settings
 from app.db import get_engine, init_db
 from app.routers import cameras, edge, events, health, reports, stream, ws, zones
 from app.seed import ensure_placeholder_image, seed
+from app.services import outbox
 from app.services.escalation import cancel_all, recover_timers
 
 
@@ -30,6 +31,8 @@ async def lifespan(app: FastAPI):
     with Session(get_engine()) as session:
         seed(session)
     await recover_timers()
+    # Alerts left `pending` by a previous process go out immediately.
+    outbox.start()
 
     mock_task: asyncio.Task | None = None
     if settings.use_mock:
@@ -39,6 +42,7 @@ async def lifespan(app: FastAPI):
     yield
 
     cancel_all()
+    await outbox.stop()
 
     if mock_task is not None:
         mock_task.cancel()

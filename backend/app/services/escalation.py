@@ -5,7 +5,8 @@ from sqlmodel import Session, select
 from app.db import get_engine
 from app.models import Event, EventAction, Zone
 from app.schemas import EventType, Status
-from app.services.notify import send_slack, slack_text
+from app.services import outbox
+from app.services.notify import slack_text
 from app.timeutil import utcnow
 from app.ws import manager
 
@@ -70,7 +71,9 @@ async def escalate(event_id: str) -> None:
     logger.info(f"escalate event_id={event_id}")
     await manager.broadcast("event.updated", out.model_dump(mode="json"))
 
-    await send_slack(slack_text(out, escalated=True))
+    # Same durable path as the first alert: an escalation nobody received is not
+    # an escalation. Rendered with the original detection time.
+    outbox.enqueue(event_id, "escalation", slack_text(out, escalated=True))
 
 
 async def recover_timers() -> None:

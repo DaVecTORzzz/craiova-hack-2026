@@ -193,6 +193,10 @@ class Kpi(BaseModel):
     open_incidents: int
     avg_detection_to_alert_s: float | None
     escalated: int
+    # Additive: cât din tură a fost confirmat de un operator și câte incidente au
+    # primit într-adevăr o alertă. `null` înseamnă „nu există incidente", nu „zero".
+    resolution_rate: float | None = None
+    alerted_incidents: int = 0
 
 
 class ShiftReport(BaseModel):
@@ -204,3 +208,7 @@ class ShiftReport(BaseModel):
     by_type: list[dict]
     by_zone: list[dict]
     by_hour: list[dict]
+    # Additive: incidentele și fals pozitivele sunt numărate separat, ca raportul
+    # să nu raporteze un fals pozitiv drept incident.
+    total_events: int = 0
+    false_positives: int = 0

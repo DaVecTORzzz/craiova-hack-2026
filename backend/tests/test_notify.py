@@ -2,7 +2,7 @@ import time
 from sqlmodel import Session
 from app.db import get_engine
 from app.models import Zone
-from app.services import escalation, notify
+from app.services import notify
 from tests.conftest import edge_event, receive_until
 
 HEADERS = {"X-Edge-Token": "test-token"}
@@ -26,7 +26,6 @@ def _record_slack(monkeypatch, ok: bool) -> list[str]:
         return ok
 
     monkeypatch.setattr(notify, "send_slack", fake_send_slack)
-    monkeypatch.setattr(escalation, "send_slack", fake_send_slack)
     return sent
 
 

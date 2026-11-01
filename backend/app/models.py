@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Column, JSON
+from sqlalchemy import Column, JSON, UniqueConstraint
 from sqlmodel import Field, SQLModel
 
 
@@ -88,3 +88,28 @@ class ConfigState(SQLModel, table=True):
     __tablename__ = "config_state"
     id: int = Field(default=1, primary_key=True)
     config_version: int = 1
+
+
+class NotificationOutbox(SQLModel, table=True):
+    """A notification waiting to be sent, with retry.
+
+    The text is rendered at enqueue time, so a retry 30 s later sends exactly
+    the original message with the original time. ``(event_id, kind)`` is unique:
+    a restart cannot duplicate alerts. A ``failed`` row stays in the table on
+    purpose — it is the record that the alert never left.
+    """
+
+    __tablename__ = "notification_outbox"
+    __table_args__ = (UniqueConstraint("event_id", "kind", name="uq_notification_outbox_event_kind"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    event_id: str = Field(index=True)
+    kind: str = "new"                                    # new | escalation | recovery
+    channel: str = "slack"
+    text: str
+    status: str = Field(default="pending", index=True)   # pending | sent | failed | cancelled
+    attempts: int = 0
+    next_attempt_at: datetime = Field(index=True)
+    last_error: str | None = None
+    created_at: datetime
+    sent_at: datetime | None = None
