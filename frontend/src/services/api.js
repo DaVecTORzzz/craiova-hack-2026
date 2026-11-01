@@ -122,6 +122,8 @@ async function http(path, options = {}) {
     }
     throw new Error(`${response.status} ${detail || response.statusText}`);
   }
+  // 204 No Content (DELETE /zones/{id}) has no body to parse.
+  if (response.status === 204) return null;
   return response.json();
 }
 
