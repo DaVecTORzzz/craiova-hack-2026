@@ -46,6 +46,7 @@ EQUIPMENT_GROUND_DROP = 1.2  # cât coborâm sub echipament, spre zona de perico
 EQUIPMENT_MIN_AREA = 0.0005
 EQUIPMENT_MAX_AREA = 0.08
 EQUIPMENT_MAX_ZONE_AREA = 0.30  # nici zona extinsă spre sol nu are voie să acopere tot
+ACTIVITY_MIN_AREA = 0.004  # sub 0,4% din cadru e un om rătăcit, nu o zonă de lucru
 CLUSTER_RADIUS = 0.06  # ~6% din diagonală: un grup de oameni, nu două
 CLUSTER_MINIMUM = 12  # sub atât e un trecător, nu o zonă de lucru
 
@@ -66,8 +67,10 @@ class Proposal:
         return asdict(self)
 
 
-def cluster_points(points: np.ndarray, radius: float = CLUSTER_RADIUS, minimum: int = CLUSTER_MINIMUM) -> list[np.ndarray]:
-    """DBSCAN suficient pentru câteva sute de puncte, fără dependențe."""
+def cluster_indices(
+    points: np.ndarray, radius: float = CLUSTER_RADIUS, minimum: int = CLUSTER_MINIMUM
+) -> list[np.ndarray]:
+    """DBSCAN suficient pentru câteva sute de puncte, fără dependențe. Întoarce indici."""
     if len(points) == 0:
         return []
     labels = np.full(len(points), -1)
@@ -87,8 +90,13 @@ def cluster_points(points: np.ndarray, radius: float = CLUSTER_RADIUS, minimum: 
             fresh = close & (labels == -1)
             labels[fresh] = label
             pending.extend(np.flatnonzero(fresh))
-        groups.append(points[labels == label])
+        groups.append(np.flatnonzero(labels == label))
     return groups
+
+
+def cluster_points(points: np.ndarray, radius: float = CLUSTER_RADIUS, minimum: int = CLUSTER_MINIMUM) -> list[np.ndarray]:
+    """Aceleași grupuri, ca puncte (pentru teste și pentru apeluri simple)."""
+    return [points[indexes] for indexes in cluster_indices(points, radius, minimum)]
 
 
 def hull_polygon(points: np.ndarray, margin: float = ACTIVITY_MARGIN) -> list[tuple[float, float]]:
@@ -121,15 +129,24 @@ def equipment_polygon(
 
 def person_points(frames: list[np.ndarray], model, confidence: float = 0.35) -> np.ndarray:
     """Punctele de sprijin ale persoanelor, normalizate (centrul bazei cutiei)."""
+    return person_points_and_boxes(frames, model, confidence)[0]
+
+
+def person_points_and_boxes(
+    frames: list[np.ndarray], model, confidence: float = 0.35
+) -> tuple[np.ndarray, np.ndarray]:
+    """Punctul de sprijin (pentru grupare) și cutia întreagă (pentru formă)."""
     points: list[tuple[float, float]] = []
+    boxes: list[tuple[float, float, float, float]] = []
     for frame in frames:
         height, width = frame.shape[:2]
         result = model.predict(frame, classes=[0], conf=confidence, verbose=False)[0]
         if result.boxes is None:
             continue
-        for x1, _, x2, y2 in result.boxes.xyxy.cpu().numpy():
+        for x1, y1, x2, y2 in result.boxes.xyxy.cpu().numpy():
             points.append((float((x1 + x2) / 2 / width), float(y2 / height)))
-    return np.array(points)
+            boxes.append((float(x1 / width), float(y1 / height), float(x2 / width), float(y2 / height)))
+    return np.array(points), np.array(boxes)
 
 
 def activity_proposals(
@@ -140,19 +157,34 @@ def activity_proposals(
     max_zones: int = 3,
     confidence: float = 0.35,
 ) -> list[Proposal]:
-    points = person_points(frames, model, confidence)
-    groups = sorted(cluster_points(points), key=len, reverse=True)[:max_zones]
+    points, boxes = person_points_and_boxes(frames, model, confidence)
+    groups = sorted(cluster_indices(points), key=len, reverse=True)[:max_zones]
     proposals = []
     for index, group in enumerate(groups, start=1):
+        # Poligonul are nevoie de înălțimea oamenilor: din punctele de sprijin iese o
+        # fâșie subțire (urma unui marshaller care merge), din cutii iese o zonă.
+        corners = np.concatenate(
+            [
+                boxes[group][:, [0, 1]],
+                boxes[group][:, [2, 1]],
+                boxes[group][:, [2, 3]],
+                boxes[group][:, [0, 3]],
+            ]
+        )
+        polygon = hull_polygon(corners)
+        xs = [point[0] for point in polygon]
+        ys = [point[1] for point in polygon]
+        if (max(xs) - min(xs)) * (max(ys) - min(ys)) < ACTIVITY_MIN_AREA:
+            continue  # un om singur, departe, nu e o zonă de lucru
         proposals.append(
             Proposal(
-                id=f"{camera_id}-lucru-{index}",
+                id=f"{camera_id}-lucru-{len(proposals) + 1}",
                 camera_id=camera_id,
                 kind="activity",
-                label=f"Zonă de lucru {index}",
+                label=f"Zonă de lucru {len(proposals) + 1}",
                 rule_type="PPE_REQUIRED",
                 severity="WARNING",
-                polygon=hull_polygon(group),
+                polygon=polygon,
                 score=min(1.0, len(group) / max(len(points), 1) * 2),
                 evidence={"instances": int(len(group)), "frames": len(frames)},
             )
