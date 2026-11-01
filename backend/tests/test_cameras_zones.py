@@ -1,5 +1,9 @@
 import io
 from PIL import Image
+from sqlmodel import Session
+
+from app.db import get_engine
+from app.models import Zone
 
 HEADERS = {"X-Edge-Token": "test-token"}
 
@@ -245,3 +249,52 @@ def test_a_camera_can_be_created_at_runtime(client):
     assert client.put("/cameras/Bad%20Id", json={"name": "x"}).status_code == 422
     # Un slash encodat nu ajunge nici măcar la rută: 404 înainte de validare.
     assert client.put("/cameras/..%2Fetc", json={"name": "x"}).status_code == 404
+
+
+def _store_legacy_zone(zone_id: str = "legacy-fod", rule_type: str = "FOD_WATCH") -> None:
+    """A row as an older database really holds it: the rule no longer exists in the contract."""
+    with Session(get_engine()) as session:
+        session.add(
+            Zone(
+                id=zone_id,
+                camera_id="stand12",
+                name="Zonă veche",
+                rule_type=rule_type,
+                active_when="always",
+                required_ppe=[],
+                severity="WARNING",
+                debounce_s=3.0,
+                notify_channel="slack",
+                escalate_after_s=None,
+                polygon=[[0.1, 0.1], [0.3, 0.1], [0.3, 0.4]],
+                reference_frame=None,
+            )
+        )
+        session.commit()
+
+
+def test_a_zone_with_a_retired_rule_is_skipped_not_fatal(client, caplog):
+    """The seed repairs the ids it knows; a user-created zone can still hold a retired rule."""
+    _store_legacy_zone()
+
+    with caplog.at_level("WARNING", logger="safesight.zones"):
+        response = client.get("/zones")
+
+    assert response.status_code == 200
+    ids = {zone["id"] for zone in response.json()}
+    assert "legacy-fod" not in ids
+    assert {"engine-left", "apron-stand12", "taxiway-b", "baggage-area"} <= ids
+    assert "legacy-fod" in caplog.text
+    assert "FOD_WATCH" in caplog.text
+
+
+def test_the_edge_config_poll_survives_a_retired_zone(client):
+    """One bad row must not stop an edge from receiving the zones it can enforce."""
+    _store_legacy_zone()
+
+    response = client.get("/edge/zones", params={"camera_id": "stand12"}, headers=HEADERS)
+
+    assert response.status_code == 200
+    ids = {zone["id"] for zone in response.json()["zones"]}
+    assert "legacy-fod" not in ids
+    assert {"engine-left", "apron-stand12"} <= ids

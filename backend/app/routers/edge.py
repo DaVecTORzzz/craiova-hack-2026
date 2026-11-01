@@ -9,7 +9,7 @@ from app.config import get_settings
 from app.db import get_session
 from app.models import Camera, Snapshot, Zone
 from app.routers.health import record_edge_seen
-from app.routers.zones import get_config_version, zone_io
+from app.routers.zones import get_config_version, zone_io_or_none
 from app.schemas import EVENT_ID_PATTERN, EdgeEventIn, EdgeZonesOut, EventOut, HeartbeatIn
 from app.services import watchdog
 from app.services.events import ingest
@@ -118,7 +118,7 @@ async def get_edge_zones(
         camera_id=camera.id,
         engine_on=camera.engine_on,
         config_version=get_config_version(session),
-        zones=[zone_io(z) for z in zones],
+        zones=[io for zone in zones if (io := zone_io_or_none(zone)) is not None],
     )
 
 
