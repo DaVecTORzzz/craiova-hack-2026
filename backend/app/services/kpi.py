@@ -233,7 +233,9 @@ async def _generate_summary(numbers: dict, n_events: int) -> tuple[str, str]:
     return text, "template"
 
 
-_locks: dict[str, asyncio.Lock] = {}
+# Keyed by (loop, shift:date): an asyncio.Lock binds to the loop that first waits on
+# it, and a second app instance (tests, reload) must not inherit a dead one.
+_locks: dict[tuple[int, str], asyncio.Lock] = {}
 
 
 def _is_fresh(stored: ShiftSummary | None, digest: str, ttl: int, refresh: bool) -> bool:
@@ -268,7 +270,8 @@ async def _summary_cached(
     if _is_fresh(session.get(ShiftSummary, key), digest, ttl, refresh):
         return session.get(ShiftSummary, key).summary  # type: ignore[union-attr]
 
-    lock = _locks.setdefault(key, asyncio.Lock())
+    lock_key = (id(asyncio.get_running_loop()), key)
+    lock = _locks.setdefault(lock_key, asyncio.Lock())
     async with lock:
         # See a summary committed while this request was waiting for the lock.
         session.rollback()
