@@ -24,7 +24,23 @@ function formatAge(minutes) {
  * Un număr singur nu spune dacă e proaspăt sau uitat; vârsta o spune.
  */
 function AttentionBadge({ open, escalated, oldestMinutes }) {
-  if (escalated === 0) return null;
+  if (open === 0 && escalated === 0) return null;
+
+  // Fără escaladare încă: semnalul trebuie să apară când apare și incidentul, nu 30 s
+  // mai târziu. Galben = așteaptă; roșu = așteaptă de prea mult.
+  if (escalated === 0) {
+    const tooltip = `${open} ${open === 1 ? 'incident deschis' : 'incidente deschise'}`;
+    return (
+      <span
+        title={tooltip}
+        aria-label={tooltip}
+        className="shrink-0 flex items-center rounded-full bg-[#FFEB33] text-[#1F1F1F] text-[10px] font-bold px-1.5 py-0.5 shadow"
+      >
+        {open}
+      </span>
+    );
+  }
+
   const age = formatAge(oldestMinutes);
   const total = open + escalated;
   const tooltip = `${escalated} ${escalated === 1 ? 'incident escaladat' : 'incidente escaladate'}${
@@ -78,7 +94,8 @@ export default function Sidebar() {
     const open = list.filter((event) => event.status === 'open').length;
     const escalated = list.filter((event) => event.status === 'escalated');
     const oldest = escalated.reduce((minimum, event) => {
-      const stamp = new Date(event.escalated_at || event.detected_at || 0).getTime();
+      // De la detectare, nu de la escaladare: cât așteaptă cazul, nu de când sună alarma.
+      const stamp = new Date(event.detected_at || event.escalated_at || 0).getTime();
       return Number.isFinite(stamp) && stamp > 0 ? Math.min(minimum, stamp) : minimum;
     }, Number.POSITIVE_INFINITY);
     return {
@@ -95,10 +112,7 @@ export default function Sidebar() {
       label: 'Live',
       subtitle: 'Monitorizare & Stream',
       icon: Video,
-      badge: kpis?.open_incidents_count > 0 ? kpis.open_incidents_count : null,
-      badgeTitle: kpis?.open_incidents_count > 0
-        ? `${kpis.open_incidents_count} incidente deschise`
-        : undefined
+      // Numărul de incidente deschise stă pe „Incidente", unde se și acționează.
     },
     {
       id: 'incidents',
@@ -109,7 +123,7 @@ export default function Sidebar() {
       icon: AlertOctagon,
       // Cazurile care așteaptă, cu vârsta celui mai vechi: un număr singur nu spune
       // dacă e proaspăt sau uitat.
-      attention: attention.escalated > 0,
+      attention: attention.open > 0 || attention.escalated > 0,
       attentionOpen: attention.open,
       attentionEscalated: attention.escalated,
       attentionAge: attention.oldestMinutes
