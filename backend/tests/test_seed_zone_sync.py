@@ -88,3 +88,41 @@ def test_camera_fixture_matches_the_seed():
         expected = seeded[camera["id"]]
         for field in ("name", "rtsp_url", "online", "engine_on"):
             assert camera[field] == getattr(expected, field), f"{camera['id']}.{field}"
+
+
+def test_seed_repairs_a_zone_stored_with_a_retired_rule_type(client):
+    """A database from before FOD was dropped still holds `taxiway-b` as FOD_WATCH.
+
+    One such row used to make `GET /zones` fail with a 500, so the editor showed no
+    zones at all. The read path now skips the retired row instead of failing, and the
+    seed takes the rule from the seed again, keeping the polygon the user drew.
+    """
+    from sqlalchemy import text
+    from sqlmodel import Session
+
+    from app.db import get_engine
+
+    drawn = [[0.1, 0.1], [0.5, 0.1], [0.5, 0.5]]
+    with Session(get_engine()) as session:
+        session.exec(
+            text("UPDATE zones SET rule_type = 'FOD_WATCH', required_ppe = '[]', polygon = :polygon WHERE id = 'taxiway-b'"),
+            params={"polygon": json.dumps(drawn)},
+        )
+        session.commit()
+    # Before the seed runs again: the list must survive and hide the retired row.
+    before = client.get("/zones")
+    assert before.status_code == 200
+    assert "taxiway-b" not in {zone["id"] for zone in before.json()}
+
+    with Session(get_engine()) as session:
+        seed_zones(session)
+        session.commit()
+
+    response = client.get("/zones", params={"camera_id": "taxiway-b"})
+    assert response.status_code == 200
+    (zone,) = response.json()
+    seeded = seeded_zones()["taxiway-b"]
+    assert zone["rule_type"] == seeded.rule_type
+    assert zone["required_ppe"] == seeded.required_ppe
+    assert zone["polygon"] == drawn
+    assert client.get("/zones").status_code == 200

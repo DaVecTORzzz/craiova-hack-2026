@@ -1,3 +1,4 @@
+import logging
 from datetime import UTC, timedelta
 from pathlib import Path
 
@@ -6,7 +7,12 @@ from sqlmodel import Session, select
 
 from app.config import get_settings
 from app.models import Camera, ConfigState, Event, Zone
+from app.schemas import RuleType
 from app.timeutil import utcnow
+
+logger = logging.getLogger("safesight.seed")
+
+RULE_TYPES = {rule.value for rule in RuleType}
 
 
 def ensure_placeholder_image(snapshot_dir: str) -> None:
@@ -111,8 +117,20 @@ def seed_zones(session: Session) -> None:
         ),
     ]
     for zone in zones:
-        if session.get(Zone, zone.id) is None:
+        stored = session.get(Zone, zone.id)
+        if stored is None:
             session.add(zone)
+        elif stored.rule_type not in RULE_TYPES:
+            # A database from before a rule was dropped (FOD_WATCH): one such row makes
+            # GET /zones fail for every zone. The rule comes from the seed again; the
+            # polygon and the rest of what the user edited stay.
+            logger.warning(
+                f"zone {stored.id} had the retired rule_type={stored.rule_type}; "
+                f"restored rule_type={zone.rule_type} from the seed, kept its polygon"
+            )
+            stored.rule_type = zone.rule_type
+            stored.required_ppe = zone.required_ppe
+            session.add(stored)
 
 
 def seed_config_state(session: Session) -> None:

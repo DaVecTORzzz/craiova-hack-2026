@@ -1,13 +1,17 @@
 import asyncio
+import logging
 import time
 from pathlib import Path
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile, status
+from pydantic import ValidationError
 from sqlmodel import Session, select
 
 from app.config import get_settings
 from app.db import get_session
 from app.models import Camera, ConfigState, Zone
 from app.schemas import ZoneIn, ZoneIO
+
+logger = logging.getLogger("safesight.zones")
 
 router = APIRouter(prefix="/zones", tags=["zones"])
 
@@ -16,6 +20,24 @@ MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB
 
 def zone_io(zone: Zone) -> ZoneIO:
     return ZoneIO.model_validate(zone.model_dump())
+
+
+def zone_io_or_none(zone: Zone) -> ZoneIO | None:
+    """Serialize a stored zone, or skip it.
+
+    A row written under a value that was later removed from the contract (a rule
+    type, an active_when) fails validation. One such row must not empty the whole
+    editor or stop the edge from receiving its other zones: it is skipped and
+    logged, and the seed repairs the ones it knows.
+    """
+    try:
+        return zone_io(zone)
+    except ValidationError:
+        logger.warning(
+            f"zone {zone.id} (camera {zone.camera_id}) holds a value retired from the contract "
+            f"(rule_type={zone.rule_type}, active_when={zone.active_when}); skipped, not returned"
+        )
+        return None
 
 
 def bump_config_version(session: Session) -> int:
@@ -42,7 +64,12 @@ async def list_zones(
     if camera_id is not None:
         query = query.where(Zone.camera_id == camera_id)
     zones = session.exec(query.order_by(Zone.id)).all()
-    return [zone_io(z) for z in zones]
+    out: list[ZoneIO] = []
+    for zone in zones:
+        io = zone_io_or_none(zone)
+        if io is not None:
+            out.append(io)
+    return out
 
 
 @router.put("/{zone_id}", response_model=ZoneIO)
