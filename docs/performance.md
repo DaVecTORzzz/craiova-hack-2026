@@ -65,6 +65,6 @@ Concluzia de start pentru orice optimizare: **detectarea e 85–90% din bucla de
 ## Ce rămâne deschis
 
 1. **Arhitectura writer-ului de live.** Bucla de edge e limita (20 fps cu ncnn), iar writer-ul ține fiecare cadru până la o trecere YuNet. Un writer care rulează independent de buclă ar putea scoate mai mult, dar atinge garanția „niciun cadru neinspectat".
-2. **Un proces pentru mai multe camere, cu batch pe GPU.** Batching-ul pe CPU a dat 1,1×, dar la trei edge-uri care se serializează pe același iGPU (40 ms fiecare) un singur proces cu batch ar folosi GPU-ul o dată. Arhitectural mare.
+2. **Un proces pentru mai multe camere, cu batch pe GPU.** Măsurat și respins: un proces cu trei detectoare ncnn susține **47,9 detecții/s**, iar cele trei procese de azi dau ~58/s (20,4 + 20,5 + 17,7 cadre/s). Contextele Vulkan separate nu costă ce credeam; consolidarea ar fi muncă mare pentru mai puțin throughput.
 3. **Detectarea de capete** în loc de fețe: capul e o țintă mai mare, iar blur-ul pe cutia capului acoperă fața prin construcție. Necesită adnotări proprii (CrowdHuman e non-comercial).
 4. **Alt detector pentru fețe mici** (SCRFD-2.5G/10G): ~17 GFLOPs la 1920, deci doar pe GPU, unde iGPU-ul nostru are ~90 GB/s de bandwidth partajat — de măsurat, nu de presupus.
