@@ -232,6 +232,25 @@ def test_reference_frame_from_live_reports_a_silent_edge(client, monkeypatch):
     assert client.post("/zones/nope/reference-frame/from-live").status_code == 404
 
 
+def test_a_camera_can_be_created_at_runtime(client):
+    from app.timeutil import utcnow
+    res = client.put("/cameras/webcam", json={"name": "Camera laptopului", "rtsp_url": "webcam:1"})
+    assert res.status_code == 200
+    assert res.json()["id"] == "webcam"
+    assert res.json()["name"] == "Camera laptopului"
+    assert any(c["id"] == "webcam" for c in client.get("/cameras").json())
+
+    # idempotent: același id doar schimbă numele
+    again = client.put("/cameras/webcam", json={"name": "Webcam"})
+    assert again.status_code == 200
+    assert again.json()["name"] == "Webcam"
+
+    # Id-ul ajunge în căi: un nume cu spații sau bare nu are voie să devină cameră.
+    assert client.put("/cameras/Bad%20Id", json={"name": "x"}).status_code == 422
+    # Un slash encodat nu ajunge nici măcar la rută: 404 înainte de validare.
+    assert client.put("/cameras/..%2Fetc", json={"name": "x"}).status_code == 404
+
+
 def _store_legacy_zone(zone_id: str = "legacy-fod", rule_type: str = "FOD_WATCH") -> None:
     """A row as an older database really holds it: the rule no longer exists in the contract."""
     with Session(get_engine()) as session:
