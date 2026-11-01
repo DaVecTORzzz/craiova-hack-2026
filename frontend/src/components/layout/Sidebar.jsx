@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Video,
   AlertOctagon,
@@ -12,6 +12,43 @@ import {
 import { useTheme } from '../../context/ThemeContext';
 import { useSecurity } from '../../context/SecurityContext';
 
+function formatAge(minutes) {
+  if (minutes === null) return '';
+  if (minutes < 1) return 'acum';
+  if (minutes < 60) return `${minutes}m`;
+  return `${Math.floor(minutes / 60)}h`;
+}
+
+/**
+ * Semnalul de atenție: câte cazuri așteaptă și de cât timp așteaptă cel mai vechi.
+ * Un număr singur nu spune dacă e proaspăt sau uitat; vârsta o spune.
+ */
+function AttentionBadge({ open, escalated, oldestMinutes }) {
+  if (escalated === 0) return null;
+  const age = formatAge(oldestMinutes);
+  const total = open + escalated;
+  const tooltip = `${escalated} ${escalated === 1 ? 'incident escaladat' : 'incidente escaladate'}${
+    age ? `, cel mai vechi ${age === 'acum' ? 'chiar acum' : `acum ${age}`}` : ''
+  } · ${total} ${total === 1 ? 'în total' : 'în total'}`;
+  return (
+    <span
+      title={tooltip}
+      aria-label={tooltip}
+      className="flex items-stretch shrink-0 rounded-full overflow-hidden shadow ring-1 ring-[#D73833]/60"
+    >
+      <span className="flex items-center gap-1 bg-[#D73833] text-white text-[10px] font-bold px-1.5 py-0.5">
+        <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+        {escalated}
+      </span>
+      {age && (
+        <span className="flex items-center bg-[#1F1F1F] text-[#FF8A80] text-[9px] font-mono px-1.5 py-0.5">
+          {age}
+        </span>
+      )}
+    </span>
+  );
+}
+
 export default function Sidebar() {
   const { isDarkMode, themeStyles } = useTheme();
   const {
@@ -20,6 +57,7 @@ export default function Sidebar() {
     isSidebarCollapsed,
     setIsSidebarCollapsed,
     kpis,
+    events,
     health
   } = useSecurity();
 
@@ -28,6 +66,28 @@ export default function Sidebar() {
   const edgeLabel = edgeActive ? 'ACTIV' : edgeSeen == null ? 'FĂRĂ DATE' : 'ÎNTÂRZIAT';
   const edgeColor = edgeActive ? 'bg-emerald-600' : 'bg-[#FFEB33] text-[#1F1F1F]';
 
+  // Vârsta celui mai vechi incident escaladat, recalculată la 30 s.
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => setTick((value) => value + 1), 30000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const attention = useMemo(() => {
+    const list = events || [];
+    const open = list.filter((event) => event.status === 'open').length;
+    const escalated = list.filter((event) => event.status === 'escalated');
+    const oldest = escalated.reduce((minimum, event) => {
+      const stamp = new Date(event.escalated_at || event.detected_at || 0).getTime();
+      return Number.isFinite(stamp) && stamp > 0 ? Math.min(minimum, stamp) : minimum;
+    }, Number.POSITIVE_INFINITY);
+    return {
+      open,
+      escalated: escalated.length,
+      oldestMinutes: Number.isFinite(oldest) ? Math.max(0, Math.round((Date.now() - oldest) / 60000)) : null,
+    };
+  }, [events]);
+
   // Ecranele principale ale aplicației SafeSight
   const menuItems = [
     {
@@ -35,7 +95,10 @@ export default function Sidebar() {
       label: 'Live',
       subtitle: 'Monitorizare & Stream',
       icon: Video,
-      badge: kpis?.open_incidents_count > 0 ? kpis.open_incidents_count : null
+      badge: kpis?.open_incidents_count > 0 ? kpis.open_incidents_count : null,
+      badgeTitle: kpis?.open_incidents_count > 0
+        ? `${kpis.open_incidents_count} incidente deschise`
+        : undefined
     },
     {
       id: 'incidents',
@@ -44,8 +107,12 @@ export default function Sidebar() {
       // The detail page belongs to this entry.
       also: ['incident_detail'],
       icon: AlertOctagon,
-      badge: kpis?.escalated_incidents_count > 0 ? 'ESC' : null,
-      badgeCritical: true
+      // Cazurile care așteaptă, cu vârsta celui mai vechi: un număr singur nu spune
+      // dacă e proaspăt sau uitat.
+      attention: attention.escalated > 0,
+      attentionOpen: attention.open,
+      attentionEscalated: attention.escalated,
+      attentionAge: attention.oldestMinutes
     },
     {
       id: 'zones',
@@ -113,9 +180,18 @@ export default function Sidebar() {
                   </div>
                 )}
 
+                {item.attention && (
+                  <AttentionBadge
+                    open={item.attentionOpen}
+                    escalated={item.attentionEscalated}
+                    oldestMinutes={item.attentionAge}
+                  />
+                )}
+
                 {/* Badge alerte deschise / escaladate */}
                 {item.badge && (
                   <span
+                    title={item.badgeTitle || undefined}
                     className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow shrink-0 ${
                       item.badgeCritical
                         ? 'bg-[#D73833] text-white animate-pulse'
