@@ -16,7 +16,8 @@ status=0
 sync_repo() {
   local name="$1" path="$2" required="$3"
 
-  if [[ ! -d "$path/.git" ]]; then
+  # A git worktree has `.git` as a file, not a directory: ask git instead of testing -d.
+  if ! git -C "$path" rev-parse --git-dir >/dev/null 2>&1; then
     if [[ "$required" == "1" ]]; then
       echo "✗ $name lipsește: $path" >&2
       status=1
