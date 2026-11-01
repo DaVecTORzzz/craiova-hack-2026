@@ -94,6 +94,40 @@ def test_put_zone_two_point_polygon_422(client):
     assert res.status_code == 422
 
 
+def test_put_zone_self_crossing_polygon_422(client):
+    # Points clicked out of order: an hourglass instead of a perimeter.
+    hourglass = [[0.1, 0.1], [0.3, 0.1], [0.1, 0.4], [0.3, 0.4]]
+    res = client.put("/zones/engine-right", json=_zone(polygon=hourglass))
+    assert res.status_code == 422
+    assert "cross" in res.text
+    assert client.get("/zones", params={"camera_id": "stand12"}).json()  # nothing broke
+
+
+def test_put_zone_concave_polygon_is_accepted(client):
+    arrow = [[0.1, 0.1], [0.9, 0.1], [0.9, 0.9], [0.5, 0.4], [0.1, 0.9]]
+    res = client.put("/zones/engine-right", json=_zone(polygon=arrow))
+    assert res.status_code == 200
+    assert res.json()["polygon"] == arrow
+
+
+def test_stored_crossing_zone_is_still_listed(client):
+    """The check is on PUT only: a crossing zone stored earlier must not break GET /zones."""
+    from sqlmodel import Session
+
+    from app.db import get_engine
+    from app.models import Zone
+
+    with Session(get_engine()) as session:
+        zone = session.get(Zone, "engine-left")
+        zone.polygon = [[0.1, 0.1], [0.3, 0.1], [0.1, 0.4], [0.3, 0.4]]
+        session.add(zone)
+        session.commit()
+    res = client.get("/zones", params={"camera_id": "stand12"})
+    assert res.status_code == 200
+    assert any(z["id"] == "engine-left" for z in res.json())
+    assert client.get("/edge/zones", params={"camera_id": "stand12"}, headers=HEADERS).status_code == 200
+
+
 def test_put_zone_unknown_camera_404(client):
     assert client.put("/zones/engine-right", json=_zone(camera_id="nope")).status_code == 404
 

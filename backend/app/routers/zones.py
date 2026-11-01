@@ -7,7 +7,7 @@ from sqlmodel import Session, select
 from app.config import get_settings
 from app.db import get_session
 from app.models import Camera, ConfigState, Zone
-from app.schemas import ZoneIO
+from app.schemas import ZoneIn, ZoneIO
 
 router = APIRouter(prefix="/zones", tags=["zones"])
 
@@ -48,7 +48,7 @@ async def list_zones(
 @router.put("/{zone_id}", response_model=ZoneIO)
 async def put_zone(
     zone_id: str,
-    body: ZoneIO,
+    body: ZoneIn,
     session: Session = Depends(get_session),
 ) -> ZoneIO:
     if body.id != zone_id:
