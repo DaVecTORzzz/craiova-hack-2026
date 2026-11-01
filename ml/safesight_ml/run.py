@@ -17,11 +17,30 @@ import time
 from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
 
-# libgomp spins its idle workers between parallel regions by default. During YOLO that
-# turned 5 of the 7 pool threads into busy loops at ~1 core each: 7.4 cores for a job
-# that needs 2.4. Parking them costs nothing measurable and frees the machine for the
-# other cameras. Must be set before numpy/torch load a libgomp-backed loop.
-os.environ.setdefault("OMP_WAIT_POLICY", "PASSIVE")
+def _shares_machine(argv: list[str]) -> bool:
+    """True when this edge is one of several on the machine (--share-cpu > 1)."""
+    for index, arg in enumerate(argv):
+        if arg == "--share-cpu" and index + 1 < len(argv):
+            try:
+                return int(argv[index + 1]) > 1
+            except ValueError:
+                return False
+        if arg.startswith("--share-cpu="):
+            try:
+                return int(arg.split("=", 1)[1]) > 1
+            except ValueError:
+                return False
+    return False
+
+
+# libgomp spins its idle workers between parallel regions. Alone that is worth a few
+# percent of latency (23.0 vs 20.9 live frames per second); sharing the machine with two
+# more edges it is the difference between 14.6 and 0.8, because three spinning pools take
+# every core. So the policy follows --share-cpu: park the workers only when the machine is
+# shared. Must be set before numpy/torch load a libgomp-backed loop, hence the early look
+# at argv.
+if _shares_machine(sys.argv):
+    os.environ.setdefault("OMP_WAIT_POLICY", "PASSIVE")
 
 import cv2
 import httpx

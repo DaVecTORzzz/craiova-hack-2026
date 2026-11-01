@@ -36,11 +36,19 @@ def test_limit_sets_the_thread_pool_and_zero_leaves_it_alone():
         cv2.setNumThreads(before)
 
 
-def test_the_edge_parks_idle_openmp_workers():
-    """Default libgomp behaviour spins a full core per pool thread; the edge turns it off
-    before any numeric import, which is the only point where it can still take effect."""
-    import os
+from safesight_ml.run import _shares_machine
 
-    import safesight_ml.run  # noqa: F401  - the import is the thing under test
 
-    assert os.environ.get("OMP_WAIT_POLICY") == "PASSIVE"
+@pytest.mark.parametrize(
+    ("argv", "shared"),
+    [
+        (["run.py"], False),
+        (["run.py", "--share-cpu", "1"], False),
+        (["run.py", "--share-cpu", "3"], True),
+        (["run.py", "--share-cpu=3"], True),
+        (["run.py", "--share-cpu"], False),  # lipsește valoarea
+        (["run.py", "--share-cpu", "x"], False),  # valoare invalidă
+    ],
+)
+def test_shares_machine_follows_the_camera_count(argv, shared):
+    assert _shares_machine(argv) is shared
