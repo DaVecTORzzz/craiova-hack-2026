@@ -52,3 +52,6 @@ ml/out/
 .vscode/
 .idea/
 .DS_Store
+
+# ncnn exports (yolo export format=ncnn); regenerate, never commit
+*_ncnn_model/

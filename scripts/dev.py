@@ -618,6 +618,7 @@ def run_demo(args: argparse.Namespace) -> int:
                         # Every edge believes it owns the machine: torch and OpenCV each
                         # start a pool sized from the core count. With three cameras that
                         # is three pools fighting for 16 cores.
+                        *(["--backend", args.backend] if args.backend != "torch" else []),
                         "--share-cpu",
                         str(len(runnable)) if not args.threads else "1",
                         *(["--threads", str(args.threads)] if args.threads else []),
@@ -708,6 +709,12 @@ def build_parser() -> argparse.ArgumentParser:
         default=0,
         metavar="N",
         help="fire de calcul per edge; implicit nucleele se impart intre camerele pornite",
+    )
+    p_demo.add_argument(
+        "--backend",
+        choices=("torch", "ncnn"),
+        default="torch",
+        help="ncnn rulează aceleași weights pe iGPU (Vulkan), eliberând CPU-ul",
     )
     p_demo.add_argument("--no-ml", action="store_true", help="nu porni edge-ul")
     p_demo.add_argument("--edge-token", default=None, help="token edge; implicit EDGE_TOKEN din mediu sau .env")
