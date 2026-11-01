@@ -1,13 +1,6 @@
 # Reference frames
 
-Cadre statice pentru FOD și PPE. Regula: aceeași cameră, același unghi, aceeași rezoluție. Toate fișierele de aici sunt 2752×1536.
-
-## FOD
-
-- `2026-10-30_fod_cam01_asfalt-curat.jpeg` — cadru fără obiect.
-- `2026-10-30_fod_cam01_sticla-pe-asfalt.jpeg` — același unghi, cu sticla pe asfalt.
-
-Perechea e bună pentru `absdiff`: fundalul și obiectul sunt din același punct de vedere.
+Cadre statice pentru PPE. Regula: aceeași cameră, același unghi, aceeași rezoluție. Toate fișierele de aici sunt 2752×1536.
 
 ## PPE
 
@@ -16,16 +9,13 @@ Perechea e bună pentru `absdiff`: fundalul și obiectul sunt din același punct
 
 ## Reguli
 
-- Fișierele de referință FOD nu conțin persoane.
 - Nu se editează cadrele; se păstrează originalul.
 - Fiecare fișier are sursă, licență și cine l-a filmat în README-ul de video sau aici.
-- Pentru FOD, clipul video trebuie filmat din același unghi cu cadrul de referință.
 
 ## Adnotări
 
-Etichetele YOLO pentru aceste cadre sunt în `data/annotations/` (4 `.txt`) și au fost validate vizual de Andrei pe 31 octombrie 2026. Setul este mic; nu înlocuiește un dataset de antrenare.
+Etichetele YOLO pentru aceste cadre sunt în `data/annotations/` (2 `.txt`) și au fost validate vizual de Andrei pe 31 octombrie 2026. Setul este mic; nu înlocuiește un dataset de antrenare.
 
 ## Lipsește
 
-- clip video FOD cu obiectul apărând;
 - clip video PPE (persoană fără vestă/cască).

@@ -10,7 +10,6 @@ SafeSight/
     videos/
       restricted_zone/
       no_ppe/
-      fod/
       smoking/
       broll/
     annotations/
@@ -20,7 +19,7 @@ SafeSight/
 - `videos/` — câte un clip verificat pentru fiecare caz din demo.
 - `annotations/` — etichete în format YOLO pentru clasele ad-hoc.
 - `broll/` — material de context pentru pitch (avion, apron, echipă), nu intrare pentru detector.
-- `reference_frames/` — cadru curat pentru FOD, din același unghi cu clipul.
+- `reference_frames/` — cadre statice pentru PPE și adnotare, din același unghi cu clipul.
 
 Nume fișier: `YYYY-MM-DD_<caz>_<camera>_<descriere>.mp4`.
 

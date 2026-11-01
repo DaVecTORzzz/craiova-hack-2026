@@ -28,7 +28,7 @@ Pornește backend-ul, frontend-ul și câte un edge pe fiecare cameră, fiecare 
 | Cameră | Clip | Ce arată |
 |---|---|---|
 | CAM-01 Stand 12 | persoană lângă motor | intrare în zona motorului (`RESTRICTED_ZONE`, CRITICAL) |
-| CAM-02 Taxiway B | marshaller cu conuri | feed live; regula zonei e `FOD_WATCH`, iar FOD nu are detector — fără incidente |
+| CAM-02 Taxiway B | marshaller cu conuri | feed live; regula e `PPE_REQUIRED` — incident doar dacă cineva nu are vestă, iar în clip toți au |
 | CAM-03 Baggage area | avion la poarta de bagaje (4K, citit la 1920 px) | feed live; regula e `PPE_REQUIRED` — incident doar dacă cineva nu are vestă, iar în clip toți au |
 
 - deschide `http://localhost:5173`;
@@ -48,7 +48,7 @@ python scripts/dev.py fallback
 |---|---|---|
 | 0–10 s | Live, CAM-01 | „Camerele existente devin un flux de siguranță, nu doar înregistrare.” |
 | 10–25 s | Feed-ul adnotat: zonă roșie, persoane cu track, etichetă `vesta` | „Persoana intră în zona motorului; e urmărită de la un cadru la altul, iar zona rămâne pe asfalt chiar dacă camera se mișcă.” |
-| 25–35 s | Meniul **Cameră** → CAM-03, apoi CAM-02 | „Aceeași procesare pe fiecare cameră, în paralel: detecție, tracking, blur. Incidentul apare doar unde regula zonei poate fi evaluată — aici FOD și PPE n-au detector, deci camerele astea tac.” |
+| 25–35 s | Meniul **Cameră** → CAM-03, apoi CAM-02 | „Aceeași procesare pe fiecare cameră, în paralel: detecție, tracking, blur. Aici regula e echipamentul de protecție și toți poartă vestă, deci camerele astea tac.” |
 | 35–50 s | Click pe un card CRITICAL → **Incidente & XAI**; snapshot, cronologie, raport | „Alerta are dovadă blurată, severitate, timp și un raport de incident.” |
 | 50–58 s | Click **Acknowledge (Confirmă)** | „Operatorul confirmă; escaladarea se oprește. Human-in-the-loop.” |
 | 58–66 s | Arată mesajul Slack | „Slack primește text + link, fără imagini și fără butoane.” |
@@ -56,17 +56,27 @@ python scripts/dev.py fallback
 | 78–85 s | Click **Edge & Audit** | „Totul rulează la margine: detecție, tracking, blur și decizia. Backend-ul primește doar evenimentul, nu video.” |
 | 85–90 s | Închide cu privacy | „Video-ul brut nu iese din aeroport; fețele sunt blurate la edge înainte de orice salvare.” |
 
-### Opțional: fluxul `NO_PPE` (simulat)
+### Opțional: `NO_PPE` live cu webcam-ul
 
-În clipuri toți poartă vestă, deci un `NO_PPE` real nu apare live. Pentru a arăta fluxul (incident WARNING, raport, Slack, ack):
+În clipuri toți poartă vestă, deci alerta `NO_PPE` nu se declanșează pe ele. O arăți live cu camera laptopului, care rulează în locul celor 3 clipuri:
+
+```bash
+python scripts/dev.py demo --webcam    # repornește stack-ul doar cu webcam-ul (camera baggage-area)
+```
+
+- Stai la 2–3 m, cu tot corpul în cadru; o casetă tăiată de margine rămâne `vesta ?`.
+- Cu vestă fluorescentă (portocalie sau galben-verde): eticheta `vesta`, fără incident.
+- Fără vestă: `FARA VESTA` după ~1 s, apoi incident `NO_PPE` (WARNING) în Live.
+- Fața ta e blurată la edge, la fel ca pe clipuri.
+- Repetă pe laptopul și în lumina de la prezentare: încă n-a fost testat pe camera laptopului de demo.
+
+Spune: „Alerta pentru vestă e activă și prudentă: pleacă doar când lipsa vestei e sigură.”
+
+Plan B, dacă webcam-ul nu prinde: trimiți evenimentul manual, pe aceleași rute ca edge-ul.
 
 ```bash
 python scripts/dev.py fallback --type NO_PPE
-# sau cu un JPEG deja blurat:
-python scripts/dev.py fallback --type NO_PPE --snapshot <jpeg-blurat>
 ```
-
-Spune explicit: „evenimentul e trimis manual pe aceleași rute ca edge-ul; detecția de vestă live e afișată pe persoane, dar alerta `NO_PPE` nu e încă activă”.
 
 ### Opțional: camera moartă devine incident (90 s)
 
@@ -93,10 +103,10 @@ Spune: „camera care tace nu mai e o gaură în pază: devine incident, iar rev
 
 ## Ce nu spui
 
-- „`NO_PPE` / FOD merg live” — nu merg. Vesta e doar etichetată pe persoane (după culoare), fără alertă.
+- „`NO_PPE` apare pe clipuri” — nu apare: în clipuri toți poartă vestă. Live îl arăți doar cu webcam-ul sau prin fallback.
 - „Model PPE antrenat” — dataset-ul există, antrenarea nu e terminată.
 - „0% falsuri” — avem un eșantion mic, verificat vizual; rata de falsuri nu e măsurată.
-- „Trei incidente, câte unul pe cameră” — doar CAM-01 produce. CAM-02 și CAM-03 arată feed-ul adnotat, dar regula lor (`FOD_WATCH`, `PPE_REQUIRED`) nu poate fi evaluată fără detector.
+- „Trei incidente, câte unul pe cameră” — doar CAM-01 produce. CAM-02 și CAM-03 arată feed-ul adnotat, iar regula lor (`PPE_REQUIRED`) nu găsește pe nimeni fără vestă în clipuri.
 - „Camere live din aeroport” — clipurile sunt reale (stock), redate ca flux live.
 - „Camera offline e prinsă instant” — pragul e 90 s (3 heartbeats ratate); sub asta ar fi zgomot la fiecare microîntrerupere.
 - „Alertele ajung garantat în Slack” — coada garantează că nu se pierd la timeout sau restart; dacă Slack e jos mai mult de ~2 minute, rândul rămâne `failed` și se vede în `/health`.
@@ -108,7 +118,7 @@ Spune: „camera care tace nu mai e o gaură în pază: devine incident, iar rev
 YOLO26 + ByteTrack, zonele care urmăresc camera, eticheta de vestă după culoare, blurul, backend-ul, UI-ul, ack-ul, escaladarea, raportul, watchdog-ul de cameră, coada de notificări cu retry, testele.
 
 **Ce e stock sau simulat?**
-Clipurile (stock, filmate din mână, redate în buclă ca 3 camere), operatorul, `NO_PPE` (trimis prin fallback), Slack dacă nu e webhook, raportul dacă nu e cheie Groq.
+Clipurile (stock, filmate din mână, redate în buclă ca 3 camere), operatorul, `NO_PPE` doar dacă e trimis prin fallback (cu webcam-ul e real), Slack dacă nu e webhook, raportul dacă nu e cheie Groq.
 
 **De ce se mișcă zona în video?**
 Clipurile sunt filmate cu telefonul. Zona e desenată pe primul cadru și urmărește solul (potrivire de puncte + omografie). Pe o cameră fixă de aeroport nu ar fi nevoie.
@@ -123,7 +133,7 @@ Cu 3 camere în paralel, pe un laptop cu RTX 3050: 19,5 / 29,7 / 14,6 FPS (CAM-0
 5 minute RTSP pe o cameră: 8.697 cadre, 28,99 FPS, 0 căderi.
 
 **Ce urmează?**
-O cameră reală pentru pilot, modelul PPE antrenat și alerta `NO_PPE`, clipuri FOD, auth.
+O cameră reală pentru pilot, modelul PPE antrenat și alerta `NO_PPE`, auth.
 
 ## După demo
 

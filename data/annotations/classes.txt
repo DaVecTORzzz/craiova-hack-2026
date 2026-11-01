@@ -2,6 +2,6 @@ person
 hi_vis_vest
 hard_hat
 ear_defender
-fod_object
+_unused
 cigarette
 smoke

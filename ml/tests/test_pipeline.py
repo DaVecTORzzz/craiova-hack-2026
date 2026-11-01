@@ -352,7 +352,7 @@ def test_triggers_event_ignores_ppe_we_cannot_check():
 
 def test_triggers_event_is_silent_for_rule_types_without_a_person_rule():
     # A zone type with no mapped rule must never start firing person-in-zone.
-    for rule_type in ("FOD_WATCH", "NO_SMOKING", "CROWD_WATCH"):
+    for rule_type in ("NO_SMOKING", "CROWD_WATCH"):
         zone = PPE_ZONE.model_copy(update={"rule_type": rule_type})
         assert triggers_event(zone, "no_vest") is False
 

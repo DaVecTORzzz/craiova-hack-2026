@@ -9,7 +9,6 @@ from app.geometry import crossing_edges
 class EventType(str, Enum):
     RESTRICTED_ZONE = "RESTRICTED_ZONE"
     NO_PPE = "NO_PPE"
-    FOD = "FOD"
     SMOKING = "SMOKING"
     CAMERA_OFFLINE = "CAMERA_OFFLINE"
     # CROWD is reserved in the contract and NOT accepted yet.
@@ -31,7 +30,6 @@ class Status(str, Enum):
 class RuleType(str, Enum):
     RESTRICTED = "RESTRICTED"
     PPE_REQUIRED = "PPE_REQUIRED"
-    FOD_WATCH = "FOD_WATCH"
     NO_SMOKING = "NO_SMOKING"
 
 

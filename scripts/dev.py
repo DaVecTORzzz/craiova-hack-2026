@@ -733,7 +733,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_ml.set_defaults(func=run_ml)
 
     p_fallback = sub.add_parser("fallback", help="trimite un eveniment demo prin rutele edge")
-    p_fallback.add_argument("--type", default="RESTRICTED_ZONE", choices=("RESTRICTED_ZONE", "NO_PPE", "FOD"))
+    p_fallback.add_argument("--type", default="RESTRICTED_ZONE", choices=("RESTRICTED_ZONE", "NO_PPE"))
     p_fallback.add_argument("--api-url", default=None, help="URL API; implicit http://localhost:<backend-port>")
     p_fallback.add_argument("--backend-port", type=int, default=8000)
     p_fallback.add_argument("--edge-token", default=None, help="token edge; implicit EDGE_TOKEN din mediu sau .env")

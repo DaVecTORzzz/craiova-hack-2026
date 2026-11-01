@@ -13,19 +13,17 @@ Câte un clip pentru fiecare caz din demo. Clipurile `.mp4` nu intră în git; l
 
 ## Reguli
 
-- Un clip cu avionul în față, **fără persoană, PPE, FOD sau fum**, este B-roll pentru pitch. Nu se folosește ca test de detecție.
+- Un clip cu avionul în față, **fără persoană, PPE sau fum**, este B-roll pentru pitch. Nu se folosește ca test de detecție.
 - Numele fișierului: `YYYY-MM-DD_<caz>_<camera>_<descriere>.mp4`.
 - După upload, completează rândul din tabel cu sursa, licența, cine a filmat și data.
 - Acord scris pentru voluntari; fețele se blurează înainte de publicare.
-- FOD se filmează din același unghi cu cadrul de referință.
 
 ## Setul curent
 
 Sunt 4 clipuri B-roll și 2 clipuri `restricted-zone`. Lipsește încă:
 
-- clip video pentru PPE lipsă;
-- clip video pentru FOD, din același unghi cu cadrul de referință.
+- clip video pentru PPE lipsă.
 
-`reference_frames/` are 4 cadre, iar `annotations/` are 4 etichete YOLO validate vizual de Andrei pe 31 octombrie 2026. Setul rămâne mic, pentru demo/experiment, nu pentru antrenare de producție.
+`reference_frames/` are 2 cadre PPE, iar `annotations/` are 2 etichete YOLO validate vizual de Andrei pe 31 octombrie 2026. Setul rămâne mic, pentru demo/experiment, nu pentru antrenare de producție.
 
 Numele `...pushback-motor..mp4` are două puncte; de corectat la următorul upload.

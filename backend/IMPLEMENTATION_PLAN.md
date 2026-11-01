@@ -203,7 +203,6 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validato
 class EventType(str, Enum):
     RESTRICTED_ZONE = "RESTRICTED_ZONE"
     NO_PPE = "NO_PPE"
-    FOD = "FOD"
     SMOKING = "SMOKING"
     CAMERA_OFFLINE = "CAMERA_OFFLINE"
     # CROWD is reserved in the contract and NOT accepted yet.
@@ -225,7 +224,6 @@ class Status(str, Enum):
 class RuleType(str, Enum):
     RESTRICTED = "RESTRICTED"
     PPE_REQUIRED = "PPE_REQUIRED"
-    FOD_WATCH = "FOD_WATCH"
     NO_SMOKING = "NO_SMOKING"
 
 
@@ -559,7 +557,6 @@ Backend side:
 |---|---|---|---|
 | RESTRICTED_ZONE | `Persoană în zona {zone_id}.` | `Zonă restricționată activă; risc de accident.` | `Oprește activitatea în zonă și contactează persoana prin radio.` |
 | NO_PPE | `Echipament de protecție lipsă în zona {zone_id}.` | `Lucru fără echipamentul obligatoriu.` | `Supervizorul verifică echipamentul persoanei înainte de reluarea lucrului.` |
-| FOD | `Obiect static pe suprafața {zone_id}.` | `Obiectele uitate pot fi aspirate de motoare.` | `Inspectează și îndepărtează obiectul înainte de următoarea mișcare.` |
 | SMOKING | `Posibil fumat în zona {zone_id}.` | `Fumatul lângă aeronave și combustibil e interzis.` | `Supervizorul verifică imediat situația la fața locului.` |
 | CAMERA_OFFLINE | `Camera {camera_id} nu mai transmite cadre.` | `Zona nu mai e supravegheată.` | `Verifică alimentarea și rețeaua camerei.` |
 
@@ -631,7 +628,7 @@ Zones (all `notify_channel="slack"`, `reference_frame=None`):
 |---|---|---|---|---|---|---|---|---|---|
 | `engine-left` | stand12 | Motor stâng | RESTRICTED | engine_on | [] | CRITICAL | 1.0 | 30 | [[0.46,0.16],[0.76,0.16],[0.76,0.68],[0.46,0.68]] |
 | `apron-stand12` | stand12 | Platformă Stand 12 | PPE_REQUIRED | always | ["hi_vis_vest","hard_hat","ear_defenders"] | WARNING | 2.0 | 30 | [[0.04,0.22],[0.42,0.22],[0.42,0.72],[0.04,0.72]] |
-| `taxiway-b` | taxiway-b | Taxiway B | FOD_WATCH | always | [] | CRITICAL | 3.0 | 30 | [[0.0,0.76],[1.0,0.76],[1.0,0.92],[0.0,0.92]] |
+| `taxiway-b` | taxiway-b | Taxiway B | PPE_REQUIRED | always | ["hi_vis_vest"] | WARNING | 2.0 | 30 | [[0.0,0.76],[1.0,0.76],[1.0,0.92],[0.0,0.92]] |
 | `baggage-area` | baggage-area | Zona bagaje | PPE_REQUIRED | always | ["hi_vis_vest"] | WARNING | 2.0 | null | [[0.05,0.10],[0.95,0.10],[0.95,0.95],[0.05,0.95]] |
 
 `ConfigState(id=1, config_version=1)`.
@@ -650,9 +647,8 @@ When `use_mock` is true, the lifespan starts one background task that, every `mo
 |---|---|---|---|---|
 | RESTRICTED_ZONE | CRITICAL | stand12 | engine-left | person-ppe-v1 |
 | NO_PPE | WARNING | stand12 | apron-stand12 | person-ppe-v1 |
-| FOD | CRITICAL | taxiway-b | taxiway-b | fod-diff-v1 |
 
-`event_id = f"evt_{camera_id}_{unix_ms}_{track_id}"` (track_id random 1–99, `0` for FOD), `detected_at = now`, `confidence = {"detector": random 0.7–0.95, "temporal": {"seen": random 12–15, "window": 15}}`, `duration_s` random 1.0–4.0, `context = {"engine_on": <current engine_on of the camera>}`, `snapshot_url = "/snapshots/placeholder.jpg"`.
+`event_id = f"evt_{camera_id}_{unix_ms}_{track_id}"` (track_id random 1–99), `detected_at = now`, `confidence = {"detector": random 0.7–0.95, "temporal": {"seen": random 12–15, "window": 15}}`, `duration_s` random 1.0–4.0, `context = {"engine_on": <current engine_on of the camera>}`, `snapshot_url = "/snapshots/placeholder.jpg"`.
 
 The mock never runs in tests.
 

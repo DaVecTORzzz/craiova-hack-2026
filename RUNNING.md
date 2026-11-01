@@ -67,7 +67,6 @@ Dacă edge-ul, clipul sau modelul pică, backend-ul poate primi un eveniment dem
 
 ```bash
 python scripts/dev.py fallback
-python scripts/dev.py fallback --type FOD --no-engine
 python scripts/dev.py fallback --type NO_PPE
 python scripts/dev.py fallback --snapshot /path/to/already-blurred.jpg
 ```

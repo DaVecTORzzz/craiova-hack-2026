@@ -24,7 +24,7 @@ Data: 31 octombrie 2026. Nu este o rată de falsuri; este inventarul complet al 
 ## Ce nu intră în calcul
 
 - B-roll-ul nu este caz de detecție; evenimentele lui cu poligonul `stand12` sunt un smoke de zonă, nu falsuri reale.
-- Nu există clipuri PPE/FOD, deci nu există evenimente pentru ele.
+- Nu există clipuri PPE, deci nu există evenimente pentru ele.
 - Cele două clipuri folosesc același poligon `stand12`; `cam02` nu are poligon calibrat propriu, deci eticheta TP este „în zona configurată”, nu validare geometrică pe camera 2.
 
 ## Interpretare

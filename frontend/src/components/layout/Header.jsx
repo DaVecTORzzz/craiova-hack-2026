@@ -150,16 +150,6 @@ export default function Header() {
               </button>
               <button
                 onClick={() => {
-                  simulateIncomingWsEvent('FOD', 'CRITICAL');
-                  setShowDemoMenu(false);
-                }}
-                className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-[#D73833]/15 text-[#D73833] font-bold flex items-center justify-between"
-              >
-                <span>FOD pe Cale Rulare</span>
-                <span className="text-[10px] font-mono bg-[#D73833] text-white px-1.5 rounded">CRITICAL</span>
-              </button>
-              <button
-                onClick={() => {
                   simulateIncomingWsEvent('NO_PPE', 'WARNING');
                   setShowDemoMenu(false);
                 }}

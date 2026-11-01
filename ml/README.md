@@ -1,10 +1,10 @@
-# ml/ — detecție, tracking, zone, FOD, blur
+# ml/ — detecție, tracking, zone, blur
 
 Responsabil: **Andrei**
 
 Brief intern: `safesight-docs/01_A_ai_edge.typ` (repo privat).
 
-Primul slice implementat aici este **RESTRICTED_ZONE**: video → YOLO26 → tracking → regulă pe zonă → eveniment valid pentru contract + snapshot blurat. PPE, FOD și fumul vin în PR-uri separate.
+Primul slice implementat aici este **RESTRICTED_ZONE**: video → YOLO26 → tracking → regulă pe zonă → eveniment valid pentru contract + snapshot blurat. PPE și fumul vin în PR-uri separate.
 
 ## Pornire
 
@@ -66,7 +66,7 @@ Ce `rule_type` produce ce eveniment:
 |---|---|---|
 | `RESTRICTED` | `RESTRICTED_ZONE` | oricine e în zonă, dacă zona e activă (`engine_on` sau `always`) |
 | `PPE_REQUIRED` | `NO_PPE` | doar dacă un element din `required_ppe` e dovedit lipsă |
-| `FOD_WATCH`, `NO_SMOKING`, `CROWD_WATCH` | — | nemapate: nu există detector, deci nu pot dovedi nimic |
+| `NO_SMOKING`, `CROWD_WATCH` | — | nemapate: nu există detector, deci nu pot dovedi nimic |
 
 `required_ppe` se verifică azi doar pentru `hi_vis_vest`. `hard_hat` și `ear_defenders` sunt în seed, dar nu au detector — o zonă care le cere nu ridică nimic pentru ele și nu le consideră niciodată îndeplinite. Persoana care poartă vestă într-o zonă PPE **nu** e evidențiată în overlay: caseta roșie înseamnă încălcare, nu prezență.
 
@@ -284,7 +284,6 @@ fixtures/
 ## Ce nu intră încă
 
 - PPE (vestă, cască, antifoane) și fine-tuning;
-- FOD pe cadru de referință;
 - VLM pentru fum;
 - buffer/retry la pană de conexiune;
 - rata de falsuri alarme, măsurată pe 50–100 evenimente;

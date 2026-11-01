@@ -6,7 +6,7 @@ shows. Everything else — rule type, active condition, required PPE, severity,
 debounce, escalation — describes the zone itself and must come from `app.seed`.
 
 The fixtures used to carry their own copy of those fields, and the copy drifted:
-`taxiway-b` (a `FOD_WATCH` zone) was declared `RESTRICTED`, and `baggage-area`
+`taxiway-b` was declared with another rule than the seed, and `baggage-area`
 (a `PPE_REQUIRED` zone) was declared `RESTRICTED` with no required PPE. The edge
 then sent an event type the backend did not expect for that zone, and the KPI and
 the report counted it under the wrong rule.

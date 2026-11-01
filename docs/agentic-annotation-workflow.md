@@ -1,6 +1,6 @@
 # Cum au fost făcute adnotările
 
-Scop: 4 etichete YOLO pentru cadrele PPE/FOD din `data/reference_frames/`. Nu este un pipeline de producție; este un prim pas **local, semi-automat, cu verificare vizuală**. Etichetele au fost verificate de Dalina și validate vizual de Andrei pe 31 octombrie 2026. Setul rămâne mic, pentru demo/experiment, nu pentru antrenare de producție.
+Scop: 2 etichete YOLO pentru cadrele PPE din `data/reference_frames/`. Nu este un pipeline de producție; este un prim pas **local, semi-automat, cu verificare vizuală**. Etichetele au fost verificate de Dalina și validate vizual de Andrei pe 31 octombrie 2026. Setul rămâne mic, pentru demo/experiment, nu pentru antrenare de producție.
 
 ## Mediu
 
@@ -21,7 +21,7 @@ A fost un ciclu scurt, nu un singur pas:
 5. ajustez cutia dacă e prea strânsă/largă;
 6. rulez din nou verificarea.
 
-Pentru persoane, YOLO a dat cutia. Pentru vestă, threshold-ul HSV a dat un punct de pornire, dar cutia finală a fost ajustată vizual. Pentru cască și FOD, cutiile au fost puse manual după crop, pentru că fundalul sau obiectul mic nu au fost detectate curat.
+Pentru persoane, YOLO a dat cutia. Pentru vestă, threshold-ul HSV a dat un punct de pornire, dar cutia finală a fost ajustată vizual. Pentru cască, cutia a fost pusă manual după crop, pentru că nu a fost detectată curat.
 
 ## 1. Persoane — YOLO26n
 
@@ -70,17 +70,7 @@ Threshold-ul alb a prins și clădirea/cerul din fundal. Am folosit crop-ul pers
 hard_hat: x1=1368, y1=270, x2=1518, y2=380
 ```
 
-## 4. FOD — manual, după crop
-
-Am decupat zona de jos, am identificat sticla și am pus cutia manual:
-
-```text
-fod_object: x1=1200, y1=1005, x2=1595, y2=1180
-```
-
-Cadrul FOD fără obiect a primit un `.txt` **gol**, ca exemplu negativ.
-
-## 5. Scrierea fișierelor YOLO
+## 4. Scrierea fișierelor YOLO
 
 ```python
 def yolo_line(cid, x1, y1, x2, y2, w, h):
@@ -96,11 +86,9 @@ Fișierele au același nume ca imaginea, cu `.txt`:
 ```text
 2026-10-30_no-ppe_cam01_fara-casca.txt
 2026-10-30_no-ppe_cam02_fara-vesta.txt
-2026-10-30_fod_cam01_asfalt-curat.txt
-2026-10-30_fod_cam01_sticla-pe-asfalt.txt
 ```
 
-## 6. Verificarea cu overlay
+## 5. Verificarea cu overlay
 
 Am randat cutiile direct din fișierele `.txt`, nu din valorile hardcodate:
 
@@ -116,18 +104,15 @@ Apoi am citit overlay-urile și am verificat:
 - cutia `person` acoperă corpul, nu fața;
 - `hi_vis_vest` acoperă vesta;
 - `hard_hat` acoperă casca;
-- `fod_object` acoperă sticla;
-- cadrul FOD curat nu are cutii.
 
 Overlay-urile sunt în `data/annotations/review/` și **nu se publică** — conțin fețe.
 
-## 7. Verificare finală
+## 6. Verificare finală
 
-- 4 imagini, 4 fișiere `.txt`;
-- 5 cutii: 2 + 2 + 0 + 1;
-- clase: `person=0`, `hi_vis_vest=1`, `hard_hat=2`, `fod_object=4`;
+- 2 imagini, 2 fișiere `.txt`;
+- 4 cutii: 2 + 2;
+- clase: `person=0`, `hi_vis_vest=1`, `hard_hat=2`;
 - coordonate între 0 și 1;
-- fișier gol pentru FOD curat;
 - fără avion, bagaje, fețe sau alte clase.
 
 ## Rezultat
@@ -136,8 +121,6 @@ Overlay-urile sunt în `data/annotations/review/` și **nu se publică** — con
 |---|---|
 | `no-ppe_cam01_fara-casca` | `person`, `hi_vis_vest` |
 | `no-ppe_cam02_fara-vesta` | `person`, `hard_hat` |
-| `fod_cam01_asfalt-curat` | fișier gol |
-| `fod_cam01_sticla-pe-asfalt` | `fod_object` |
 
 ## Limitări
 
