@@ -366,6 +366,12 @@ class FakeLiveWriter:
     def write(self, frame: np.ndarray) -> None:
         pass
 
+    def clean_requested(self) -> bool:
+        return False
+
+    def write_clean(self, frame: np.ndarray) -> bool:
+        return True
+
 
 def test_a_compliant_person_in_a_ppe_zone_is_not_highlighted(monkeypatch):
     """Red boxes must mean 'this is a violation', not just 'someone is standing here'."""

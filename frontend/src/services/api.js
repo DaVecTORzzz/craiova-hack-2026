@@ -122,6 +122,8 @@ async function http(path, options = {}) {
     }
     throw new Error(`${response.status} ${detail || response.statusText}`);
   }
+  // 204 No Content (DELETE /zones/{id}) has no body to parse.
+  if (response.status === 204) return null;
   return response.json();
 }
 
@@ -301,6 +303,26 @@ export const safeSightApi = {
     form.append('zone_id', zoneId);
     form.append('file', file);
     const zone = await http('/zones/reference-frame', { method: 'POST', body: form });
+    return mapZone(zone);
+  },
+
+  async captureReferenceFromLive(zoneId) {
+    if (USE_MOCK) return { zone_id: zoneId, reference_frame: null };
+    const zone = await http(`/zones/${encodeURIComponent(zoneId)}/reference-frame/from-live`, {
+      method: 'POST',
+    });
+    return mapZone(zone);
+  },
+
+  async deleteZone(zoneId) {
+    if (USE_MOCK) return true;
+    await http(`/zones/${encodeURIComponent(zoneId)}`, { method: 'DELETE' });
+    return true;
+  },
+
+  async deleteReferenceFrame(zoneId) {
+    if (USE_MOCK) return { zone_id: zoneId, reference_frame: null };
+    const zone = await http(`/zones/${encodeURIComponent(zoneId)}/reference-frame`, { method: 'DELETE' });
     return mapZone(zone);
   },
 

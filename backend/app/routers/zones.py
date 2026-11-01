@@ -1,5 +1,7 @@
+import asyncio
+import time
 from pathlib import Path
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile, status
 from sqlmodel import Session, select
 
 from app.config import get_settings
@@ -102,6 +104,106 @@ async def post_reference_frame(
     reference_dir.mkdir(parents=True, exist_ok=True)
     (reference_dir / f"{zone_id}.jpg").write_bytes(content)
 
+    zone.reference_frame = f"/snapshots/reference/{zone_id}.jpg"
+    session.add(zone)
+    bump_config_version(session)
+    session.commit()
+    session.refresh(zone)
+    return zone_io(zone)
+
+
+@router.delete("/{zone_id}/reference-frame", response_model=ZoneIO)
+async def delete_reference_frame(
+    zone_id: str,
+    session: Session = Depends(get_session),
+) -> ZoneIO:
+    """Drop the reference frame of a zone; the editor falls back to a blank canvas."""
+    zone = session.get(Zone, zone_id)
+    if zone is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="unknown zone_id")
+    if zone.reference_frame:
+        path = Path(get_settings().snapshot_dir) / "reference" / f"{zone_id}.jpg"
+        path.unlink(missing_ok=True)
+    zone.reference_frame = None
+    session.add(zone)
+    bump_config_version(session)
+    session.commit()
+    session.refresh(zone)
+    return zone_io(zone)
+
+
+@router.delete("/{zone_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_zone(zone_id: str, session: Session = Depends(get_session)) -> Response:
+    zone = session.get(Zone, zone_id)
+    if zone is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="unknown zone_id")
+    session.delete(zone)
+    bump_config_version(session)
+    session.commit()
+    path = Path(get_settings().snapshot_dir) / "reference" / f"{zone_id}.jpg"
+    path.unlink(missing_ok=True)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+LIVE_WAIT_S = 3.0
+
+
+async def _wait_for_clean_frame(
+    live_dir: Path, camera_id: str, since: float, timeout: float = LIVE_WAIT_S
+) -> Path | None:
+    """Wait for the edge to answer a reference request with a frame without the overlay.
+
+    The watch file is touched meanwhile, because with ``--live-when-watched`` the edge only
+    renders the live view while somebody is looking at it.
+    """
+    clean = live_dir / f"{camera_id}.clean.jpg"
+    watch = live_dir / f"{camera_id}.watch"
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        watch.touch()
+        try:
+            if clean.is_file() and clean.stat().st_mtime >= since:
+                return clean
+        except OSError:
+            pass
+        await asyncio.sleep(0.1)
+    return None
+
+
+@router.post("/{zone_id}/reference-frame/from-live", response_model=ZoneIO)
+async def post_reference_from_live(
+    zone_id: str,
+    session: Session = Depends(get_session),
+) -> ZoneIO:
+    """Use the live camera frame (already blurred at the edge) as the zone reference."""
+    zone = session.get(Zone, zone_id)
+    if zone is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="unknown zone_id")
+
+    live_dir = Path(get_settings().snapshot_dir) / "live"
+    if not live_dir.is_dir():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="no live frames yet; is the edge running?",
+        )
+
+    since = time.time()
+    request = live_dir / f"{zone.camera_id}.reference"
+    request.touch()
+    try:
+        clean = await _wait_for_clean_frame(live_dir, zone.camera_id, since)
+    finally:
+        request.unlink(missing_ok=True)
+
+    if clean is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"the edge for {zone.camera_id} did not send a frame; is the camera live?",
+        )
+
+    reference_dir = Path(get_settings().snapshot_dir) / "reference"
+    reference_dir.mkdir(parents=True, exist_ok=True)
+    (reference_dir / f"{zone_id}.jpg").write_bytes(clean.read_bytes())
     zone.reference_frame = f"/snapshots/reference/{zone_id}.jpg"
     session.add(zone)
     bump_config_version(session)

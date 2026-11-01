@@ -28,11 +28,29 @@ class LiveFrameWriter:
         self.interval_s = interval_s
         self.max_width = max_width
         self.path = self.directory / f"{camera_id}.jpg"
+        # Cerere de cadru "curat" (blurat, fără overlay) pentru referința FOD.
+        self.clean_request = self.directory / f"{camera_id}.reference"
+        self.clean_path = self.directory / f"{camera_id}.clean.jpg"
         self.directory.mkdir(parents=True, exist_ok=True)
         self._last_write = 0.0
 
     def due(self) -> bool:
         return time.monotonic() - self._last_write >= self.interval_s
+
+    def clean_requested(self) -> bool:
+        return self.clean_request.exists()
+
+    def write_clean(self, frame: np.ndarray) -> bool:
+        """Blurred frame without the operator overlay, for use as a zone reference."""
+        frame = shrink_to_width(frame, self.max_width)
+        ok, data = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 90])
+        if not ok:
+            return False
+        tmp = self.clean_path.with_suffix(".jpg.tmp")
+        tmp.write_bytes(data.tobytes())
+        os.replace(tmp, self.clean_path)
+        self.clean_request.unlink(missing_ok=True)
+        return True
 
     def write(self, frame: np.ndarray) -> bool:
         frame = shrink_to_width(frame, self.max_width)
@@ -103,6 +121,12 @@ class AsyncLiveWriter:
             self._threads.append(threading.Thread(target=self._detect_loop, name="live-faces", daemon=True))
         for thread in self._threads:
             thread.start()
+
+    def clean_requested(self) -> bool:
+        return self.writer.clean_requested()
+
+    def write_clean(self, frame: np.ndarray) -> bool:
+        return self.writer.write_clean(frame)
 
     def watched(self) -> bool:
         """True without a watch file; else whether a viewer touched it recently (checked twice a second)."""
