@@ -120,6 +120,7 @@ export default function ZoneEditorView() {
   const [referenceAspect, setReferenceAspect] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [capturing, setCapturing] = useState(false);
+  const [showProposals, setShowProposals] = useState(true);
   const [capturedAt, setCapturedAt] = useState(null);
 
   // Edges that cross another edge: the zone would be an hourglass, not a perimeter.
@@ -586,6 +587,18 @@ export default function ZoneEditorView() {
         </div>
         <div className="flex items-center gap-2">
           <button
+            data-testid="toggle-proposals"
+            onClick={() => setShowProposals((value) => !value)}
+            className={`px-2.5 py-1.5 rounded-lg border text-xs font-mono font-bold flex items-center gap-1.5 ${
+              showProposals
+                ? 'border-emerald-400/60 bg-emerald-900/30 text-emerald-200'
+                : 'border-white/20 hover:bg-white/10'
+            }`}
+            title="Arată sau ascunde pe cadru zonele propuse de analiza vizuală"
+          >
+            <Sparkles size={14} /> Propuneri ({zoneProposals.length})
+          </button>
+          <button
             onClick={handleCopyFrom}
             disabled={!zoneId}
             className="px-2.5 py-1.5 rounded-lg border border-white/20 hover:bg-white/10 disabled:opacity-40 text-xs font-mono font-bold flex items-center gap-1.5"
@@ -692,6 +705,41 @@ export default function ZoneEditorView() {
             )}
 
             <svg viewBox="0 0 1000 1000" preserveAspectRatio="none" className="absolute inset-0 w-full h-full pointer-events-none">
+              {/* Propunerile stau pe cadru, punctate: altfel funcția nu se vede deloc. */}
+              {showProposals &&
+                zoneProposals.map((proposal) => {
+                  const points = (proposal.polygon || []).map(toPoint);
+                  if (points.length < 3) return null;
+                  const colour = proposal.kind === 'equipment' ? '#38BDF8' : '#34D399';
+                  const label = points.reduce((top, point) => (point.y < top.y ? point : top), points[0]);
+                  return (
+                    <g key={proposal.id} className="pointer-events-auto cursor-pointer"
+                       onClick={(event) => {
+                         event.stopPropagation();
+                         applyProposal(proposal);
+                       }}>
+                      <polygon
+                        points={points.map(({ x, y }) => `${x * 1000},${y * 1000}`).join(' ')}
+                        fill={`${colour}22`}
+                        stroke={colour}
+                        strokeWidth="2"
+                        strokeDasharray="10,7"
+                        vectorEffect="non-scaling-stroke"
+                      />
+                      <text
+                        x={label.x * 1000 + 6}
+                        y={Math.max(30, label.y * 1000 - 10)}
+                        fill={colour}
+                        fontSize="26"
+                        fontFamily="monospace"
+                        style={{ paintOrder: 'stroke', stroke: '#000', strokeWidth: 4 }}
+                      >
+                        {proposal.label}
+                      </text>
+                    </g>
+                  );
+                })}
+
               {points.length > 1 && closed && (
                 <polygon
                   points={points.map((point) => `${point.x * 1000},${point.y * 1000}`).join(' ')}
