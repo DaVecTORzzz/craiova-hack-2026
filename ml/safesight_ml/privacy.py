@@ -54,7 +54,7 @@ class _Yunet:
         options.log_severity_level = 3
         try:
             self._session = ort.InferenceSession(
-                _dynamic_input(model), options, providers=["CPUExecutionProvider"]
+                _dynamic_input(model), options, providers=_providers()
             )
         except Exception as exc:  # noqa: BLE001 - any load failure must stop the edge, not skip the blur
             hint = (
@@ -86,6 +86,21 @@ class _Yunet:
         # (x, y, w, h) in the original frame; the padding added rows and columns after the
         # image, so no rescale is applied (OpenCV does not rescale either).
         return [(int(x), int(y), int(w), int(h)) for x, y, w, h in boxes]
+
+
+def _providers(available: list[str] | None = None) -> list[str]:
+    """CUDA when the machine has it, CPU otherwise.
+
+    A 1080p YuNet pass is 26 ms on this laptop's CPU and a few milliseconds on a discrete
+    card; on machines without one nothing changes. Integrated GPUs are left out on purpose:
+    the transfer overhead is larger than the win for a model this small, and it would take
+    cores away from YOLO without a measured benefit.
+    """
+    names = available if available is not None else ort.get_available_providers()
+    for preferred in ("CUDAExecutionProvider", "ROCMExecutionProvider"):
+        if preferred in names:
+            return [preferred, "CPUExecutionProvider"]
+    return ["CPUExecutionProvider"]
 
 
 def _dynamic_input(model: Path) -> bytes:
