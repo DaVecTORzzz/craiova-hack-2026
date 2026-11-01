@@ -1,6 +1,7 @@
 # Plan — Alertă garantată și Raport de tură corect
 
-Status: **propunere, neaprobat**. Nu se scrie cod până nu e aprobat.
+Status: **aprobat** (2026-11-01). PR 1 (outbox) și PR 4.1–4.2 (numărare corectă, ore complete) sunt livrate în #94.
+Restul planului — watchdog de cameră, scară de escaladare, sumar persistat, UI — rămâne de făcut.
 Branch: `feat/alert-guarantees`, worktree separat, bazat pe `origin/main` (30e4692).
 Autor: agent paralel (nu atinge `ml/safesight_ml/suggest.py`, care e în lucru pe `feat/auto-zones`).
 

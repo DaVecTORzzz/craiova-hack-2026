@@ -61,7 +61,7 @@ Before finishing: run the check for the affected module and re-run the demo path
 - Read the affected files before editing. Implement only the requested scope.
 - Reuse existing patterns; do not add abstractions without a second use.
 - Do not weaken or delete a check to make something pass. Fix it or report it.
-- Alerts never go straight to Slack from a request handler. `ingest()` writes the event and its `notification_outbox` row in one transaction; the worker retries and `notify.deliver()` sets `notified_at` only on a real success. A `failed` row stays in the table on purpose.
+- Alerts never go straight to Slack. `ingest()` writes the event and its `notification_outbox` row in one transaction; escalation uses the same path (`kind="escalation"`); an ack cancels what is still queued. The worker retries, and `notify.deliver()` sets `notified_at` only on a real success. A `failed` row stays in the table on purpose.
 
 ## Boundaries
 
