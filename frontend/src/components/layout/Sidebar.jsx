@@ -44,7 +44,11 @@ export default function Sidebar() {
       // The detail page belongs to this entry.
       also: ['incident_detail'],
       icon: AlertOctagon,
-      badge: kpis?.escalated_incidents_count > 0 ? 'ESC' : null,
+      // Numărul, nu o etichetă: "ESC" se citește ca tasta Escape și nu spune câte.
+      badge: kpis?.escalated_incidents_count > 0 ? kpis.escalated_incidents_count : null,
+      badgeTitle: kpis?.escalated_incidents_count > 0
+        ? `${kpis.escalated_incidents_count} incidente escaladate`
+        : undefined,
       badgeCritical: true
     },
     {
@@ -116,6 +120,7 @@ export default function Sidebar() {
                 {/* Badge alerte deschise / escaladate */}
                 {item.badge && (
                   <span
+                    title={item.badgeTitle || undefined}
                     className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow shrink-0 ${
                       item.badgeCritical
                         ? 'bg-[#D73833] text-white animate-pulse'
