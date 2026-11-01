@@ -563,7 +563,11 @@ export function SecurityProvider({ children }) {
   };
 
   useEffect(() => {
-    if (selectedCameraId) refreshZoneProposals(selectedCameraId);
+    if (!selectedCameraId) return;
+    refreshZoneProposals(selectedCameraId);
+    // Analiza rulează în fundal la edge: panoul se reîmprospătează singur, fără reload.
+    const timer = setInterval(() => refreshZoneProposals(selectedCameraId), 10000);
+    return () => clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCameraId]);
 

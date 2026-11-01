@@ -638,6 +638,25 @@ def run_demo(args: argparse.Namespace) -> int:
                 shown = ["***" if previous == "--edge-token" else part for previous, part in zip(["", *shown], shown)]
                 print(f"Edge:     {feed.camera_id} <- {mask_url(args.rtsp) if args.rtsp else webcam or feed.clip.name}")
                 edges.append((f"edge {feed.camera_id}", popen(ml_command, cwd=ML, env=base_env(), shown=shown)))
+            if args.suggest and edges and not stream:
+                # Analiza vizuală merge secvenţial şi cu prioritate mică: DINO ia ~9 s pe
+                # cameră, iar în paralel cele trei instanţe se calcă pe picioare şi încetinesc
+                # şi demo-ul. Propunerile apar în editor când termină, fără să blocheze nimic.
+                jobs = [[feed.camera_id, str(feed.clip)] for feed in feeds if feed.clip.is_file()]
+                snippet = (
+                    "import json, sys\n"
+                    "from safesight_ml.suggest import main\n"
+                    "api, token, jobs = sys.argv[1], sys.argv[2], json.loads(sys.argv[3])\n"
+                    "for camera, clip in jobs:\n"
+                    "    main(['--source', clip, '--camera-id', camera, '--frames', '40',\n"
+                    "          '--api-url', api, '--token', token])\n"
+                )
+                popen(
+                    ["nice", "-n", "10", *command("uv", ["run", "python", "-c", snippet, api_url(args), token, json.dumps(jobs)])],
+                    cwd=ML,
+                    env=base_env(),
+                )
+
             if not edges:
                 print("Niciun edge pornit. Folosește backend/scripts/demo_event.py pentru fallback.", file=sys.stderr)
 
@@ -723,6 +742,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=0,
         metavar="S",
         help="un incident per tip și zonă la acest interval (implicit 60 în edge)",
+    )
+    p_demo.add_argument(
+        "--suggest",
+        action="store_true",
+        help="rulează analiza vizuală la pornire și propune zone pentru fiecare cameră",
     )
     p_demo.add_argument("--no-ml", action="store_true", help="nu porni edge-ul")
     p_demo.add_argument("--edge-token", default=None, help="token edge; implicit EDGE_TOKEN din mediu sau .env")
