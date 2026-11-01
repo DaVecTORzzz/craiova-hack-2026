@@ -55,6 +55,12 @@ const INITIAL_ROUTE = (() => {
 })();
 const LINKED_INCIDENT_ID = INITIAL_ROUTE.eventId;
 
+function withFreshPreview(zone) {
+  if (!zone?.reference_frame_url) return zone;
+  const base = zone.reference_frame_url.split('?')[0];
+  return { ...zone, reference_frame_url: `${base}?v=${Date.now()}` };
+}
+
 const EMPTY_KPIS = {
   ppe_compliance_pct: '—',
   open_incidents_count: 0,
@@ -148,6 +154,8 @@ export function SecurityProvider({ children }) {
   // 7. Raport de Tură
   const [shiftReport, setShiftReport] = useState(USE_MOCK ? INITIAL_SHIFT_REPORT : EMPTY_SHIFT_REPORT);
   const [selectedShift, setSelectedShift] = useState(() => (USE_MOCK ? 'shift_1' : safeSightApi.currentShiftId()));
+  // Ziua operațională (se schimbă la 06:00), nu ziua calendaristică.
+  const [selectedDate, setSelectedDate] = useState(() => (USE_MOCK ? '2026-10-31' : safeSightApi.shiftDate()));
 
   // 8. Stare Conexiune & Toast / Banner Erori (Regulă C-10)
   const [isWsConnected, setIsWsConnected] = useState(true);
@@ -251,16 +259,31 @@ export function SecurityProvider({ children }) {
     };
   }, []);
 
-  // Raportul de tură se reîncarcă la schimbarea turei.
+  // Raportul de tură se reîncarcă la schimbarea turei sau a datei, și la 30 s cât
+  // timp ecranul e deschis: cifrele turei se mișcă în timpul demo-ului.
   useEffect(() => {
     if (USE_MOCK) return;
     let cancelled = false;
+    const load = (refresh = false) =>
+      safeSightApi
+        .getShiftReport(safeSightApi.shiftToApi(selectedShift), selectedDate, { refresh })
+        .then((report) => { if (!cancelled) setShiftReport(report); })
+        .catch(() => { if (!cancelled) showToast('Raportul de tură nu a putut fi încărcat.'); });
+
+    load();
+    const interval = setInterval(() => load(), 30000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [selectedShift, selectedDate]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // „Regenerează sumarul" forțează un text nou; o reîncărcare normală refoloseste
+  // sumarul cât timp cifrele nu s-au schimbat.
+  const regenerateShiftSummary = () => {
+    if (USE_MOCK) return;
     safeSightApi
-      .getShiftReport(safeSightApi.shiftToApi(selectedShift), safeSightApi.shiftDate(selectedShift))
-      .then((report) => { if (!cancelled) setShiftReport(report); })
-      .catch(() => { if (!cancelled) showToast('Raportul de tură nu a putut fi încărcat.'); });
-    return () => { cancelled = true; };
-  }, [selectedShift]);
+      .getShiftReport(safeSightApi.shiftToApi(selectedShift), selectedDate, { refresh: true })
+      .then((report) => setShiftReport(report))
+      .catch(() => showToast('Sumarul nu a putut fi regenerat.'));
+  };
 
   // Camera activă curentă
   const activeCamera = useMemo(() => {
@@ -531,11 +554,48 @@ export function SecurityProvider({ children }) {
     try {
       const updatedZone = await safeSightApi.captureReferenceFrame(zoneId, file);
       if (updatedZone) {
-        setZones((prev) => prev.map((z) => (z.zone_id === zoneId ? { ...z, ...updatedZone } : z)));
+        setZones((prev) =>
+          prev.map((z) => (z.zone_id === zoneId ? { ...z, ...withFreshPreview(updatedZone) } : z))
+        );
       }
       showToast('Cadru de referință curat salvat cu succes.');
     } catch (error) {
       showToast(`Cadrul de referință a eșuat: ${error.message}`);
+    }
+  };
+
+  const captureReferenceFromLive = async (zoneId) => {
+    showToast('Se preia cadrul live (deja blurat la edge)...');
+    try {
+      const updated = await safeSightApi.captureReferenceFromLive(zoneId);
+      setZones((prev) =>
+        prev.map((zone) => (zone.zone_id === zoneId ? { ...zone, ...withFreshPreview(updated) } : zone))
+      );
+      showToast('Cadru live preluat ca referință FOD.');
+    } catch (error) {
+      showToast(`Preluarea cadrului live a eșuat: ${error.message}`);
+    }
+  };
+
+  const deleteZone = async (zoneId) => {
+    const previous = zones;
+    setZones((prev) => prev.filter((zone) => zone.zone_id !== zoneId));
+    try {
+      await safeSightApi.deleteZone(zoneId);
+      showToast(`Zona ${zoneId} a fost ștearsă.`);
+    } catch (error) {
+      setZones(previous);
+      showToast(`Ștergerea zonei a eșuat: ${error.message}`);
+    }
+  };
+
+  const clearReferenceFrame = async (zoneId) => {
+    try {
+      const updated = await safeSightApi.deleteReferenceFrame(zoneId);
+      setZones((prev) => prev.map((zone) => (zone.zone_id === zoneId ? { ...zone, ...updated } : zone)));
+      showToast('Cadrul de referință a fost șters.');
+    } catch (error) {
+      showToast(`Ștergerea cadrului a eșuat: ${error.message}`);
     }
   };
 
@@ -665,6 +725,9 @@ export function SecurityProvider({ children }) {
         shiftReport,
         selectedShift,
         setSelectedShift,
+        selectedDate,
+        setSelectedDate,
+        regenerateShiftSummary,
         isWsConnected,
         setIsWsConnected,
         health,
@@ -677,7 +740,10 @@ export function SecurityProvider({ children }) {
         regenerateReport,
         toggleEngine,
         captureReferenceFrame,
+        captureReferenceFromLive,
         saveZone,
+        deleteZone,
+        clearReferenceFrame,
         simulateIncomingWsEvent,
         toggleWsSimulation
       }}

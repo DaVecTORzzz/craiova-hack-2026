@@ -46,6 +46,20 @@ from .zones import Zone, ZoneMembership
 DEFAULT_FACE_MODEL = "models/face_detection_yunet_2023mar.onnx"
 
 
+MAX_CATCH_UP_S = 0.25  # peste asta resincronizăm ceasul, nu sărim conținut
+
+
+def frames_to_skip(lag: float, fps: float) -> int:
+    """Câte cadre din sursă trebuie aruncate ca să ajungem din urmă timpul real.
+
+    Un fișier redat cu ``--realtime`` dar procesat mai încet decât FPS-ul lui ar rula
+    în slow motion; sărind cadrele întârziate se comportă ca o cameră.
+    """
+    if lag <= 0 or fps <= 0:
+        return 0
+    return int(lag * fps)
+
+
 def _resolve_fps(requested: float, source: float) -> float:
     for candidate in (requested, source):
         if candidate and math.isfinite(candidate) and candidate > 0:
@@ -123,6 +137,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=0,
         metavar="N",
         help="cap compute threads for this edge (torch, OpenCV, face pass); 0 = split by --share-cpu",
+    )
+    parser.add_argument(
+        "--realtime-no-skip",
+        action="store_true",
+        help="with --realtime, process every frame even when the machine cannot keep up (slow motion)",
     )
     parser.add_argument(
         "--incident-cooldown-s",
@@ -250,6 +269,7 @@ def main(argv: list[str] | None = None) -> int:
         print("no zones loaded", file=sys.stderr)
         return 2
 
+    args.realtime_skip = not args.realtime_no_skip
     start_epoch = time.time()
     run_started = time.perf_counter()
 
@@ -334,6 +354,8 @@ def main(argv: list[str] | None = None) -> int:
                 }
             )
 
+    skipped_frames = 0
+    first_frame_at: float | None = None
     if args.fake:
         fps = args.fps or 10.0
         if args.annotated_video:
@@ -371,17 +393,27 @@ def main(argv: list[str] | None = None) -> int:
         # --realtime on a file: frame n is due at paced_start + n / fps.
         pace = args.realtime and reader is None
         paced_start = time.monotonic()
-        paced_frames = 0
+        skipped_frames = 0  # cadre din sursă aruncate cu --realtime (ca la o cameră)
         try:
             while True:
                 if pace:
-                    lead = paced_start + paced_frames / fps - time.monotonic()
-                    if lead > 0:
-                        time.sleep(lead)
-                    elif lead < -0.5:
-                        # Too slow to keep up: carry on from now, no burst to catch up.
-                        paced_start, paced_frames = time.monotonic(), 0
-                    paced_frames += 1
+                    # Timpul sursei, nu al procesării: cadrul `frame_index` e datorat la
+                    # paced_start + frame_index / fps.
+                    lag = time.monotonic() - (paced_start + frame_index / fps)
+                    if lag < 0:
+                        time.sleep(min(-lag, 0.25))
+                    elif lag > MAX_CATCH_UP_S:
+                        # Prea mult în urmă ca să mai fie o întârziere de un cadru (prima
+                        # inferență, un GC, o pauză): o cameră nu reia secundele pierdute,
+                        # continuă de acum. Sărirea se folosește doar pentru decalaje mici.
+                        paced_start = time.monotonic() - frame_index / fps
+                    elif args.realtime_skip:
+                        skip = frames_to_skip(lag, fps)
+                        for _ in range(skip):
+                            if not capture.grab():  # grab, fără decodare
+                                break
+                            frame_index += 1
+                            skipped_frames += 1
                 read_started = time.perf_counter()
                 if reader is not None:
                     ok, frame, frame_index = reader.read()
@@ -393,7 +425,9 @@ def main(argv: list[str] | None = None) -> int:
                 if not ok:
                     if args.loop and reader is None:
                         capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
-                        paced_start, paced_frames = time.monotonic(), 0
+                        # frame_index keeps counting: it is the pipeline's clock (cooldowns,
+                        # dwell, track expiry) and must not jump back to 0 on every pass.
+                        paced_start = time.monotonic() - frame_index / fps
                         # Each pass replays the same scene; without this the demo raises
                         # (and notifies) the same incident every few seconds.
                         pipeline.emit_events = (
@@ -407,6 +441,8 @@ def main(argv: list[str] | None = None) -> int:
                     print(f"warn: frame {frame_index} failed: {exc}", file=sys.stderr)
                 total += 1
                 frame_index += 1
+                if first_frame_at is None:
+                    first_frame_at = time.monotonic()
 
                 if args.duration_s and time.monotonic() - run_started >= args.duration_s:
                     break
@@ -453,6 +489,11 @@ def main(argv: list[str] | None = None) -> int:
         "elapsed_s": round(elapsed_s, 3),
         "fps": round(total / elapsed_s, 2),
         "dropped_frames": dropped_frames,
+        "skipped_frames": skipped_frames,
+        # Cât timp de sursă s-a redat și în cât timp real: raportul 1.0 = realtime.
+        # Fiecare cadru procesat sau sărit avansează sursa cu 1/fps, deci suma lor e timpul.
+        "source_s": round((total + skipped_frames) / fps, 2),
+        "playback_s": round(time.monotonic() - first_frame_at, 2) if first_frame_at else 0.0,
         "live_frames": live_writer.written if live_writer is not None else 0,
         "live": (
             {

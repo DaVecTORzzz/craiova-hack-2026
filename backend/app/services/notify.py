@@ -69,29 +69,33 @@ def slack_text(event: EventOut, escalated: bool) -> str:
     return _default_slack_text(event, escalated)
 
 
-async def notify_new_event(event_id: str) -> None:
+async def deliver(event_id: str, text: str) -> tuple[bool, str | None]:
+    """Send the rendered text; on the first real success set ``notified_at``.
+
+    Called by the outbox worker. Never raises: a failed send is a retry, not a
+    crash. The text was rendered at enqueue time, so a retry keeps the original
+    detection time instead of the retry time.
+    """
+    if not await send_slack(text):
+        return False, "slack rejected or unreachable"
+
     # Imported here: app.services.events imports this module.
     from app.services.events import event_out
 
+    latency_ms: int | None = None
     with Session(get_engine()) as session:
         event = session.get(Event, event_id)
         if event is None:
-            return
+            return True, None
+        if event.notified_at is None:
+            event.notified_at = utcnow()
+            session.add(event)
+            session.commit()
+            session.refresh(event)
+            latency_ms = int((event.notified_at - event.detected_at).total_seconds() * 1000)
         out = event_out(session, event)
 
-    if not await send_slack(slack_text(out, escalated=False)):
-        return
-
-    with Session(get_engine()) as session:
-        event = session.get(Event, event_id)
-        if event is None:
-            return
-        event.notified_at = utcnow()
-        session.add(event)
-        session.commit()
-        session.refresh(event)
-        out = event_out(session, event)
-        latency_ms = int((event.notified_at - event.detected_at).total_seconds() * 1000)
-
-    logger.info(f"notified event_id={event_id} detection_to_alert_ms={latency_ms}")
-    await manager.broadcast("event.updated", out.model_dump(mode="json"))
+    if latency_ms is not None:
+        logger.info(f"notified event_id={event_id} detection_to_alert_ms={latency_ms}")
+        await manager.broadcast("event.updated", out.model_dump(mode="json"))
+    return True, None

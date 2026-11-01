@@ -10,7 +10,8 @@ from app.db import get_session
 from app.models import Camera, Snapshot, Zone
 from app.routers.health import record_edge_seen
 from app.routers.zones import get_config_version, zone_io
-from app.schemas import EVENT_ID_PATTERN, EdgeEventIn, EdgeZonesOut, EventOut
+from app.schemas import EVENT_ID_PATTERN, EdgeEventIn, EdgeZonesOut, EventOut, HeartbeatIn
+from app.services import watchdog
 from app.services.events import ingest
 from app.timeutil import utcnow
 
@@ -110,6 +111,8 @@ async def get_edge_zones(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="unknown camera_id",
         )
+    # An edge that polls for its zones is alive: the poll is the heartbeat.
+    await watchdog.record_beat(session, camera_id)
     zones = session.exec(select(Zone).where(Zone.camera_id == camera_id).order_by(Zone.id)).all()
     return EdgeZonesOut(
         camera_id=camera.id,
@@ -117,3 +120,20 @@ async def get_edge_zones(
         config_version=get_config_version(session),
         zones=[zone_io(z) for z in zones],
     )
+
+
+@router.post("/heartbeat")
+async def post_edge_heartbeat(
+    payload: HeartbeatIn,
+    session: Session = Depends(get_session),
+    _token: None = Depends(verify_edge_token),
+) -> dict[str, bool]:
+    """Explicit sign of life for edges that do not poll for zones."""
+    try:
+        await watchdog.record_beat(session, payload.camera_id)
+    except KeyError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="unknown camera_id",
+        ) from None
+    return {"ok": True, "online": True}

@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Column, JSON
+from sqlalchemy import Column, JSON, UniqueConstraint
 from sqlmodel import Field, SQLModel
 
 
@@ -88,3 +88,60 @@ class ConfigState(SQLModel, table=True):
     __tablename__ = "config_state"
     id: int = Field(default=1, primary_key=True)
     config_version: int = 1
+
+
+class EdgeHeartbeat(SQLModel, table=True):
+    """Last sign of life per camera, plus the outage incident it belongs to."""
+
+    __tablename__ = "edge_heartbeat"
+    camera_id: str = Field(primary_key=True)
+    last_seen_at: datetime
+    source: str = "edge"                 # edge | assumed (grace at startup)
+    outage_event_id: str | None = None   # one incident per outage
+
+
+class CameraOutage(SQLModel, table=True):
+    """A window in which a camera was blind. Coverage is computed from this table."""
+
+    __tablename__ = "camera_outages"
+    id: int | None = Field(default=None, primary_key=True)
+    camera_id: str = Field(index=True)
+    event_id: str
+    started_at: datetime = Field(index=True)
+    ended_at: datetime | None = None
+
+
+class ShiftSummary(SQLModel, table=True):
+    """The generated shift summary, reused while the numbers behind it are unchanged."""
+
+    __tablename__ = "shift_summaries"
+    id: str = Field(primary_key=True)     # "<shift>:<date>"
+    numbers_hash: str
+    summary: str
+    source: str                           # llm | template
+    generated_at: datetime
+
+
+class NotificationOutbox(SQLModel, table=True):
+    """A notification waiting to be sent, with retry.
+
+    The text is rendered at enqueue time, so a retry 30 s later sends exactly
+    the original message with the original time. ``(event_id, kind)`` is unique:
+    a restart cannot duplicate alerts. A ``failed`` row stays in the table on
+    purpose — it is the record that the alert never left.
+    """
+
+    __tablename__ = "notification_outbox"
+    __table_args__ = (UniqueConstraint("event_id", "kind", name="uq_notification_outbox_event_kind"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    event_id: str = Field(index=True)
+    kind: str = "new"                                    # new | escalation | recovery
+    channel: str = "slack"
+    text: str
+    status: str = Field(default="pending", index=True)   # pending | sent | failed | cancelled
+    attempts: int = 0
+    next_attempt_at: datetime = Field(index=True)
+    last_error: str | None = None
+    created_at: datetime
+    sent_at: datetime | None = None

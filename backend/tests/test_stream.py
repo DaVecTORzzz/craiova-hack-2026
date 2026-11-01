@@ -56,7 +56,9 @@ def test_stream_sends_a_new_live_frame_without_waiting_half_a_second(client):
     assert waited < FRAME_INTERVAL_S / 2
 
 
-def test_streaming_marks_the_camera_as_watched():
+def test_streaming_marks_the_camera_as_watched(client):
+    # `client` matters: it points SNAPSHOT_DIR at a temp dir that already has the
+    # placeholder. Without it the test passes only if a stale snapshots/ exists.
     watch = Path(get_settings().snapshot_dir) / "live" / "stand12.watch"
     watch.unlink(missing_ok=True)
     _first_chunk("stand12")

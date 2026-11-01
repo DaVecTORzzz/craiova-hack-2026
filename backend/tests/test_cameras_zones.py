@@ -94,6 +94,40 @@ def test_put_zone_two_point_polygon_422(client):
     assert res.status_code == 422
 
 
+def test_put_zone_self_crossing_polygon_422(client):
+    # Points clicked out of order: an hourglass instead of a perimeter.
+    hourglass = [[0.1, 0.1], [0.3, 0.1], [0.1, 0.4], [0.3, 0.4]]
+    res = client.put("/zones/engine-right", json=_zone(polygon=hourglass))
+    assert res.status_code == 422
+    assert "cross" in res.text
+    assert client.get("/zones", params={"camera_id": "stand12"}).json()  # nothing broke
+
+
+def test_put_zone_concave_polygon_is_accepted(client):
+    arrow = [[0.1, 0.1], [0.9, 0.1], [0.9, 0.9], [0.5, 0.4], [0.1, 0.9]]
+    res = client.put("/zones/engine-right", json=_zone(polygon=arrow))
+    assert res.status_code == 200
+    assert res.json()["polygon"] == arrow
+
+
+def test_stored_crossing_zone_is_still_listed(client):
+    """The check is on PUT only: a crossing zone stored earlier must not break GET /zones."""
+    from sqlmodel import Session
+
+    from app.db import get_engine
+    from app.models import Zone
+
+    with Session(get_engine()) as session:
+        zone = session.get(Zone, "engine-left")
+        zone.polygon = [[0.1, 0.1], [0.3, 0.1], [0.1, 0.4], [0.3, 0.4]]
+        session.add(zone)
+        session.commit()
+    res = client.get("/zones", params={"camera_id": "stand12"})
+    assert res.status_code == 200
+    assert any(z["id"] == "engine-left" for z in res.json())
+    assert client.get("/edge/zones", params={"camera_id": "stand12"}, headers=HEADERS).status_code == 200
+
+
 def test_put_zone_unknown_camera_404(client):
     assert client.put("/zones/engine-right", json=_zone(camera_id="nope")).status_code == 404
 
@@ -133,3 +167,62 @@ def test_reference_frame_errors(client):
 def test_edge_zones_requires_token_and_known_camera(client):
     assert client.get("/edge/zones", params={"camera_id": "stand12"}).status_code == 401
     assert client.get("/edge/zones", params={"camera_id": "nope"}, headers=HEADERS).status_code == 404
+
+
+def test_delete_zone_removes_it_and_bumps_config_version(client):
+    before = _config_version(client)
+    assert client.put("/zones/engine-right", json=_zone()).status_code == 200
+
+    res = client.delete("/zones/engine-right")
+    assert res.status_code == 204
+    assert all(z["id"] != "engine-right" for z in client.get("/zones").json())
+    assert _config_version(client) == before + 2
+
+    assert client.delete("/zones/engine-right").status_code == 404
+
+
+def test_delete_reference_frame_clears_the_field_and_the_file(client):
+    jpeg = b"\xff\xd8\xff\xd9"
+    client.post(
+        "/zones/reference-frame",
+        data={"zone_id": "taxiway-b"},
+        files={"file": ("ref.jpg", jpeg, "image/jpeg")},
+    )
+
+    res = client.delete("/zones/taxiway-b/reference-frame")
+    assert res.status_code == 200
+    assert res.json()["reference_frame"] is None
+    assert client.get("/snapshots/reference/taxiway-b.jpg").status_code == 404
+
+    assert client.delete("/zones/nope/reference-frame").status_code == 404
+
+
+def test_reference_frame_from_live_copies_the_edge_frame(client, tmp_path, monkeypatch):
+    from app.routers import zones as zones_router
+
+    clean = tmp_path / "taxiway-b.clean.jpg"
+    clean.write_bytes(b"\xff\xd8\xff\xd9")
+
+    async def fake_wait(live_dir, camera_id, since, timeout=0):
+        return clean
+
+    monkeypatch.setattr(zones_router, "_wait_for_clean_frame", fake_wait)
+
+    res = client.post("/zones/taxiway-b/reference-frame/from-live")
+    assert res.status_code == 200
+    assert res.json()["reference_frame"] == "/snapshots/reference/taxiway-b.jpg"
+    assert client.get("/snapshots/reference/taxiway-b.jpg").content == b"\xff\xd8\xff\xd9"
+
+
+def test_reference_frame_from_live_reports_a_silent_edge(client, monkeypatch):
+    from app.routers import zones as zones_router
+
+    async def no_frame(live_dir, camera_id, since, timeout=0):
+        return None
+
+    monkeypatch.setattr(zones_router, "_wait_for_clean_frame", no_frame)
+    res = client.post("/zones/taxiway-b/reference-frame/from-live")
+    assert res.status_code == 409
+    assert "did not send a frame" in res.json()["detail"]
+
+    assert client.post("/zones/nope/reference-frame/from-live").status_code == 404

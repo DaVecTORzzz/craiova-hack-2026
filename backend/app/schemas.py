@@ -3,6 +3,8 @@ from typing import Literal
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator
 
+from app.geometry import crossing_edges
+
 
 class EventType(str, Enum):
     RESTRICTED_ZONE = "RESTRICTED_ZONE"
@@ -129,6 +131,11 @@ class EngineIn(BaseModel):
     on: bool
 
 
+class HeartbeatIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    camera_id: str = Field(min_length=1, max_length=64)
+
+
 class CameraOut(BaseModel):
     id: str
     name: str
@@ -163,6 +170,22 @@ class ZoneIO(BaseModel):
         return v
 
 
+class ZoneIn(ZoneIO):
+    """PUT /zones body: also rejects a polygon whose edges cross (an hourglass, not a perimeter).
+
+    Only on input: zones already stored are still returned as they are.
+    """
+
+    @field_validator("polygon")
+    @classmethod
+    def validate_polygon_is_simple(cls, v: list[tuple[float, float]]) -> list[tuple[float, float]]:
+        crossing = crossing_edges(v)
+        if crossing:
+            edges = ", ".join(str(i) for i in sorted(crossing))
+            raise ValueError(f"polygon edges cross each other (edges {edges}); points must follow the outline")
+        return v
+
+
 class EdgeZonesOut(BaseModel):
     camera_id: str
     engine_on: bool
@@ -175,6 +198,10 @@ class Kpi(BaseModel):
     open_incidents: int
     avg_detection_to_alert_s: float | None
     escalated: int
+    # Additive: cât din tură a fost confirmat de un operator și câte incidente au
+    # primit într-adevăr o alertă. `null` înseamnă „nu există incidente", nu „zero".
+    resolution_rate: float | None = None
+    alerted_incidents: int = 0
 
 
 class ShiftReport(BaseModel):
@@ -186,3 +213,9 @@ class ShiftReport(BaseModel):
     by_type: list[dict]
     by_zone: list[dict]
     by_hour: list[dict]
+    # Additive: incidentele și fals pozitivele sunt numărate separat, ca raportul
+    # să nu raporteze un fals pozitiv drept incident.
+    total_events: int = 0
+    false_positives: int = 0
+    # Minutele în care camerele nu au transmis (CAMERA_OFFLINE nu e incident de operator).
+    coverage: dict = Field(default_factory=dict)

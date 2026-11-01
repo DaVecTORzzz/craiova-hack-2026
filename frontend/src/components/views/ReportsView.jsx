@@ -6,7 +6,7 @@ import { printAsPdf } from '../../utils/print';
 
 export default function ReportsView() {
   const { themeStyles } = useTheme();
-  const { shiftReport, selectedShift, setSelectedShift } = useSecurity();
+  const { shiftReport, selectedShift, setSelectedShift, selectedDate, setSelectedDate, regenerateShiftSummary } = useSecurity();
 
   const shifts = [
     { id: 'shift_1', label: 'Tura 1 (Dimineață: 06:00 - 14:00)' },
@@ -15,6 +15,44 @@ export default function ReportsView() {
   ];
 
   const maxHourEvents = Math.max(...shiftReport.by_hour.map((h) => h.events), 1);
+
+  // Același raport, dar pentru Excel: fără dependențe, din obiectul deja încărcat.
+  const downloadCsv = () => {
+    const coveragePct = shiftReport.coverage?.coverage == null
+      ? '—'
+      : Math.round(shiftReport.coverage.coverage * 1000) / 10;
+    const rows = [
+      ['Tură', shiftReport.shift],
+      ['Dată', shiftReport.date],
+      ['Incidente', shiftReport.kpi.total_events],
+      ['Critice', shiftReport.kpi.critical_events],
+      ['Avertizări', shiftReport.kpi.warning_events],
+      ['Fals pozitive', shiftReport.false_positives ?? 0],
+      ['Timp mediu confirmare (s)', shiftReport.kpi.avg_ack_time_s],
+      ['Conformitate PPE (%)', shiftReport.kpi.ppe_compliance_pct],
+      ['Acoperire camere (%)', coveragePct],
+      ['Minute camere oarbe', shiftReport.coverage?.offline_minutes ?? 0],
+      [],
+      ['Tip', 'Critice', 'Avertizări', 'Fals pozitive'],
+      ...shiftReport.by_type.map((t) => [t.type, t.critical, t.warning, t.false_positive]),
+      [],
+      ['Zonă', 'Critice', 'Avertizări', 'Fals pozitive'],
+      ...shiftReport.by_zone.map((z) => [z.zone, z.critical, z.warning, z.false_positive]),
+      [],
+      ['Oră', 'Incidente'],
+      ...shiftReport.by_hour.map((h) => [h.hour, h.events]),
+    ];
+    const csv = rows
+      .map((row) => row.map((cell) => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+    const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `SafeSight_raport_${shiftReport.date}_${shiftReport.shift}.csv`.replace(/[^\w.-]+/g, '_');
+    link.click();
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <div className="flex-1 p-4 md:p-6 overflow-y-auto space-y-5 h-full select-none max-w-6xl mx-auto">
@@ -30,6 +68,13 @@ export default function ReportsView() {
           </p>
         </div>
 
+        <div className="flex items-center gap-2">
+        <button
+          onClick={downloadCsv}
+          className="no-print px-3.5 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs flex items-center gap-2 shadow"
+        >
+          <FileDown size={15} /> Export CSV
+        </button>
         {/* Export PDF: dialogul de tipărire al browserului */}
         <button
           onClick={() => printAsPdf(`SafeSight_raport_${shiftReport.date}_${shiftReport.shift}`.replace(/[^\w.-]+/g, '_'))}
@@ -37,6 +82,7 @@ export default function ReportsView() {
         >
           <FileDown size={15} /> Export PDF
         </button>
+        </div>
       </div>
 
       {/* Selector Tură & Dată */}
@@ -57,8 +103,16 @@ export default function ReportsView() {
             ))}
           </select>
         </div>
-        <div className="font-mono text-slate-300">
-          Dată: <span className="font-bold text-white">{shiftReport.date}</span>
+        <div className="flex items-center gap-2 font-mono text-slate-300">
+          <span className="font-bold">Dată:</span>
+          <input
+            type="date"
+            value={selectedDate}
+            max={new Date().toISOString().slice(0, 10)}
+            onChange={(e) => setSelectedDate(e.target.value)}
+            className="p-1.5 rounded bg-black/30 border border-white/20 text-xs text-white font-mono"
+          />
+          <span className="font-bold text-white">{shiftReport.date}</span>
         </div>
       </div>
 
@@ -98,6 +152,27 @@ export default function ReportsView() {
         </div>
       </div>
 
+      {/* Acoperire: minutele în care camerele nu au transmis nu sunt incidente */}
+      <div
+        style={{ backgroundColor: themeStyles.panelBg, borderColor: themeStyles.panelBorder }}
+        className="p-3.5 rounded-xl border shadow-sm flex items-center justify-between gap-3 flex-wrap"
+      >
+        <div>
+          <p style={{ color: themeStyles.textMuted }} className="text-xs font-semibold">Acoperire camere în tură</p>
+          <p className="text-2xl font-black font-mono text-emerald-400">
+            {shiftReport.coverage?.coverage == null
+              ? '—'
+              : `${Math.round(shiftReport.coverage.coverage * 1000) / 10}%`}
+          </p>
+        </div>
+        <div className="text-right">
+          <p style={{ color: themeStyles.textMuted }} className="text-xs font-semibold">Minute cu camera oarbă</p>
+          <p className="text-lg font-black font-mono text-amber-400">
+            {shiftReport.coverage?.offline_minutes ?? 0} min
+          </p>
+        </div>
+      </div>
+
       {/* Rezumat Executiv (2-3 Propoziții generate de D din cifrele lui B) */}
       <div
         style={{ backgroundColor: themeStyles.panelBg, borderColor: themeStyles.panelBorder }}
@@ -109,6 +184,13 @@ export default function ReportsView() {
         <p className="text-xs leading-relaxed text-slate-200">
           {shiftReport.summary}
         </p>
+        <button
+          onClick={regenerateShiftSummary}
+          className="no-print mt-1 px-2.5 py-1 rounded border border-indigo-500/40 text-indigo-300 hover:bg-indigo-900/40 text-[11px] font-bold"
+          title="Cere un text nou; reîncărcarea normală refoloseste sumarul cât timp cifrele nu se schimbă"
+        >
+          Regenerează sumarul
+        </button>
       </div>
 
       {/* Secțiunea Grafice: Bare pe Tip & Distribuție pe Ore (by_hour) */}

@@ -188,7 +188,7 @@ class Pipeline:
 
         engine_on = self.engine_on
 
-        def annotated(blurrer: Blurrer | None = None, max_width: int = 0) -> np.ndarray:
+        def annotated(blurrer: Blurrer | None = None, max_width: int = 0, overlay: bool = True) -> np.ndarray:
             # Blur first: the overlay must never hide or replace the privacy step.
             # Faces are searched on the full frame: downscaling first loses small faces
             # (cam01: 15 -> 7 YuNet hits at 1280 px), so it is not a free speed-up.
@@ -196,6 +196,8 @@ class Pipeline:
                 blurred = (blurrer or self.blurrer).blur(frame, boxes)
             # The overlay is drawn after the shrink: half the pixels, and it scales with width.
             blurred = shrink_to_width(blurred, max_width)
+            if not overlay:
+                return blurred
             with self.timer.stage("overlay"):
                 return draw_overlay(blurred, zones, detections, inside, engine_on, vest, zones_known)
 
@@ -204,9 +206,19 @@ class Pipeline:
             # The writer blurs with YuNet passes around this frame; snapshots and the MP4
             # always use a fresh full pass of ``self.blurrer``.
             live_width = self.live_writer.writer.max_width
-            self.live_writer.submit(frame, lambda blurrer: annotated(blurrer, live_width))
+
+            def render(blurrer: Blurrer) -> np.ndarray:
+                # A reference capture asks for one frame without the overlay: same blur,
+                # no boxes or zone outlines baked into the picture.
+                if self.live_writer.clean_requested():
+                    self.live_writer.write_clean(annotated(blurrer, live_width, overlay=False))
+                return annotated(blurrer, live_width)
+
+            self.live_writer.submit(frame, render)
         elif self.live_writer is not None and self.live_writer.due():
             live_frame = annotated()  # full size: the snapshot and the MP4 reuse it
+            if self.live_writer.clean_requested():
+                self.live_writer.write_clean(annotated(overlay=False))
             with self.timer.stage("live_write"):
                 self.live_writer.write(live_frame)
 

@@ -29,6 +29,7 @@ async def get_kpi(
 async def get_shift_report(
     shift: Shift,
     date: Date,
+    refresh: bool = False,
     session: Session = Depends(get_session),
 ) -> ShiftReport:
-    return await build_shift_report(session, shift, date)
+    return await build_shift_report(session, shift, date, refresh=refresh)

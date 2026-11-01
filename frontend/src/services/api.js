@@ -122,6 +122,8 @@ async function http(path, options = {}) {
     }
     throw new Error(`${response.status} ${detail || response.statusText}`);
   }
+  // 204 No Content (DELETE /zones/{id}) has no body to parse.
+  if (response.status === 204) return null;
   return response.json();
 }
 
@@ -212,6 +214,9 @@ function mapShiftReport(report) {
     type: row.type,
     label: TYPE_LABELS[row.type] || row.type,
     count: (row.critical || 0) + (row.warning || 0),
+    critical: row.critical || 0,
+    warning: row.warning || 0,
+    false_positive: row.false_positive || 0,
   }));
   const total = byType.reduce((sum, row) => sum + row.count, 0);
   const critical = (report.by_type || []).reduce((sum, row) => sum + (row.critical || 0), 0);
@@ -237,12 +242,17 @@ function mapShiftReport(report) {
       zone: zone.zone_id,
       critical: zone.critical,
       warning: zone.warning,
+      false_positive: zone.false_positive || 0,
       avg_ack_s: zone.avg_ack_s == null ? '—' : zone.avg_ack_s,
     })),
     by_hour: (report.by_hour || []).map((row) => ({
       hour: `${row.hour}:00`,
       events: row.count,
     })),
+    // Câte minute din tură au fost camerele oarbe; `null` dacă backend-ul nu știe încă.
+    coverage: report.coverage || null,
+    total_events: report.total_events ?? total,
+    false_positives: report.false_positives ?? 0,
   };
 }
 
@@ -301,6 +311,26 @@ export const safeSightApi = {
     form.append('zone_id', zoneId);
     form.append('file', file);
     const zone = await http('/zones/reference-frame', { method: 'POST', body: form });
+    return mapZone(zone);
+  },
+
+  async captureReferenceFromLive(zoneId) {
+    if (USE_MOCK) return { zone_id: zoneId, reference_frame: null };
+    const zone = await http(`/zones/${encodeURIComponent(zoneId)}/reference-frame/from-live`, {
+      method: 'POST',
+    });
+    return mapZone(zone);
+  },
+
+  async deleteZone(zoneId) {
+    if (USE_MOCK) return true;
+    await http(`/zones/${encodeURIComponent(zoneId)}`, { method: 'DELETE' });
+    return true;
+  },
+
+  async deleteReferenceFrame(zoneId) {
+    if (USE_MOCK) return { zone_id: zoneId, reference_frame: null };
+    const zone = await http(`/zones/${encodeURIComponent(zoneId)}/reference-frame`, { method: 'DELETE' });
     return mapZone(zone);
   },
 
@@ -368,9 +398,10 @@ export const safeSightApi = {
     return mapKpi(await http(`/kpi${queryString({ date, shift })}`));
   },
 
-  async getShiftReport(shift = 'morning', date = localDateString()) {
+  async getShiftReport(shift = 'morning', date = localDateString(), { refresh = false } = {}) {
     if (USE_MOCK) return { ...INITIAL_SHIFT_REPORT };
-    return mapShiftReport(await http(`/reports${queryString({ shift, date })}`));
+    const forced = refresh ? '&refresh=true' : '';
+    return mapShiftReport(await http(`/reports${queryString({ shift, date })}${forced}`));
   },
 
   connectEventsSocket(onMessage, onError, onOpen) {

@@ -3,7 +3,7 @@ import types
 from datetime import date, datetime, timedelta
 from sqlmodel import Session
 from app.db import get_engine
-from app.models import Event
+from app.models import CameraOutage, Event
 from app.services.kpi import current_shift, shift_window
 from app.timeutil import LOCAL_TZ
 
@@ -68,6 +68,9 @@ def test_b12_kpi_numbers(client):
         "open_incidents": 2,
         "avg_detection_to_alert_s": 1.9,
         "escalated": 1,
+        # 4 incidente (fals pozitivul nu e incident), 2 confirmate, toate 4 alertate.
+        "resolution_rate": 0.5,
+        "alerted_incidents": 4,
     }
 
 
@@ -81,23 +84,32 @@ def test_b12_shift_report_aggregates(client, monkeypatch):
     assert data["shift"] == "morning"
     assert data["date"] == DAY
     assert data["kpi"]["open_incidents"] == 2
+    # Fals pozitivul (NO_PPE, 08:10 local) nu e incident: nu apare în by_type,
+    # nu apare în by_zone și nu umflă totalul. Se numără separat.
     assert data["by_type"] == [
-        {"type": "FOD", "critical": 1, "warning": 0},
-        {"type": "NO_PPE", "critical": 0, "warning": 3},
-        {"type": "RESTRICTED_ZONE", "critical": 1, "warning": 0},
+        {"type": "FOD", "critical": 1, "warning": 0, "false_positive": 0},
+        {"type": "NO_PPE", "critical": 0, "warning": 2, "false_positive": 1},
+        {"type": "RESTRICTED_ZONE", "critical": 1, "warning": 0, "false_positive": 0},
     ]
     assert data["by_zone"] == [
-        {"zone_id": "apron-stand12", "critical": 0, "warning": 3, "avg_ack_s": 10},
-        {"zone_id": "engine-left", "critical": 1, "warning": 0, "avg_ack_s": 20},
-        {"zone_id": "taxiway-b", "critical": 1, "warning": 0, "avg_ack_s": None},
+        {"zone_id": "apron-stand12", "critical": 0, "warning": 2, "avg_ack_s": 10, "false_positive": 1},
+        {"zone_id": "engine-left", "critical": 1, "warning": 0, "avg_ack_s": 20, "false_positive": 0},
+        {"zone_id": "taxiway-b", "critical": 1, "warning": 0, "avg_ack_s": None, "false_positive": 0},
     ]
+    assert data["total_events"] == 4
+    assert data["false_positives"] == 1
+    # Toate cele 8 ore ale turei, în ordinea turei, inclusiv orele goale.
     assert data["by_hour"] == [
+        {"hour": "06", "count": 0},
         {"hour": "07", "count": 2},
-        {"hour": "08", "count": 1},
+        {"hour": "08", "count": 0},
         {"hour": "09", "count": 1},
         {"hour": "10", "count": 1},
+        {"hour": "11", "count": 0},
+        {"hour": "12", "count": 0},
+        {"hour": "13", "count": 0},
     ]
-    assert data["summary"] == "Tura de dimineață din 2026-07-15: 5 evenimente, 2 deschise, 1 escaladate."
+    assert data["summary"] == "Tura de dimineață din 2026-07-15: 4 evenimente, 2 deschise, 1 escaladat."
 
 
 def test_shift_report_uses_automation_summary(client, monkeypatch):
@@ -122,7 +134,46 @@ def test_shift_report_uses_automation_summary(client, monkeypatch):
 
 def test_empty_shift(client):
     data = client.get("/kpi", params={"date": DAY, "shift": "afternoon"}).json()
-    assert data == {"ppe_compliance": 1.0, "open_incidents": 0, "avg_detection_to_alert_s": None, "escalated": 0}
+    assert data == {
+        "ppe_compliance": 1.0,
+        "open_incidents": 0,
+        "avg_detection_to_alert_s": None,
+        "escalated": 0,
+        "resolution_rate": None,
+        "alerted_incidents": 0,
+    }
+
+
+def test_night_shift_hours_follow_the_shift_not_the_clock(client, monkeypatch):
+    monkeypatch.setitem(sys.modules, "automation", None)
+    # Tura de noapte 2026-07-15: 19:00 UTC (22:00 local) -> 03:00 UTC (06:00 local).
+    t = datetime(2026, 7, 15, 20)  # 23:00 local
+    with Session(get_engine()) as session:
+        session.add(_event("RESTRICTED_ZONE", "CRITICAL", "engine-left", "open", t))
+        session.commit()
+
+    data = client.get("/reports", params={"date": DAY, "shift": "night"}).json()
+    assert [row["hour"] for row in data["by_hour"]] == ["22", "23", "00", "01", "02", "03", "04", "05"]
+    assert data["by_hour"][1] == {"hour": "23", "count": 1}
+
+
+def test_shift_of_only_false_positives_has_no_incidents(client, monkeypatch):
+    monkeypatch.setitem(sys.modules, "automation", None)
+    t = datetime(2026, 7, 15, 12)  # afternoon shift
+    with Session(get_engine()) as session:
+        session.add_all(
+            [
+                _event("NO_PPE", "WARNING", "apron-stand12", "false_positive", t),
+                _event("NO_PPE", "WARNING", "apron-stand12", "false_positive", t + timedelta(minutes=5)),
+            ]
+        )
+        session.commit()
+
+    data = client.get("/reports", params={"date": DAY, "shift": "afternoon"}).json()
+    assert data["total_events"] == 0
+    assert data["false_positives"] == 2
+    assert data["by_type"] == [{"type": "NO_PPE", "critical": 0, "warning": 0, "false_positive": 2}]
+    assert data["kpi"]["resolution_rate"] is None
 
 
 def test_kpi_requires_both_or_neither(client):
@@ -173,3 +224,62 @@ def test_shift_report_avg_ack_over_all_acked_events(client, monkeypatch):
 def test_shift_report_avg_ack_none_without_acks(client, monkeypatch):
     monkeypatch.setitem(sys.modules, "automation", None)
     assert client.get("/reports", params={"date": DAY, "shift": "afternoon"}).json()["avg_ack_s"] is None
+
+
+def test_camera_offline_counts_as_coverage_not_as_an_incident(client, monkeypatch):
+    monkeypatch.setitem(sys.modules, "automation", None)
+    t = datetime(2026, 7, 15, 4)  # 07:00 local, inside the morning shift
+    with Session(get_engine()) as session:
+        session.add(_event("CAMERA_OFFLINE", "WARNING", "stand12", "open", t))
+        session.add(
+            CameraOutage(
+                camera_id="stand12",
+                event_id="evt_stand12_1784080000000_0",
+                started_at=t,
+                ended_at=t + timedelta(minutes=60),
+            )
+        )
+        session.commit()
+
+    data = client.get("/reports", params={"date": DAY, "shift": "morning"}).json()
+    assert data["total_events"] == 0
+    assert data["by_type"] == []
+    assert data["by_zone"] == []
+    assert data["coverage"]["offline_minutes"] == 60
+    # 8 h * 3 seed cameras; one hour blind on one camera
+    assert data["coverage"]["coverage"] == round(1 - 60 / (8 * 60 * 3), 3)
+    assert [row["camera_id"] for row in data["coverage"]["cameras"]] == [
+        "baggage-area",
+        "stand12",
+        "taxiway-b",
+    ]
+
+
+def test_the_summary_is_generated_once_per_set_of_numbers(client, monkeypatch):
+    calls: list[dict] = []
+
+    def summarize(report: dict) -> str:
+        calls.append(report)
+        return f"Rezumat {len(calls)}"
+
+    package = types.ModuleType("automation")
+    module = types.ModuleType("automation.report")
+    module.summarize = summarize
+    package.report = module
+    monkeypatch.setitem(sys.modules, "automation", package)
+    monkeypatch.setitem(sys.modules, "automation.report", module)
+
+    first = client.get("/reports", params={"date": DAY, "shift": "morning"}).json()["summary"]
+    second = client.get("/reports", params={"date": DAY, "shift": "morning"}).json()["summary"]
+    assert first == second == "Rezumat 1"
+    assert len(calls) == 1
+
+    # New numbers -> a new summary, not the old text over new figures.
+    with Session(get_engine()) as session:
+        session.add(_event("RESTRICTED_ZONE", "CRITICAL", "engine-left", "open", datetime(2026, 7, 15, 4)))
+        session.commit()
+    assert client.get("/reports", params={"date": DAY, "shift": "morning"}).json()["summary"] == "Rezumat 2"
+
+    forced = client.get("/reports", params={"date": DAY, "shift": "morning", "refresh": True}).json()["summary"]
+    assert forced == "Rezumat 3"
+    assert len(calls) == 3
