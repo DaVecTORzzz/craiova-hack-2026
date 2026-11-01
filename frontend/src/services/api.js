@@ -304,6 +304,18 @@ export const safeSightApi = {
     return mapZone(zone);
   },
 
+  async deleteZone(zoneId) {
+    if (USE_MOCK) return true;
+    await http(`/zones/${encodeURIComponent(zoneId)}`, { method: 'DELETE' });
+    return true;
+  },
+
+  async deleteReferenceFrame(zoneId) {
+    if (USE_MOCK) return { zone_id: zoneId, reference_frame: null };
+    const zone = await http(`/zones/${encodeURIComponent(zoneId)}/reference-frame`, { method: 'DELETE' });
+    return mapZone(zone);
+  },
+
   async getEvents({ status = '', severity = '', camera_id = '' } = {}) {
     if (USE_MOCK) {
       let filtered = [...INITIAL_EVENTS];

@@ -539,6 +539,28 @@ export function SecurityProvider({ children }) {
     }
   };
 
+  const deleteZone = async (zoneId) => {
+    const previous = zones;
+    setZones((prev) => prev.filter((zone) => zone.zone_id !== zoneId));
+    try {
+      await safeSightApi.deleteZone(zoneId);
+      showToast(`Zona ${zoneId} a fost ștearsă.`);
+    } catch (error) {
+      setZones(previous);
+      showToast(`Ștergerea zonei a eșuat: ${error.message}`);
+    }
+  };
+
+  const clearReferenceFrame = async (zoneId) => {
+    try {
+      const updated = await safeSightApi.deleteReferenceFrame(zoneId);
+      setZones((prev) => prev.map((zone) => (zone.zone_id === zoneId ? { ...zone, ...updated } : zone)));
+      showToast('Cadrul de referință a fost șters.');
+    } catch (error) {
+      showToast(`Ștergerea cadrului a eșuat: ${error.message}`);
+    }
+  };
+
   // 7. Salvare Zonă Poligon
   const saveZone = async (zoneId, zoneData) => {
     setZones((prev) => {
@@ -678,6 +700,8 @@ export function SecurityProvider({ children }) {
         toggleEngine,
         captureReferenceFrame,
         saveZone,
+        deleteZone,
+        clearReferenceFrame,
         simulateIncomingWsEvent,
         toggleWsSimulation
       }}

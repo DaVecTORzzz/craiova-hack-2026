@@ -133,3 +133,31 @@ def test_reference_frame_errors(client):
 def test_edge_zones_requires_token_and_known_camera(client):
     assert client.get("/edge/zones", params={"camera_id": "stand12"}).status_code == 401
     assert client.get("/edge/zones", params={"camera_id": "nope"}, headers=HEADERS).status_code == 404
+
+
+def test_delete_zone_removes_it_and_bumps_config_version(client):
+    before = _config_version(client)
+    assert client.put("/zones/engine-right", json=_zone()).status_code == 200
+
+    res = client.delete("/zones/engine-right")
+    assert res.status_code == 204
+    assert all(z["id"] != "engine-right" for z in client.get("/zones").json())
+    assert _config_version(client) == before + 2
+
+    assert client.delete("/zones/engine-right").status_code == 404
+
+
+def test_delete_reference_frame_clears_the_field_and_the_file(client):
+    jpeg = b"\xff\xd8\xff\xd9"
+    client.post(
+        "/zones/reference-frame",
+        data={"zone_id": "taxiway-b"},
+        files={"file": ("ref.jpg", jpeg, "image/jpeg")},
+    )
+
+    res = client.delete("/zones/taxiway-b/reference-frame")
+    assert res.status_code == 200
+    assert res.json()["reference_frame"] is None
+    assert client.get("/snapshots/reference/taxiway-b.jpg").status_code == 404
+
+    assert client.delete("/zones/nope/reference-frame").status_code == 404

@@ -1,5 +1,5 @@
 from pathlib import Path
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile, status
 from sqlmodel import Session, select
 
 from app.config import get_settings
@@ -108,3 +108,36 @@ async def post_reference_frame(
     session.commit()
     session.refresh(zone)
     return zone_io(zone)
+
+
+@router.delete("/{zone_id}/reference-frame", response_model=ZoneIO)
+async def delete_reference_frame(
+    zone_id: str,
+    session: Session = Depends(get_session),
+) -> ZoneIO:
+    """Drop the reference frame of a zone; the editor falls back to a blank canvas."""
+    zone = session.get(Zone, zone_id)
+    if zone is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="unknown zone_id")
+    if zone.reference_frame:
+        path = Path(get_settings().snapshot_dir) / "reference" / f"{zone_id}.jpg"
+        path.unlink(missing_ok=True)
+    zone.reference_frame = None
+    session.add(zone)
+    bump_config_version(session)
+    session.commit()
+    session.refresh(zone)
+    return zone_io(zone)
+
+
+@router.delete("/{zone_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_zone(zone_id: str, session: Session = Depends(get_session)) -> Response:
+    zone = session.get(Zone, zone_id)
+    if zone is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="unknown zone_id")
+    session.delete(zone)
+    bump_config_version(session)
+    session.commit()
+    path = Path(get_settings().snapshot_dir) / "reference" / f"{zone_id}.jpg"
+    path.unlink(missing_ok=True)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
